@@ -15,7 +15,7 @@ import os
 from django.conf.global_settings import TEMPLATE_CONTEXT_PROCESSORS as TCP
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
+print "BASE_DIR path:", BASE_DIR
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/1.8/howto/deployment/checklist/
@@ -35,19 +35,26 @@ INSTALLED_APPS = (
     # 'material',
     # 'material.frontend',
     # 'material.admin',
+    # 'grappelli',
     'suit',
+    # 'dal',
+    # 'dal_select2',
+    # 'ajax_select',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    # 'polymorphic',
+    'controlcenter',
     'bar',
     'clientes',
     'compras',
     'personal',
     'stock',
     'ventas',
+    # 'geraldo',
 )
 
 MIDDLEWARE_CLASSES = (
@@ -67,6 +74,7 @@ ROOT_URLCONF = 'SIGB.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        # 'BACKEND': 'django.template.backends.jinja2.Jinja2',
         'DIRS': [os.path.join(BASE_DIR, 'templates')],
         'APP_DIRS': True,
         'OPTIONS': {
@@ -140,6 +148,10 @@ SUIT_CONFIG = {
     # 'LIST_PER_PAGE': 15
 }
 
+CONTROLCENTER_DASHBOARDS = (
+    'SIGB.dashboards.MyDashboard',
+)
+
 
 WSGI_APPLICATION = 'SIGB.wsgi.application'
 
@@ -162,7 +174,7 @@ DATABASES = {
 # Internationalization
 # https://docs.djangoproject.com/en/1.8/topics/i18n/
 
-LANGUAGE_CODE = 'es-py'
+LANGUAGE_CODE = 'es-PY'
 
 TIME_ZONE = 'UTC'
 
@@ -188,12 +200,15 @@ STATIC_URL = '/static/'
 # Your project will probably also have static assets that arent tied to a particular app. In addition to using a
 # static/ directory inside your apps, you can define a list of directories (STATICFILES_DIRS) in your settings file
 # where Django will also look for static files. For example:
-# STATICFILES_DIRS = (
-#     os.path.join(BASE_DIR, "static"),
-#     '/var/www/static/',
-# )
-
-
-TEMPLATE_DIRS = (
-    os.path.join(BASE_DIR, 'templates'),
+STATICFILES_DIRS = (
+    os.path.join(BASE_DIR, "static"),
+    # '/var/www/static/',
 )
+
+MEDIA_URL = '/media/'
+
+MEDIA_ROOT = os.path.join(BASE_DIR, "static")
+
+# TEMPLATE_DIRS = (
+#     os.path.join(BASE_DIR, 'templates'),
+# )

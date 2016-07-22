@@ -78,6 +78,6 @@ class EmpleadoTelefonoAdmin(admin.ModelAdmin):
 
 admin.site.register(Empleado, EmpleadoAdmin)
 admin.site.register(Horario, HorarioAdmin)
-admin.site.register(EmpleadoDocumento, EmpleadoDocumentoAdmin)
+# admin.site.register(EmpleadoDocumento, EmpleadoDocumentoAdmin)
 admin.site.register(Cargo, CargoAdmin)
-admin.site.register(EmpleadoTelefono, EmpleadoTelefonoAdmin)
+# admin.site.register(EmpleadoTelefono, EmpleadoTelefonoAdmin)

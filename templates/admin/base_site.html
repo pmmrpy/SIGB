@@ -4,10 +4,11 @@
 
 {#{% load material_form %}#}
 
-{% block title %}{{ title }} | {{ site_title|default:_('SIGB') }}{% endblock %}
+{#{% block title %}{{ title }} | {{ site_title|default:_('SIGB') }}{% endblock %}#}
+{% block title %}{{ title }} | SIGB {% endblock %}
 
 {% block branding %}
-<h1 id="site-name"><a href="{% url 'admin:index' %}">SIGB - Kilkenny</a></h1>
+<h1 id="site-name"><a href="{% url 'admin:index' %}">SIGB</a></h1>
 {% endblock %}
 
 {% block nav-global %}{% endblock %}
@@ -66,5 +67,5 @@
 
 {#Footer copyright (right side) #}
 {% block copyright %}
-  Copyright &copy; 2015 PmmR<br>Desarrollado por <a href="http://www.pmmr.com.py" target="_blank">Pedro Molas</a>
+  Copyright &copy; 2016 PmmR<br>Desarrollado por <a href="http://www.pmmr.com.py" target="_blank">Pedro Molas</a>
 {% endblock %}

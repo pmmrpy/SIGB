@@ -13,16 +13,16 @@ class PedidoDetalleInline(admin.TabularInline):
 class PedidoAdmin(admin.ModelAdmin):
     inlines = [PedidoDetalleInline]
 
-    list_display = ('id', 'fecha')
-    list_filter = ['id', 'fecha']
-    search_fields = ['id', 'fecha']
+    list_display = ('id', 'fecha_pedido')
+    list_filter = ['id', 'fecha_pedido']
+    search_fields = ['id', 'fecha_pedido']
 
 
 class PedidoDetalleAdmin(admin.ModelAdmin):
-    list_display = ('id', 'pedido', 'producto', 'cantidad_producto')
-    list_filter = ['id', 'pedido', 'producto', 'cantidad_producto']
-    search_fields = ['id', 'pedido', 'producto', 'cantidad_producto']
+    list_display = ('id', 'pedido', 'producto_pedido', 'cantidad_producto_pedido')
+    list_filter = ['id', 'pedido', 'producto_pedido', 'cantidad_producto_pedido']
+    search_fields = ['id', 'pedido', 'producto_pedido', 'cantidad_producto_pedido']
 
 
 admin.site.register(Pedido, PedidoAdmin)
-admin.site.register(PedidoDetalle, PedidoDetalleAdmin)
+# admin.site.register(PedidoDetalle, PedidoDetalleAdmin)

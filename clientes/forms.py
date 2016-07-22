@@ -2,8 +2,10 @@ __author__ = 'pmmr'
 
 from django import forms
 from clientes.models import Cliente, Reserva  # ClienteDocumento
-from suit.widgets import SuitDateWidget
-# from django.forms.extras.widgets import SelectDateWidget
+# from dal import autocomplete
+# from ajax_select.fields import AutoCompleteSelectField, AutoCompleteSelectMultipleField
+# from suit.widgets import SuitDateWidget
+from django.forms.extras.widgets import SelectDateWidget
 # from django.contrib.admin.widgets import AdminDateWidget
 # from django.forms.widgets import DateTimeInput
 # from django.forms.widgets import DateInput
@@ -14,8 +16,13 @@ from suit.widgets import SuitDateWidget
 # DateInput = partial(forms.DateInput, {'class': 'datepicker'})
 
 # class CalendarWidget(forms.TextInput):
+#
 #     class Media:
-#         js = ('/static/clientes/js/datepicker.js')
+#         js = [
+#             'clientes/js/datepicker.js'
+#         ]
+
+BIRTH_YEAR_CHOICES = range(2012, 1920, -1)
 
 
 class ClienteForm(forms.ModelForm):
@@ -27,8 +34,11 @@ class ClienteForm(forms.ModelForm):
         # 'documentos')
         fields = '__all__'
         widgets = {
-            'fecha_nacimiento': SuitDateWidget,  # (attrs={'class': 'datepicker', 'changeMonth': 'true', 'changeYear': 'true'}),
-            # 'fecha_nacimiento': SelectDateWidget,
+            # 'fecha_nacimiento': SuitDateWidget,
+            # 'fecha_nacimiento': (attrs={'class': 'datepicker', 'changeMonth': 'true', 'changeYear': 'true'}),
+            'fecha_nacimiento': SelectDateWidget(years=BIRTH_YEAR_CHOICES,
+                                                 empty_label=("Seleccione el anho", "Seleccione el mes",
+                                                              "Seleccione la fecha")),
             # 'fecha_nacimiento': SplitDateTimeWidget,
             # 'fecha_nacimiento': DateInput(attrs={'class': 'datepicker'}),
             # 'fecha_nacimiento': DateTimeInput(attrs={'type': 'date'})
@@ -63,13 +73,18 @@ class ClienteForm(forms.ModelForm):
 
 
 class ReservaForm(forms.ModelForm):
+
+    # cliente = forms.ModelChoiceField(queryset=Cliente.objects.all(),widget=autocomplete.ModelSelect2(url='cliente-autocomplete'))
+
     class Meta:
         model = Reserva
         fields = '__all__'
         localized_fields = ('pago',)
         widgets = {
+            # 'cliente': autocomplete.ModelSelect2(url='cliente-autocomplete')
             # 'nombres': HTML5Input(attrs={'autocomplete': 'off'}),
             # 'apellidos': HTML5Input(attrs={'autocomplete': 'off'}),
             # 'fecha_nacimiento': HTML5Input(input_type='date'),
             # 'salario': NumberInput(attrs={'localize': 'True'}),  # (attrs={'class': 'input-mini'}), # 'min': '1', 'max': '5'
         }
+        # cliente = AutoCompleteSelectField('clientes', required=True, help_text='Seleccione el Cliente para la Reserva.')

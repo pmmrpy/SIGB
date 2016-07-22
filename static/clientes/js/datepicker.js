@@ -3,7 +3,7 @@
  */
 
 /* Include the jquery Ui here */
-$(function() {
+(function($) {
 //     $(document).ready(function($) {
     $(".datepicker").datepicker({
         changeMonth: true,
@@ -13,5 +13,4 @@ $(function() {
 
     });
 //        alert('¡Ha funcionado!');
-});
-// })(django.jQuery);
+})(django.jQuery);

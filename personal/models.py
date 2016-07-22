@@ -33,12 +33,11 @@ class Empleado(models.Model):
 
 class EmpleadoTelefono(models.Model):
     empleado = models.ForeignKey('Empleado')
-    codigo_pais_telefono = models.ForeignKey('bar.CodigoPaisTelefono', default=595, help_text='Seleccione el codigo '
-                                                                                              'de pais para el numero '
-                                                                                              'de telefono.')
-    codigo_ciudad_operadora_telefono = models.ForeignKey('bar.CodigoCiudadOperadoraTelefono', default=21,
-                                                         help_text='Seleccione el codigo de ciudad u operadora para '
-                                                                   'el numero de telefono.')
+    codigo_pais_telefono = models.ForeignKey('bar.CodigoPaisTelefono',  # default=595,
+                                             help_text='Seleccione el codigo de pais para el numero de telefono.')
+    codigo_operadora_telefono = models.ForeignKey('bar.CodigoOperadoraTelefono',  # default=21,
+                                                  help_text='Seleccione el codigo de ciudad u operadora para '
+                                                            'el numero de telefono.')
     telefono = models.IntegerField(help_text='Ingrese el telefono fijo o movil del empleado. El dato debe '
                                              'contener solo numeros.')
 
@@ -47,8 +46,8 @@ class EmpleadoTelefono(models.Model):
         verbose_name_plural = 'Empleados - Telefonos'
 
     def __unicode__(self):
-        return str(self.empleado) + ' - ' + str(self.codigo_pais_telefono) + ' - ' + \
-            str(self.codigo_ciudad_operadora_telefono) + ' - ' + str(self.telefono)
+        return "%s - %s - %s - %s" % (self.empleado, self.codigo_pais_telefono, self.codigo_operadora_telefono,
+                                      self.telefono)
 
 
 class Cargo(models.Model):
