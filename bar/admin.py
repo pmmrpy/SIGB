@@ -5,7 +5,8 @@ from django.contrib import admin
 from .models import ReservaEstado, Mesa, MesaEstado, MesaUbicacion, Caja, CajaEstado, CajaUbicacion, Documento, \
     Persona, FormaPagoVenta, FormaPagoCompra, TipoDeposito, Deposito, CategoriaProducto, SubCategoriaProducto, \
     TipoProducto, UnidadMedidaProducto, Moneda, Cotizacion, CodigoPaisTelefono, CodigoOperadoraTelefono, Pais, \
-    Ciudad, CompraEstado, OrdenCompraEstado
+    Ciudad, CompraEstado, OrdenCompraEstado, PedidoEstado, VentaEstado, Timbrado, Factura, TipoMovimientoStock, \
+    TransferenciaStockEstado, TipoFacturaCompra
 
 
 # class MyAdminSite(admin.AdminSite):
@@ -169,6 +170,53 @@ class OrdenCompraEstadoAdmin(admin.ModelAdmin):
     list_filter = ['id', 'estado_orden_compra', 'descripcion']
     search_fields = ['id', 'estado_orden_compra', 'descripcion']
 
+
+class PedidoEstadoAdmin(admin.ModelAdmin):
+    list_display = ('id', 'pedido_estado', 'descripcion')
+    list_filter = ['id', 'pedido_estado', 'descripcion']
+    search_fields = ['id', 'pedido_estado', 'descripcion']
+
+
+class VentaEstadoAdmin(admin.ModelAdmin):
+    list_display = ('id', 'venta_estado', 'descripcion')
+    list_filter = ['id', 'venta_estado', 'descripcion']
+    search_fields = ['id', 'venta_estado', 'descripcion']
+
+
+class TimbradoAdmin(admin.ModelAdmin):
+    readonly_fields = ()
+
+    fieldsets = [
+        ('Empresa', {'fields': ['empresa']}),
+        ('Timbrado', {'fields': ['timbrado', 'descripcion_timbrado', 'estado_timbrado']}),
+        ('Fechas', {'fields': ['fecha_autorizacion_timbrado', 'fecha_limite_vigencia_timbrado']}),
+    ]
+
+    list_display = ('id', 'empresa', 'timbrado', 'descripcion_timbrado', 'estado_timbrado',
+                    'fecha_autorizacion_timbrado', 'fecha_limite_vigencia_timbrado')
+    list_filter = ['id', 'empresa', 'timbrado', 'descripcion_timbrado', 'estado_timbrado',
+                   'fecha_autorizacion_timbrado', 'fecha_limite_vigencia_timbrado']
+    search_fields = ('id', 'empresa', 'timbrado', 'descripcion_timbrado', 'estado_timbrado',
+                     'fecha_autorizacion_timbrado', 'fecha_limite_vigencia_timbrado')
+
+
+# class FacturaAdmin(admin.ModelAdmin):
+#     list_display = ()
+#     list_filter = []
+#     search_fields = []
+
+
+class TipoMovimientoStockAdmin(admin.ModelAdmin):
+    list_display = ('id', 'tipo_movimiento_stock', 'descripcion')
+    list_filter = ['id', 'tipo_movimiento_stock', 'descripcion']
+    search_fields = ['id', 'tipo_movimiento_stock', 'descripcion']
+
+
+class TransferenciaStockEstadoAdmin(admin.ModelAdmin):
+    list_display = ('id', 'estado_transferencia_stock', 'descripcion')
+    list_filter = ['id', 'estado_transferencia_stock', 'descripcion']
+    search_fields = ['id', 'estado_transferencia_stock', 'descripcion']
+
 # admin_site = MyAdminSite(name='myadmin')
 admin.site.register(ReservaEstado, ReservaEstadoAdmin)
 admin.site.register(Mesa, MesaAdmin)
@@ -195,3 +243,10 @@ admin.site.register(Pais, PaisAdmin)
 admin.site.register(Ciudad, CiudadAdmin)
 admin.site.register(CompraEstado, CompraEstadoAdmin)
 admin.site.register(OrdenCompraEstado, OrdenCompraEstadoAdmin)
+admin.site.register(PedidoEstado, PedidoEstadoAdmin)
+admin.site.register(VentaEstado, VentaEstadoAdmin)
+admin.site.register(Timbrado, TimbradoAdmin)
+admin.site.register(Factura)
+admin.site.register(TipoMovimientoStock, TipoMovimientoStockAdmin)
+admin.site.register(TransferenciaStockEstado, TransferenciaStockEstadoAdmin)
+admin.site.register(TipoFacturaCompra)

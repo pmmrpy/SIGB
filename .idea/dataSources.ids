@@ -1717,12 +1717,15 @@
     </table>
     <table name="bar_caja" schema="public" catalog="SIGB" type="TABLE">
       <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgnYmFyX2NhamFfaWRfc2VxJzo6cmVnY2xhc3Mp" autoIncrement="true"/>
-      <column name="numero" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
       <column name="estado_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
       <column name="ubicacion_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="numero_caja" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
       <primary-key name="bar_caja_pkey" columns="id"/>
       <foreign-key name="bar_caja_estado_id_4b8f572d_fk_bar_cajaestado_id" columns="estado_id" ref-table="bar_cajaestado" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
       <foreign-key name="bar_caja_ubicacion_id_4731cf41_fk_bar_cajaubicacion_id" columns="ubicacion_id" ref-table="bar_cajaubicacion" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <exported-key name="bar_facturas_caja_id_14791c0c_fk_bar_caja_id" table="bar_facturas" schema="public" catalog="SIGB" columns="caja_id"/>
+      <exported-key name="ventas_aperturacaja_caja_id_41ec3e9b_fk_bar_caja_id" table="ventas_aperturacaja" schema="public" catalog="SIGB" columns="caja_id"/>
+      <index name="bar_caja_numero_caja_5519ea8d_uniq" unique="true" columns="numero_caja"/>
       <index name="bar_caja_2c189993" unique="false" columns="estado_id"/>
       <index name="bar_caja_c0b82519" unique="false" columns="ubicacion_id"/>
     </table>
@@ -1740,8 +1743,8 @@
     </table>
     <table name="bar_cajaestado" schema="public" catalog="SIGB" type="TABLE">
       <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgnYmFyX2NhamFlc3RhZG9faWRfc2VxJzo6cmVnY2xhc3Mp" autoIncrement="true"/>
-      <column name="caja_estado" sqlType="varchar" precision="3" scale="0" nullable="false" jdbcType="12"/>
-      <column name="descripcion" sqlType="varchar" precision="50" scale="0" nullable="false" jdbcType="12"/>
+      <column name="caja_estado" sqlType="varchar" precision="2" scale="0" nullable="false" jdbcType="12"/>
+      <column name="descripcion" sqlType="varchar" precision="200" scale="0" nullable="false" jdbcType="12"/>
       <primary-key name="bar_cajaestado_pkey" columns="id"/>
       <exported-key name="bar_caja_estado_id_4b8f572d_fk_bar_cajaestado_id" table="bar_caja" schema="public" catalog="SIGB" columns="estado_id"/>
     </table>
@@ -1759,8 +1762,8 @@
     </table>
     <table name="bar_cajaubicacion" schema="public" catalog="SIGB" type="TABLE">
       <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgnYmFyX2NhamF1YmljYWNpb25faWRfc2VxJzo6cmVnY2xhc3Mp" autoIncrement="true"/>
-      <column name="ubicacion" sqlType="varchar" precision="30" scale="0" nullable="false" jdbcType="12"/>
-      <column name="descripcion" sqlType="varchar" precision="50" scale="0" nullable="false" jdbcType="12"/>
+      <column name="descripcion" sqlType="varchar" precision="100" scale="0" nullable="false" jdbcType="12"/>
+      <column name="caja_ubicacion" sqlType="varchar" precision="30" scale="0" nullable="false" jdbcType="12"/>
       <primary-key name="bar_cajaubicacion_pkey" columns="id"/>
       <exported-key name="bar_caja_ubicacion_id_4731cf41_fk_bar_cajaubicacion_id" table="bar_caja" schema="public" catalog="SIGB" columns="ubicacion_id"/>
     </table>
@@ -1779,9 +1782,11 @@
     <table name="bar_categoriaproducto" schema="public" catalog="SIGB" type="TABLE">
       <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgnYmFyX2NhdGVnb3JpYXByb2R1Y3RvX2lkX3NlcSc6OnJlZ2NsYXNzKQ==" autoIncrement="true"/>
       <column name="categoria" sqlType="varchar" precision="2" scale="0" nullable="false" jdbcType="12"/>
-      <column name="descripcion" sqlType="varchar" precision="100" scale="0" nullable="false" jdbcType="12"/>
+      <column name="descripcion" sqlType="varchar" precision="200" scale="0" nullable="false" jdbcType="12"/>
       <primary-key name="bar_categoriaproducto_pkey" columns="id"/>
+      <exported-key name="bar_subcatego_categoria_id_708e7891_fk_bar_categoriaproducto_id" table="bar_subcategoriaproducto" schema="public" catalog="SIGB" columns="categoria_id"/>
       <exported-key name="stock_product_categoria_id_63daa7b1_fk_bar_categoriaproducto_id" table="stock_producto" schema="public" catalog="SIGB" columns="categoria_id"/>
+      <exported-key name="stock_product_categoria_id_212151f5_fk_bar_categoriaproducto_id" table="stock_productocompuesto" schema="public" catalog="SIGB" columns="categoria_id"/>
     </table>
     <table name="bar_categoriaproducto_id_seq" schema="public" catalog="SIGB" type="SEQUENCE">
       <column name="sequence_name" sqlType="name" precision="2147483647" scale="0" nullable="false" jdbcType="12"/>
@@ -1802,7 +1807,9 @@
       <primary-key name="bar_ciudad_pkey" columns="id"/>
       <foreign-key name="bar_ciudad_pais_id_7be4480d_fk_bar_pais_id" columns="pais_id" ref-table="bar_pais" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
       <exported-key name="clientes_cliente_ciudad_id_7e73d17e_fk_bar_ciudad_id" table="clientes_cliente" schema="public" catalog="SIGB" columns="ciudad_id"/>
+      <exported-key name="compras_proveedor_ciudad_proveedor_id_4d385122_fk_bar_ciudad_id" table="compras_proveedor" schema="public" catalog="SIGB" columns="ciudad_proveedor_id"/>
       <exported-key name="personal_empleado_ciudad_id_1fbdfc31_fk_bar_ciudad_id" table="personal_empleado" schema="public" catalog="SIGB" columns="ciudad_id"/>
+      <index name="bar_ciudad_pais_id_3cdbf14a_uniq" unique="true" columns="pais_id,ciudad"/>
       <index name="bar_ciudad_847ec16e" unique="false" columns="pais_id"/>
     </table>
     <table name="bar_ciudad_id_seq" schema="public" catalog="SIGB" type="SEQUENCE">
@@ -1817,18 +1824,20 @@
       <column name="is_cycled" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
       <column name="is_called" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
     </table>
-    <table name="bar_codigociudadoperadoratelefono" schema="public" catalog="SIGB" type="TABLE">
-      <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgnYmFyX2NvZGlnb2NpdWRhZG9wZXJhZG9yYXRlbGVmb25vX2lkX3NlcSc6OnJlZ2NsYXNzKQ==" autoIncrement="true"/>
-      <column name="codigo_ciudad_operadora_telefono" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
-      <column name="ciudad_operadora" sqlType="varchar" precision="100" scale="0" nullable="false" jdbcType="12"/>
+    <table name="bar_codigooperadoratelefono" schema="public" catalog="SIGB" type="TABLE">
+      <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgnYmFyX2NvZGlnb29wZXJhZG9yYXRlbGVmb25vX2lkX3NlcSc6OnJlZ2NsYXNzKQ==" autoIncrement="true"/>
+      <column name="codigo_operadora_telefono" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="tipo_operadora" sqlType="varchar" precision="2" scale="0" nullable="false" jdbcType="12"/>
       <column name="codigo_pais_telefono_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
-      <primary-key name="bar_codigociudadoperadoratelefono_pkey" columns="id"/>
-      <foreign-key name="b_codigo_pais_telefono_id_30722793_fk_bar_codigopaistelefono_id" columns="codigo_pais_telefono_id" ref-table="bar_codigopaistelefono" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
-      <exported-key name="D8600f86e76165bdcd71495d1dfbe709" table="clientes_clientetelefono" schema="public" catalog="SIGB" columns="codigo_ciudad_operadora_telefono_id"/>
-      <exported-key name="D260980dc9b5a3890ac71839d3c37770" table="personal_empleadotelefono" schema="public" catalog="SIGB" columns="codigo_ciudad_operadora_telefono_id"/>
-      <index name="bar_codigociudadoperadoratelefono_b2d1c229" unique="false" columns="codigo_pais_telefono_id"/>
+      <primary-key name="bar_codigooperadoratelefono_pkey" columns="id"/>
+      <foreign-key name="ba_codigo_pais_telefono_id_963401b_fk_bar_codigopaistelefono_id" columns="codigo_pais_telefono_id" ref-table="bar_codigopaistelefono" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <exported-key name="d8634cb4d7200608fd3f4c4622c03fa3" table="clientes_clientetelefono" schema="public" catalog="SIGB" columns="codigo_operadora_telefono_id"/>
+      <exported-key name="d30ab140ce621f6cbdba618273bb4378" table="compras_proveedortelefono" schema="public" catalog="SIGB" columns="codigo_operadora_telefono_id"/>
+      <exported-key name="D0d7262e6df365b8c471421781856e2a" table="personal_empleadotelefono" schema="public" catalog="SIGB" columns="codigo_operadora_telefono_id"/>
+      <index name="bar_codigooperadoratelefon_codigo_pais_telefono_id_8f88673_uniq" unique="true" columns="codigo_pais_telefono_id,codigo_operadora_telefono"/>
+      <index name="bar_codigooperadoratelefono_b2d1c229" unique="false" columns="codigo_pais_telefono_id"/>
     </table>
-    <table name="bar_codigociudadoperadoratelefono_id_seq" schema="public" catalog="SIGB" type="SEQUENCE">
+    <table name="bar_codigooperadoratelefono_id_seq" schema="public" catalog="SIGB" type="SEQUENCE">
       <column name="sequence_name" sqlType="name" precision="2147483647" scale="0" nullable="false" jdbcType="12"/>
       <column name="last_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
       <column name="start_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
@@ -1843,11 +1852,16 @@
     <table name="bar_codigopaistelefono" schema="public" catalog="SIGB" type="TABLE">
       <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgnYmFyX2NvZGlnb3BhaXN0ZWxlZm9ub19pZF9zZXEnOjpyZWdjbGFzcyk=" autoIncrement="true"/>
       <column name="codigo_pais_telefono" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
-      <column name="pais" sqlType="varchar" precision="100" scale="0" nullable="false" jdbcType="12"/>
+      <column name="pais_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
       <primary-key name="bar_codigopaistelefono_pkey" columns="id"/>
-      <exported-key name="b_codigo_pais_telefono_id_30722793_fk_bar_codigopaistelefono_id" table="bar_codigociudadoperadoratelefono" schema="public" catalog="SIGB" columns="codigo_pais_telefono_id"/>
+      <foreign-key name="bar_codigopaistelefono_pais_id_4f5ba465_fk_bar_pais_id" columns="pais_id" ref-table="bar_pais" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <exported-key name="ba_codigo_pais_telefono_id_963401b_fk_bar_codigopaistelefono_id" table="bar_codigooperadoratelefono" schema="public" catalog="SIGB" columns="codigo_pais_telefono_id"/>
       <exported-key name="c_codigo_pais_telefono_id_38e4c010_fk_bar_codigopaistelefono_id" table="clientes_clientetelefono" schema="public" catalog="SIGB" columns="codigo_pais_telefono_id"/>
+      <exported-key name="c_codigo_pais_telefono_id_6ac7b253_fk_bar_codigopaistelefono_id" table="compras_proveedortelefono" schema="public" catalog="SIGB" columns="codigo_pais_telefono_id"/>
       <exported-key name="p_codigo_pais_telefono_id_3b5ff1d1_fk_bar_codigopaistelefono_id" table="personal_empleadotelefono" schema="public" catalog="SIGB" columns="codigo_pais_telefono_id"/>
+      <index name="bar_codigopaistelefono_codigo_pais_telefono_706a4aeb_uniq" unique="true" columns="codigo_pais_telefono"/>
+      <index name="bar_codigopaistelefono_pais_id_4f5ba465_uniq" unique="true" columns="pais_id"/>
+      <index name="bar_codigopaistelefono_847ec16e" unique="false" columns="pais_id"/>
     </table>
     <table name="bar_codigopaistelefono_id_seq" schema="public" catalog="SIGB" type="SEQUENCE">
       <column name="sequence_name" sqlType="name" precision="2147483647" scale="0" nullable="false" jdbcType="12"/>
@@ -1864,8 +1878,9 @@
     <table name="bar_compraestado" schema="public" catalog="SIGB" type="TABLE">
       <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgnYmFyX2NvbXByYWVzdGFkb19pZF9zZXEnOjpyZWdjbGFzcyk=" autoIncrement="true"/>
       <column name="estado_compra" sqlType="varchar" precision="3" scale="0" nullable="false" jdbcType="12"/>
-      <column name="descripcion" sqlType="varchar" precision="50" scale="0" nullable="false" jdbcType="12"/>
+      <column name="descripcion" sqlType="varchar" precision="200" scale="0" nullable="false" jdbcType="12"/>
       <primary-key name="bar_compraestado_pkey" columns="id"/>
+      <exported-key name="compras_compra_estado_compra_id_554e02bc_fk_bar_compraestado_id" table="compras_compra" schema="public" catalog="SIGB" columns="estado_compra_id"/>
     </table>
     <table name="bar_compraestado_id_seq" schema="public" catalog="SIGB" type="SEQUENCE">
       <column name="sequence_name" sqlType="name" precision="2147483647" scale="0" nullable="false" jdbcType="12"/>
@@ -1900,6 +1915,28 @@
       <column name="is_cycled" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
       <column name="is_called" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
     </table>
+    <table name="bar_deposito" schema="public" catalog="SIGB" type="TABLE">
+      <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgnYmFyX2RlcG9zaXRvX2lkX3NlcSc6OnJlZ2NsYXNzKQ==" autoIncrement="true"/>
+      <column name="deposito" sqlType="varchar" precision="3" scale="0" nullable="false" jdbcType="12"/>
+      <column name="descripcion" sqlType="varchar" precision="200" scale="0" nullable="false" jdbcType="12"/>
+      <column name="tipo_deposito_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <primary-key name="bar_deposito_pkey" columns="id"/>
+      <foreign-key name="bar_deposito_tipo_deposito_id_6835f200_fk_bar_tipodeposito_id" columns="tipo_deposito_id" ref-table="bar_tipodeposito" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <exported-key name="stock_stock_ubicacion_id_38306d4c_fk_bar_deposito_id" table="stock_stock" schema="public" catalog="SIGB" columns="ubicacion_id"/>
+      <index name="bar_deposito_401dbe4e" unique="false" columns="tipo_deposito_id"/>
+    </table>
+    <table name="bar_deposito_id_seq" schema="public" catalog="SIGB" type="SEQUENCE">
+      <column name="sequence_name" sqlType="name" precision="2147483647" scale="0" nullable="false" jdbcType="12"/>
+      <column name="last_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="start_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="increment_by" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="max_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="min_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="cache_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="log_cnt" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="is_cycled" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
+      <column name="is_called" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
+    </table>
     <table name="bar_documento" schema="public" catalog="SIGB" type="TABLE">
       <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgnYmFyX2RvY3VtZW50b19pZF9zZXEnOjpyZWdjbGFzcyk=" autoIncrement="true"/>
       <column name="documento" sqlType="varchar" precision="3" scale="0" nullable="false" jdbcType="12"/>
@@ -1920,11 +1957,34 @@
       <column name="is_cycled" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
       <column name="is_called" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
     </table>
+    <table name="bar_facturas" schema="public" catalog="SIGB" type="TABLE">
+      <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgnYmFyX2ZhY3R1cmFzX2lkX3NlcSc6OnJlZ2NsYXNzKQ==" autoIncrement="true"/>
+      <column name="numero_factura_inicial" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="numero_factura_final" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="numero_factura_actual" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="caja_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <primary-key name="bar_facturas_pkey" columns="id"/>
+      <foreign-key name="bar_facturas_caja_id_14791c0c_fk_bar_caja_id" columns="caja_id" ref-table="bar_caja" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <index name="bar_facturas_caja_id_key" unique="true" columns="caja_id"/>
+    </table>
+    <table name="bar_facturas_id_seq" schema="public" catalog="SIGB" type="SEQUENCE">
+      <column name="sequence_name" sqlType="name" precision="2147483647" scale="0" nullable="false" jdbcType="12"/>
+      <column name="last_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="start_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="increment_by" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="max_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="min_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="cache_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="log_cnt" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="is_cycled" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
+      <column name="is_called" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
+    </table>
     <table name="bar_formapagocompra" schema="public" catalog="SIGB" type="TABLE">
       <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgnYmFyX2Zvcm1hcGFnb2NvbXByYV9pZF9zZXEnOjpyZWdjbGFzcyk=" autoIncrement="true"/>
-      <column name="forma_pago_compra" sqlType="varchar" precision="50" scale="0" nullable="false" jdbcType="12"/>
+      <column name="forma_pago_compra" sqlType="varchar" precision="2" scale="0" nullable="false" jdbcType="12"/>
       <column name="plazo_compra" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
       <primary-key name="bar_formapagocompra_pkey" columns="id"/>
+      <exported-key name="c_forma_pago_orden_compra_id_3c2e8af5_fk_bar_formapagocompra_id" table="compras_ordencompra" schema="public" catalog="SIGB" columns="forma_pago_orden_compra_id"/>
     </table>
     <table name="bar_formapagocompra_id_seq" schema="public" catalog="SIGB" type="SEQUENCE">
       <column name="sequence_name" sqlType="name" precision="2147483647" scale="0" nullable="false" jdbcType="12"/>
@@ -1940,8 +2000,9 @@
     </table>
     <table name="bar_formapagoventa" schema="public" catalog="SIGB" type="TABLE">
       <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgnYmFyX2Zvcm1hcGFnb3ZlbnRhX2lkX3NlcSc6OnJlZ2NsYXNzKQ==" autoIncrement="true"/>
-      <column name="forma_pago_venta" sqlType="varchar" precision="50" scale="0" nullable="false" jdbcType="12"/>
+      <column name="forma_pago_venta" sqlType="varchar" precision="2" scale="0" nullable="false" jdbcType="12"/>
       <primary-key name="bar_formapagoventa_pkey" columns="id"/>
+      <exported-key name="ventas_venta_forma_pago_id_2c40b8d5_fk_bar_formapagoventa_id" table="ventas_venta" schema="public" catalog="SIGB" columns="forma_pago_id"/>
     </table>
     <table name="bar_formapagoventa_id_seq" schema="public" catalog="SIGB" type="SEQUENCE">
       <column name="sequence_name" sqlType="name" precision="2147483647" scale="0" nullable="false" jdbcType="12"/>
@@ -1957,14 +2018,16 @@
     </table>
     <table name="bar_mesa" schema="public" catalog="SIGB" type="TABLE">
       <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgnYmFyX21lc2FfaWRfc2VxJzo6cmVnY2xhc3Mp" autoIncrement="true"/>
-      <column name="nombre" sqlType="varchar" precision="20" scale="0" nullable="false" jdbcType="12"/>
       <column name="estado_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
       <column name="ubicacion_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="nombre_mesa" sqlType="varchar" precision="20" scale="0" nullable="false" jdbcType="12"/>
+      <column name="numero_mesa" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
       <primary-key name="bar_mesa_pkey" columns="id"/>
       <foreign-key name="bar_mesa_estado_id_653550d2_fk_bar_mesaestado_id" columns="estado_id" ref-table="bar_mesaestado" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
       <foreign-key name="bar_mesa_ubicacion_id_440ead72_fk_bar_mesaubicacion_id" columns="ubicacion_id" ref-table="bar_mesaubicacion" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
       <exported-key name="clientes_reserva_mesas_mesa_id_6e4478de_fk_bar_mesa_id" table="clientes_reserva_mesas" schema="public" catalog="SIGB" columns="mesa_id"/>
-      <exported-key name="ventas_pedido_mesa_id_5846e072_fk_bar_mesa_id" table="ventas_pedido" schema="public" catalog="SIGB" columns="mesa_id"/>
+      <exported-key name="ventas_pedido_mesa_pedido_id_4625ff41_fk_bar_mesa_id" table="ventas_pedido" schema="public" catalog="SIGB" columns="mesa_pedido_id"/>
+      <index name="bar_mesa_numero_mesa_4b6413cd_uniq" unique="true" columns="numero_mesa"/>
       <index name="bar_mesa_2c189993" unique="false" columns="estado_id"/>
       <index name="bar_mesa_c0b82519" unique="false" columns="ubicacion_id"/>
     </table>
@@ -1982,8 +2045,8 @@
     </table>
     <table name="bar_mesaestado" schema="public" catalog="SIGB" type="TABLE">
       <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgnYmFyX21lc2Flc3RhZG9faWRfc2VxJzo6cmVnY2xhc3Mp" autoIncrement="true"/>
-      <column name="mesa_estado" sqlType="varchar" precision="3" scale="0" nullable="false" jdbcType="12"/>
-      <column name="descripcion" sqlType="varchar" precision="50" scale="0" nullable="false" jdbcType="12"/>
+      <column name="mesa_estado" sqlType="varchar" precision="2" scale="0" nullable="false" jdbcType="12"/>
+      <column name="descripcion" sqlType="varchar" precision="200" scale="0" nullable="false" jdbcType="12"/>
       <primary-key name="bar_mesaestado_pkey" columns="id"/>
       <exported-key name="bar_mesa_estado_id_653550d2_fk_bar_mesaestado_id" table="bar_mesa" schema="public" catalog="SIGB" columns="estado_id"/>
     </table>
@@ -2001,8 +2064,8 @@
     </table>
     <table name="bar_mesaubicacion" schema="public" catalog="SIGB" type="TABLE">
       <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgnYmFyX21lc2F1YmljYWNpb25faWRfc2VxJzo6cmVnY2xhc3Mp" autoIncrement="true"/>
-      <column name="ubicacion" sqlType="varchar" precision="30" scale="0" nullable="false" jdbcType="12"/>
-      <column name="descripcion" sqlType="varchar" precision="50" scale="0" nullable="false" jdbcType="12"/>
+      <column name="descripcion" sqlType="varchar" precision="100" scale="0" nullable="false" jdbcType="12"/>
+      <column name="mesa_ubicacion" sqlType="varchar" precision="30" scale="0" nullable="false" jdbcType="12"/>
       <primary-key name="bar_mesaubicacion_pkey" columns="id"/>
       <exported-key name="bar_mesa_ubicacion_id_440ead72_fk_bar_mesaubicacion_id" table="bar_mesa" schema="public" catalog="SIGB" columns="ubicacion_id"/>
     </table>
@@ -2025,6 +2088,9 @@
       <column name="abreviacion_moneda" sqlType="varchar" precision="5" scale="0" nullable="false" jdbcType="12"/>
       <primary-key name="bar_moneda_pkey" columns="id"/>
       <exported-key name="bar_cotizacion_moneda_id_6138e11d_fk_bar_moneda_id" table="bar_cotizacion" schema="public" catalog="SIGB" columns="moneda_id"/>
+      <index name="bar_moneda_abreviacion_moneda_15d30065_uniq" unique="true" columns="abreviacion_moneda"/>
+      <index name="bar_moneda_codigo_moneda_22cbce7c_uniq" unique="true" columns="codigo_moneda"/>
+      <index name="bar_moneda_moneda_39fc3b17_uniq" unique="true" columns="moneda"/>
     </table>
     <table name="bar_moneda_id_seq" schema="public" catalog="SIGB" type="SEQUENCE">
       <column name="sequence_name" sqlType="name" precision="2147483647" scale="0" nullable="false" jdbcType="12"/>
@@ -2041,8 +2107,9 @@
     <table name="bar_ordencompraestado" schema="public" catalog="SIGB" type="TABLE">
       <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgnYmFyX29yZGVuY29tcHJhZXN0YWRvX2lkX3NlcSc6OnJlZ2NsYXNzKQ==" autoIncrement="true"/>
       <column name="estado_orden_compra" sqlType="varchar" precision="3" scale="0" nullable="false" jdbcType="12"/>
-      <column name="descripcion" sqlType="varchar" precision="50" scale="0" nullable="false" jdbcType="12"/>
+      <column name="descripcion" sqlType="varchar" precision="200" scale="0" nullable="false" jdbcType="12"/>
       <primary-key name="bar_ordencompraestado_pkey" columns="id"/>
+      <exported-key name="com_estado_orden_compra_id_5afb9ee8_fk_bar_ordencompraestado_id" table="compras_ordencompra" schema="public" catalog="SIGB" columns="estado_orden_compra_id"/>
     </table>
     <table name="bar_ordencompraestado_id_seq" schema="public" catalog="SIGB" type="SEQUENCE">
       <column name="sequence_name" sqlType="name" precision="2147483647" scale="0" nullable="false" jdbcType="12"/>
@@ -2061,8 +2128,11 @@
       <column name="pais" sqlType="varchar" precision="100" scale="0" nullable="false" jdbcType="12"/>
       <primary-key name="bar_pais_pkey" columns="id"/>
       <exported-key name="bar_ciudad_pais_id_7be4480d_fk_bar_pais_id" table="bar_ciudad" schema="public" catalog="SIGB" columns="pais_id"/>
+      <exported-key name="bar_codigopaistelefono_pais_id_4f5ba465_fk_bar_pais_id" table="bar_codigopaistelefono" schema="public" catalog="SIGB" columns="pais_id"/>
       <exported-key name="clientes_cliente_pais_id_385feb0f_fk_bar_pais_id" table="clientes_cliente" schema="public" catalog="SIGB" columns="pais_id"/>
+      <exported-key name="compras_proveedor_pais_proveedor_id_430f8a11_fk_bar_pais_id" table="compras_proveedor" schema="public" catalog="SIGB" columns="pais_proveedor_id"/>
       <exported-key name="personal_empleado_pais_id_52ebf8c2_fk_bar_pais_id" table="personal_empleado" schema="public" catalog="SIGB" columns="pais_id"/>
+      <index name="bar_pais_pais_6134bc63_uniq" unique="true" columns="pais"/>
     </table>
     <table name="bar_pais_id_seq" schema="public" catalog="SIGB" type="SEQUENCE">
       <column name="sequence_name" sqlType="name" precision="2147483647" scale="0" nullable="false" jdbcType="12"/>
@@ -2076,10 +2146,47 @@
       <column name="is_cycled" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
       <column name="is_called" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
     </table>
+    <table name="bar_pedidoestado" schema="public" catalog="SIGB" type="TABLE">
+      <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgnYmFyX3BlZGlkb2VzdGFkb19pZF9zZXEnOjpyZWdjbGFzcyk=" autoIncrement="true"/>
+      <column name="pedido_estado" sqlType="varchar" precision="3" scale="0" nullable="false" jdbcType="12"/>
+      <column name="descripcion" sqlType="varchar" precision="200" scale="0" nullable="false" jdbcType="12"/>
+      <primary-key name="bar_pedidoestado_pkey" columns="id"/>
+      <exported-key name="ventas_pedido_estado_pedido_id_1c964479_fk_bar_pedidoestado_id" table="ventas_pedido" schema="public" catalog="SIGB" columns="estado_pedido_id"/>
+    </table>
+    <table name="bar_pedidoestado_id_seq" schema="public" catalog="SIGB" type="SEQUENCE">
+      <column name="sequence_name" sqlType="name" precision="2147483647" scale="0" nullable="false" jdbcType="12"/>
+      <column name="last_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="start_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="increment_by" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="max_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="min_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="cache_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="log_cnt" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="is_cycled" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
+      <column name="is_called" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
+    </table>
+    <table name="bar_persona" schema="public" catalog="SIGB" type="TABLE">
+      <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgnYmFyX3BlcnNvbmFfaWRfc2VxJzo6cmVnY2xhc3Mp" autoIncrement="true"/>
+      <column name="persona" sqlType="varchar" precision="1" scale="0" nullable="false" jdbcType="12"/>
+      <primary-key name="bar_persona_pkey" columns="id"/>
+      <exported-key name="compras_proveedo_persona_proveedor_id_a1da523_fk_bar_persona_id" table="compras_proveedor" schema="public" catalog="SIGB" columns="persona_proveedor_id"/>
+    </table>
+    <table name="bar_persona_id_seq" schema="public" catalog="SIGB" type="SEQUENCE">
+      <column name="sequence_name" sqlType="name" precision="2147483647" scale="0" nullable="false" jdbcType="12"/>
+      <column name="last_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="start_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="increment_by" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="max_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="min_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="cache_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="log_cnt" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="is_cycled" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
+      <column name="is_called" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
+    </table>
     <table name="bar_reservaestado" schema="public" catalog="SIGB" type="TABLE">
       <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgnYmFyX3Jlc2VydmFlc3RhZG9faWRfc2VxJzo6cmVnY2xhc3Mp" autoIncrement="true"/>
-      <column name="reserva_estado" sqlType="varchar" precision="1" scale="0" nullable="false" jdbcType="12"/>
-      <column name="descripcion" sqlType="varchar" precision="50" scale="0" nullable="false" jdbcType="12"/>
+      <column name="reserva_estado" sqlType="varchar" precision="3" scale="0" nullable="false" jdbcType="12"/>
+      <column name="descripcion" sqlType="varchar" precision="200" scale="0" nullable="false" jdbcType="12"/>
       <primary-key name="bar_reservaestado_pkey" columns="id"/>
       <exported-key name="clientes_reserva_estado_id_7dc508b6_fk_bar_reservaestado_id" table="clientes_reserva" schema="public" catalog="SIGB" columns="estado_id"/>
     </table>
@@ -2095,12 +2202,56 @@
       <column name="is_cycled" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
       <column name="is_called" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
     </table>
+    <table name="bar_subcategoriaproducto" schema="public" catalog="SIGB" type="TABLE">
+      <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgnYmFyX3N1YmNhdGVnb3JpYXByb2R1Y3RvX2lkX3NlcSc6OnJlZ2NsYXNzKQ==" autoIncrement="true"/>
+      <column name="subcategoria" sqlType="varchar" precision="3" scale="0" nullable="false" jdbcType="12"/>
+      <column name="descripcion" sqlType="varchar" precision="200" scale="0" nullable="false" jdbcType="12"/>
+      <column name="categoria_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <primary-key name="bar_subcategoriaproducto_pkey" columns="id"/>
+      <foreign-key name="bar_subcatego_categoria_id_708e7891_fk_bar_categoriaproducto_id" columns="categoria_id" ref-table="bar_categoriaproducto" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <exported-key name="stock_p_subcategoria_id_6d4cdfe6_fk_bar_subcategoriaproducto_id" table="stock_producto" schema="public" catalog="SIGB" columns="subcategoria_id"/>
+      <exported-key name="stock_p_subcategoria_id_28738cdc_fk_bar_subcategoriaproducto_id" table="stock_productocompuesto" schema="public" catalog="SIGB" columns="subcategoria_id"/>
+      <index name="bar_subcategoriaproducto_daf3833b" unique="false" columns="categoria_id"/>
+    </table>
+    <table name="bar_subcategoriaproducto_id_seq" schema="public" catalog="SIGB" type="SEQUENCE">
+      <column name="sequence_name" sqlType="name" precision="2147483647" scale="0" nullable="false" jdbcType="12"/>
+      <column name="last_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="start_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="increment_by" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="max_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="min_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="cache_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="log_cnt" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="is_cycled" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
+      <column name="is_called" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
+    </table>
+    <table name="bar_timbrado" schema="public" catalog="SIGB" type="TABLE">
+      <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgnYmFyX3RpbWJyYWRvX2lkX3NlcSc6OnJlZ2NsYXNzKQ==" autoIncrement="true"/>
+      <column name="descripcion_timbrado" sqlType="varchar" precision="200" scale="0" nullable="false" jdbcType="12"/>
+      <column name="fecha_inicio_timbrado" sqlType="timestamptz" precision="35" scale="6" nullable="false" jdbcType="93"/>
+      <column name="fecha_fin_timbrado" sqlType="timestamptz" precision="35" scale="6" nullable="false" jdbcType="93"/>
+      <column name="estado_timbrado" sqlType="varchar" precision="2" scale="0" nullable="false" jdbcType="12"/>
+      <primary-key name="bar_timbrado_pkey" columns="id"/>
+    </table>
+    <table name="bar_timbrado_id_seq" schema="public" catalog="SIGB" type="SEQUENCE">
+      <column name="sequence_name" sqlType="name" precision="2147483647" scale="0" nullable="false" jdbcType="12"/>
+      <column name="last_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="start_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="increment_by" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="max_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="min_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="cache_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="log_cnt" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="is_cycled" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
+      <column name="is_called" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
+    </table>
     <table name="bar_tipodeposito" schema="public" catalog="SIGB" type="TABLE">
       <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgnYmFyX3RpcG9kZXBvc2l0b19pZF9zZXEnOjpyZWdjbGFzcyk=" autoIncrement="true"/>
       <column name="tipo_deposito" sqlType="varchar" precision="2" scale="0" nullable="false" jdbcType="12"/>
-      <column name="descripcion" sqlType="varchar" precision="100" scale="0" nullable="false" jdbcType="12"/>
+      <column name="descripcion" sqlType="varchar" precision="200" scale="0" nullable="false" jdbcType="12"/>
       <primary-key name="bar_tipodeposito_pkey" columns="id"/>
-      <exported-key name="stock_deposito_tipo_deposito_id_7d6a7545_fk_bar_tipodeposito_id" table="stock_deposito" schema="public" catalog="SIGB" columns="tipo_deposito_id"/>
+      <exported-key name="bar_deposito_tipo_deposito_id_6835f200_fk_bar_tipodeposito_id" table="bar_deposito" schema="public" catalog="SIGB" columns="tipo_deposito_id"/>
+      <index name="bar_tipodeposito_tipo_deposito_2d5f011f_uniq" unique="true" columns="tipo_deposito"/>
     </table>
     <table name="bar_tipodeposito_id_seq" schema="public" catalog="SIGB" type="SEQUENCE">
       <column name="sequence_name" sqlType="name" precision="2147483647" scale="0" nullable="false" jdbcType="12"/>
@@ -2117,11 +2268,53 @@
     <table name="bar_tipoproducto" schema="public" catalog="SIGB" type="TABLE">
       <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgnYmFyX3RpcG9wcm9kdWN0b19pZF9zZXEnOjpyZWdjbGFzcyk=" autoIncrement="true"/>
       <column name="tipo_producto" sqlType="varchar" precision="2" scale="0" nullable="false" jdbcType="12"/>
-      <column name="descripcion" sqlType="varchar" precision="100" scale="0" nullable="false" jdbcType="12"/>
+      <column name="descripcion" sqlType="varchar" precision="200" scale="0" nullable="false" jdbcType="12"/>
       <primary-key name="bar_tipoproducto_pkey" columns="id"/>
       <exported-key name="stock_producto_tipo_producto_id_ad2e3f1_fk_bar_tipoproducto_id" table="stock_producto" schema="public" catalog="SIGB" columns="tipo_producto_id"/>
+      <exported-key name="stock_producto_tipo_producto_id_13a9abcb_fk_bar_tipoproducto_id" table="stock_productocompuesto" schema="public" catalog="SIGB" columns="tipo_producto_id"/>
     </table>
     <table name="bar_tipoproducto_id_seq" schema="public" catalog="SIGB" type="SEQUENCE">
+      <column name="sequence_name" sqlType="name" precision="2147483647" scale="0" nullable="false" jdbcType="12"/>
+      <column name="last_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="start_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="increment_by" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="max_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="min_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="cache_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="log_cnt" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="is_cycled" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
+      <column name="is_called" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
+    </table>
+    <table name="bar_unidadmedidaproducto" schema="public" catalog="SIGB" type="TABLE">
+      <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgnYmFyX3VuaWRhZG1lZGlkYXByb2R1Y3RvX2lkX3NlcSc6OnJlZ2NsYXNzKQ==" autoIncrement="true"/>
+      <column name="unidad_medida_producto" sqlType="varchar" precision="2" scale="0" nullable="false" jdbcType="12"/>
+      <column name="descripcion" sqlType="varchar" precision="200" scale="0" nullable="false" jdbcType="12"/>
+      <primary-key name="bar_unidadmedidaproducto_pkey" columns="id"/>
+      <exported-key name="unidad_medida_compra_id_c48e3f1_fk_bar_unidadmedidaproducto_id" table="compras_compradetalle" schema="public" catalog="SIGB" columns="unidad_medida_compra_id"/>
+      <exported-key name="a7ed2397e2c2a4ba7865482fd784e556" table="compras_ordencompradetalle" schema="public" catalog="SIGB" columns="unidad_medida_orden_compra_id"/>
+      <exported-key name="D3698d7b6fead410dfb9fb1c7cc06d86" table="stock_producto" schema="public" catalog="SIGB" columns="unidad_medida_contenido_id"/>
+      <exported-key name="unidad_medida_compra_id_2c99c72_fk_bar_unidadmedidaproducto_id" table="stock_producto" schema="public" catalog="SIGB" columns="unidad_medida_compra_id"/>
+    </table>
+    <table name="bar_unidadmedidaproducto_id_seq" schema="public" catalog="SIGB" type="SEQUENCE">
+      <column name="sequence_name" sqlType="name" precision="2147483647" scale="0" nullable="false" jdbcType="12"/>
+      <column name="last_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="start_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="increment_by" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="max_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="min_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="cache_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="log_cnt" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="is_cycled" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
+      <column name="is_called" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
+    </table>
+    <table name="bar_ventaestado" schema="public" catalog="SIGB" type="TABLE">
+      <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgnYmFyX3ZlbnRhZXN0YWRvX2lkX3NlcSc6OnJlZ2NsYXNzKQ==" autoIncrement="true"/>
+      <column name="venta_estado" sqlType="varchar" precision="3" scale="0" nullable="false" jdbcType="12"/>
+      <column name="descripcion" sqlType="varchar" precision="200" scale="0" nullable="false" jdbcType="12"/>
+      <primary-key name="bar_ventaestado_pkey" columns="id"/>
+      <exported-key name="ventas_venta_estado_venta_id_59c6e4d5_fk_bar_ventaestado_id" table="ventas_venta" schema="public" catalog="SIGB" columns="estado_venta_id"/>
+    </table>
+    <table name="bar_ventaestado_id_seq" schema="public" catalog="SIGB" type="SEQUENCE">
       <column name="sequence_name" sqlType="name" precision="2147483647" scale="0" nullable="false" jdbcType="12"/>
       <column name="last_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
       <column name="start_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
@@ -2149,6 +2342,7 @@
       <exported-key name="clientes_clientedocu_cliente_id_336e9a0e_fk_clientes_cliente_id" table="clientes_clientedocumento" schema="public" catalog="SIGB" columns="cliente_id"/>
       <exported-key name="clientes_clientetele_cliente_id_71b23103_fk_clientes_cliente_id" table="clientes_clientetelefono" schema="public" catalog="SIGB" columns="cliente_id"/>
       <exported-key name="clientes_reserva_cliente_id_22bd3141_fk_clientes_cliente_id" table="clientes_reserva" schema="public" catalog="SIGB" columns="cliente_id"/>
+      <exported-key name="ventas_venta_cliente_id_cc2bc83_fk_clientes_cliente_id" table="ventas_venta" schema="public" catalog="SIGB" columns="cliente_id"/>
       <index name="clientes_cliente_0201ed81" unique="false" columns="ciudad_id"/>
       <index name="clientes_cliente_847ec16e" unique="false" columns="pais_id"/>
     </table>
@@ -2192,14 +2386,14 @@
       <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgnY2xpZW50ZXNfY2xpZW50ZXRlbGVmb25vX2lkX3NlcSc6OnJlZ2NsYXNzKQ==" autoIncrement="true"/>
       <column name="telefono" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
       <column name="cliente_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
-      <column name="codigo_ciudad_operadora_telefono_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
       <column name="codigo_pais_telefono_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="codigo_operadora_telefono_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
       <primary-key name="clientes_clientetelefono_pkey" columns="id"/>
-      <foreign-key name="D8600f86e76165bdcd71495d1dfbe709" columns="codigo_ciudad_operadora_telefono_id" ref-table="bar_codigociudadoperadoratelefono" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <foreign-key name="d8634cb4d7200608fd3f4c4622c03fa3" columns="codigo_operadora_telefono_id" ref-table="bar_codigooperadoratelefono" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
       <foreign-key name="c_codigo_pais_telefono_id_38e4c010_fk_bar_codigopaistelefono_id" columns="codigo_pais_telefono_id" ref-table="bar_codigopaistelefono" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
       <foreign-key name="clientes_clientetele_cliente_id_71b23103_fk_clientes_cliente_id" columns="cliente_id" ref-table="clientes_cliente" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
-      <index name="clientes_clientetelefono_12cb3fb3" unique="false" columns="codigo_ciudad_operadora_telefono_id"/>
       <index name="clientes_clientetelefono_4a860110" unique="false" columns="cliente_id"/>
+      <index name="clientes_clientetelefono_7fd5d860" unique="false" columns="codigo_operadora_telefono_id"/>
       <index name="clientes_clientetelefono_b2d1c229" unique="false" columns="codigo_pais_telefono_id"/>
     </table>
     <table name="clientes_clientetelefono_id_seq" schema="public" catalog="SIGB" type="SEQUENCE">
@@ -2228,6 +2422,7 @@
       <foreign-key name="clientes_reserva_estado_id_7dc508b6_fk_bar_reservaestado_id" columns="estado_id" ref-table="bar_reservaestado" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
       <foreign-key name="clientes_reserva_cliente_id_22bd3141_fk_clientes_cliente_id" columns="cliente_id" ref-table="clientes_cliente" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
       <exported-key name="clientes_reserva_mes_reserva_id_64c50501_fk_clientes_reserva_id" table="clientes_reserva_mesas" schema="public" catalog="SIGB" columns="reserva_id"/>
+      <exported-key name="ventas_venta_reserva_id_4a9d36c7_fk_clientes_reserva_id" table="ventas_venta" schema="public" catalog="SIGB" columns="reserva_id"/>
       <index name="clientes_reserva_2c189993" unique="false" columns="estado_id"/>
       <index name="clientes_reserva_4a860110" unique="false" columns="cliente_id"/>
       <index name="clientes_reserva_8a4ba14d" unique="false" columns="usuario_registro_id"/>
@@ -2256,6 +2451,237 @@
       <index name="clientes_reserva_mesas_7faa80b1" unique="false" columns="reserva_id"/>
     </table>
     <table name="clientes_reserva_mesas_id_seq" schema="public" catalog="SIGB" type="SEQUENCE">
+      <column name="sequence_name" sqlType="name" precision="2147483647" scale="0" nullable="false" jdbcType="12"/>
+      <column name="last_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="start_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="increment_by" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="max_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="min_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="cache_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="log_cnt" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="is_cycled" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
+      <column name="is_called" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
+    </table>
+    <table name="compras_compra" schema="public" catalog="SIGB" type="TABLE">
+      <column name="numero_compra" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgnY29tcHJhc19jb21wcmFfbnVtZXJvX2NvbXByYV9zZXEnOjpyZWdjbGFzcyk=" autoIncrement="true"/>
+      <column name="fecha_compra" sqlType="timestamptz" precision="35" scale="6" nullable="false" jdbcType="93"/>
+      <column name="total_compra" sqlType="numeric" precision="20" scale="2" nullable="false" jdbcType="2"/>
+      <column name="numero_factura_compra" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="fecha_factura_compra" sqlType="date" precision="13" scale="0" nullable="false" jdbcType="91"/>
+      <column name="numero_nota_credito_compra" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="estado_compra_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="numero_orden_compra_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <primary-key name="compras_compra_pkey" columns="numero_compra"/>
+      <foreign-key name="compras_compra_estado_compra_id_554e02bc_fk_bar_compraestado_id" columns="estado_compra_id" ref-table="bar_compraestado" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <foreign-key name="D2b525b5a6bc3d02f4c5fd1f83575f16" columns="numero_orden_compra_id" ref-table="compras_ordencompra" ref-schema="public" ref-catalog="" ref-columns="numero_orden_compra" update-rule="3" delete-rule="3" deferrability="1"/>
+      <exported-key name="compr_numero_compra_id_3a1237bc_fk_compras_compra_numero_compra" table="compras_compradetalle" schema="public" catalog="SIGB" columns="numero_compra_id"/>
+      <index name="compras_compra_5f8bb389" unique="false" columns="numero_orden_compra_id"/>
+      <index name="compras_compra_89914b7a" unique="false" columns="estado_compra_id"/>
+    </table>
+    <table name="compras_compra_numero_compra_seq" schema="public" catalog="SIGB" type="SEQUENCE">
+      <column name="sequence_name" sqlType="name" precision="2147483647" scale="0" nullable="false" jdbcType="12"/>
+      <column name="last_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="start_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="increment_by" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="max_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="min_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="cache_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="log_cnt" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="is_cycled" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
+      <column name="is_called" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
+    </table>
+    <table name="compras_compradetalle" schema="public" catalog="SIGB" type="TABLE">
+      <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgnY29tcHJhc19jb21wcmFkZXRhbGxlX2lkX3NlcSc6OnJlZ2NsYXNzKQ==" autoIncrement="true"/>
+      <column name="precio_producto_compra" sqlType="numeric" precision="20" scale="2" nullable="false" jdbcType="2"/>
+      <column name="cantidad_producto_compra" sqlType="numeric" precision="10" scale="3" nullable="false" jdbcType="2"/>
+      <column name="total_producto_compra" sqlType="numeric" precision="20" scale="2" nullable="false" jdbcType="2"/>
+      <column name="numero_compra_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="producto_compra_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="unidad_medida_compra_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <primary-key name="compras_compradetalle_pkey" columns="id"/>
+      <foreign-key name="unidad_medida_compra_id_c48e3f1_fk_bar_unidadmedidaproducto_id" columns="unidad_medida_compra_id" ref-table="bar_unidadmedidaproducto" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <foreign-key name="compr_numero_compra_id_3a1237bc_fk_compras_compra_numero_compra" columns="numero_compra_id" ref-table="compras_compra" ref-schema="public" ref-catalog="" ref-columns="numero_compra" update-rule="3" delete-rule="3" deferrability="1"/>
+      <foreign-key name="com_producto_compra_id_3a8055ee_fk_compras_productoproveedor_id" columns="producto_compra_id" ref-table="compras_productoproveedor" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <index name="compras_compradetalle_3f824484" unique="false" columns="unidad_medida_compra_id"/>
+      <index name="compras_compradetalle_805a621e" unique="false" columns="numero_compra_id"/>
+      <index name="compras_compradetalle_dd4fffdb" unique="false" columns="producto_compra_id"/>
+    </table>
+    <table name="compras_compradetalle_id_seq" schema="public" catalog="SIGB" type="SEQUENCE">
+      <column name="sequence_name" sqlType="name" precision="2147483647" scale="0" nullable="false" jdbcType="12"/>
+      <column name="last_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="start_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="increment_by" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="max_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="min_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="cache_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="log_cnt" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="is_cycled" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
+      <column name="is_called" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
+    </table>
+    <table name="compras_empresa" schema="public" catalog="SIGB" type="TABLE">
+      <column name="proveedor_ptr_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="timbrado" sqlType="varchar" precision="100" scale="0" nullable="false" jdbcType="12"/>
+      <primary-key name="compras_empresa_pkey" columns="proveedor_ptr_id"/>
+      <foreign-key name="compras_empre_proveedor_ptr_id_12fcdc94_fk_compras_proveedor_id" columns="proveedor_ptr_id" ref-table="compras_proveedor" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <exported-key name="ventas__empresa_id_7eb1b452_fk_compras_empresa_proveedor_ptr_id" table="ventas_venta" schema="public" catalog="SIGB" columns="empresa_id"/>
+    </table>
+    <table name="compras_lineacreditoproveedor" schema="public" catalog="SIGB" type="TABLE">
+      <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgnY29tcHJhc19saW5lYWNyZWRpdG9wcm92ZWVkb3JfaWRfc2VxJzo6cmVnY2xhc3Mp" autoIncrement="true"/>
+      <column name="fecha_linea_credito_proveedor" sqlType="timestamptz" precision="35" scale="6" nullable="false" jdbcType="93"/>
+      <column name="linea_credito_proveedor" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="estado_linea_credito_proveedor" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
+      <column name="proveedor_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <primary-key name="compras_lineacreditoproveedor_pkey" columns="id"/>
+      <foreign-key name="compras_lineacred_proveedor_id_245af655_fk_compras_proveedor_id" columns="proveedor_id" ref-table="compras_proveedor" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <index name="compras_lineacreditoproveedor_7ac33b97" unique="false" columns="proveedor_id"/>
+    </table>
+    <table name="compras_lineacreditoproveedor_id_seq" schema="public" catalog="SIGB" type="SEQUENCE">
+      <column name="sequence_name" sqlType="name" precision="2147483647" scale="0" nullable="false" jdbcType="12"/>
+      <column name="last_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="start_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="increment_by" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="max_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="min_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="cache_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="log_cnt" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="is_cycled" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
+      <column name="is_called" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
+    </table>
+    <table name="compras_ordencompra" schema="public" catalog="SIGB" type="TABLE">
+      <column name="numero_orden_compra" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgnY29tcHJhc19vcmRlbmNvbXByYV9udW1lcm9fb3JkZW5fY29tcHJhX3NlcSc6OnJlZ2NsYXNzKQ==" autoIncrement="true"/>
+      <column name="fecha_orden_compra" sqlType="timestamptz" precision="35" scale="6" nullable="false" jdbcType="93"/>
+      <column name="fecha_entrega_orden_compra" sqlType="timestamptz" precision="35" scale="6" nullable="false" jdbcType="93"/>
+      <column name="total_orden_compra" sqlType="numeric" precision="20" scale="0" nullable="false" jdbcType="2"/>
+      <column name="estado_orden_compra_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="forma_pago_orden_compra_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="proveedor_orden_compra_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <primary-key name="compras_ordencompra_pkey" columns="numero_orden_compra"/>
+      <foreign-key name="c_forma_pago_orden_compra_id_3c2e8af5_fk_bar_formapagocompra_id" columns="forma_pago_orden_compra_id" ref-table="bar_formapagocompra" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <foreign-key name="com_estado_orden_compra_id_5afb9ee8_fk_bar_ordencompraestado_id" columns="estado_orden_compra_id" ref-table="bar_ordencompraestado" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <foreign-key name="compr_proveedor_orden_compra_id_1985c7f_fk_compras_proveedor_id" columns="proveedor_orden_compra_id" ref-table="compras_proveedor" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <exported-key name="D2b525b5a6bc3d02f4c5fd1f83575f16" table="compras_compra" schema="public" catalog="SIGB" columns="numero_orden_compra_id"/>
+      <exported-key name="aea9b0c940802a03f418ce37b1851a2b" table="compras_ordencompradetalle" schema="public" catalog="SIGB" columns="numero_orden_compra_id"/>
+      <index name="compras_ordencompra_4c873d9b" unique="false" columns="estado_orden_compra_id"/>
+      <index name="compras_ordencompra_f3c39dab" unique="false" columns="proveedor_orden_compra_id"/>
+      <index name="compras_ordencompra_f89289f0" unique="false" columns="forma_pago_orden_compra_id"/>
+    </table>
+    <table name="compras_ordencompra_numero_orden_compra_seq" schema="public" catalog="SIGB" type="SEQUENCE">
+      <column name="sequence_name" sqlType="name" precision="2147483647" scale="0" nullable="false" jdbcType="12"/>
+      <column name="last_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="start_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="increment_by" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="max_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="min_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="cache_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="log_cnt" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="is_cycled" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
+      <column name="is_called" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
+    </table>
+    <table name="compras_ordencompradetalle" schema="public" catalog="SIGB" type="TABLE">
+      <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgnY29tcHJhc19vcmRlbmNvbXByYWRldGFsbGVfaWRfc2VxJzo6cmVnY2xhc3Mp" autoIncrement="true"/>
+      <column name="precio_producto_orden_compra" sqlType="numeric" precision="20" scale="0" nullable="false" jdbcType="2"/>
+      <column name="cantidad_producto_orden_compra" sqlType="numeric" precision="10" scale="3" nullable="false" jdbcType="2"/>
+      <column name="total_producto_orden_compra" sqlType="numeric" precision="20" scale="0" nullable="false" jdbcType="2"/>
+      <column name="numero_orden_compra_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="unidad_medida_orden_compra_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="producto_orden_compra_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <primary-key name="compras_ordencompradetalle_pkey" columns="id"/>
+      <foreign-key name="a7ed2397e2c2a4ba7865482fd784e556" columns="unidad_medida_orden_compra_id" ref-table="bar_unidadmedidaproducto" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <foreign-key name="aea9b0c940802a03f418ce37b1851a2b" columns="numero_orden_compra_id" ref-table="compras_ordencompra" ref-schema="public" ref-catalog="" ref-columns="numero_orden_compra" update-rule="3" delete-rule="3" deferrability="1"/>
+      <foreign-key name="compras_orde_producto_orden_compra_id_edf8_fk_stock_producto_id" columns="producto_orden_compra_id" ref-table="stock_producto" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <index name="compras_ordencompradetalle_5f8bb389" unique="false" columns="numero_orden_compra_id"/>
+      <index name="compras_ordencompradetalle_71dd867d" unique="false" columns="unidad_medida_orden_compra_id"/>
+      <index name="compras_ordencompradetalle_a18768c6" unique="false" columns="producto_orden_compra_id"/>
+    </table>
+    <table name="compras_ordencompradetalle_id_seq" schema="public" catalog="SIGB" type="SEQUENCE">
+      <column name="sequence_name" sqlType="name" precision="2147483647" scale="0" nullable="false" jdbcType="12"/>
+      <column name="last_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="start_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="increment_by" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="max_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="min_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="cache_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="log_cnt" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="is_cycled" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
+      <column name="is_called" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
+    </table>
+    <table name="compras_productoproveedor" schema="public" catalog="SIGB" type="TABLE">
+      <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgnY29tcHJhc19wcm9kdWN0b3Byb3ZlZWRvcl9pZF9zZXEnOjpyZWdjbGFzcyk=" autoIncrement="true"/>
+      <column name="producto_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="proveedor_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <primary-key name="compras_productoproveedor_pkey" columns="id"/>
+      <foreign-key name="compras_productop_proveedor_id_743b788a_fk_compras_proveedor_id" columns="proveedor_id" ref-table="compras_proveedor" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <foreign-key name="compras_productoprove_producto_id_707cefdf_fk_stock_producto_id" columns="producto_id" ref-table="stock_producto" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <exported-key name="com_producto_compra_id_3a8055ee_fk_compras_productoproveedor_id" table="compras_compradetalle" schema="public" catalog="SIGB" columns="producto_compra_id"/>
+      <index name="compras_productoproveedor_7ac33b97" unique="false" columns="proveedor_id"/>
+      <index name="compras_productoproveedor_bb91903a" unique="false" columns="producto_id"/>
+    </table>
+    <table name="compras_productoproveedor_id_seq" schema="public" catalog="SIGB" type="SEQUENCE">
+      <column name="sequence_name" sqlType="name" precision="2147483647" scale="0" nullable="false" jdbcType="12"/>
+      <column name="last_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="start_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="increment_by" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="max_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="min_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="cache_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="log_cnt" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="is_cycled" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
+      <column name="is_called" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
+    </table>
+    <table name="compras_proveedor" schema="public" catalog="SIGB" type="TABLE">
+      <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgnY29tcHJhc19wcm92ZWVkb3JfaWRfc2VxJzo6cmVnY2xhc3Mp" autoIncrement="true"/>
+      <column name="proveedor" sqlType="varchar" precision="100" scale="0" nullable="false" jdbcType="12"/>
+      <column name="ruc" sqlType="varchar" precision="15" scale="0" nullable="false" jdbcType="12"/>
+      <column name="direccion" sqlType="varchar" precision="200" scale="0" nullable="true" jdbcType="12"/>
+      <column name="pagina_web" sqlType="varchar" precision="200" scale="0" nullable="true" jdbcType="12"/>
+      <column name="fecha_alta_proveedor" sqlType="timestamptz" precision="35" scale="6" nullable="false" jdbcType="93"/>
+      <column name="persona_proveedor_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="ciudad_proveedor_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="pais_proveedor_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <primary-key name="compras_proveedor_pkey" columns="id"/>
+      <foreign-key name="compras_proveedor_ciudad_proveedor_id_4d385122_fk_bar_ciudad_id" columns="ciudad_proveedor_id" ref-table="bar_ciudad" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <foreign-key name="compras_proveedor_pais_proveedor_id_430f8a11_fk_bar_pais_id" columns="pais_proveedor_id" ref-table="bar_pais" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <foreign-key name="compras_proveedo_persona_proveedor_id_a1da523_fk_bar_persona_id" columns="persona_proveedor_id" ref-table="bar_persona" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <exported-key name="compras_empre_proveedor_ptr_id_12fcdc94_fk_compras_proveedor_id" table="compras_empresa" schema="public" catalog="SIGB" columns="proveedor_ptr_id"/>
+      <exported-key name="compras_lineacred_proveedor_id_245af655_fk_compras_proveedor_id" table="compras_lineacreditoproveedor" schema="public" catalog="SIGB" columns="proveedor_id"/>
+      <exported-key name="compr_proveedor_orden_compra_id_1985c7f_fk_compras_proveedor_id" table="compras_ordencompra" schema="public" catalog="SIGB" columns="proveedor_orden_compra_id"/>
+      <exported-key name="compras_productop_proveedor_id_743b788a_fk_compras_proveedor_id" table="compras_productoproveedor" schema="public" catalog="SIGB" columns="proveedor_id"/>
+      <exported-key name="compras_proveedort_proveedor_id_ee78202_fk_compras_proveedor_id" table="compras_proveedortelefono" schema="public" catalog="SIGB" columns="proveedor_id"/>
+      <index name="compras_proveedor_ruc_key" unique="true" columns="ruc"/>
+      <index name="compras_proveedor_266085d5" unique="false" columns="pais_proveedor_id"/>
+      <index name="compras_proveedor_65042eb5" unique="false" columns="ciudad_proveedor_id"/>
+      <index name="compras_proveedor_d6dd4c2d" unique="false" columns="persona_proveedor_id"/>
+      <index name="compras_proveedor_ruc_1db0ec41_like" unique="false" columns="ruc"/>
+    </table>
+    <table name="compras_proveedor_id_seq" schema="public" catalog="SIGB" type="SEQUENCE">
+      <column name="sequence_name" sqlType="name" precision="2147483647" scale="0" nullable="false" jdbcType="12"/>
+      <column name="last_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="start_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="increment_by" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="max_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="min_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="cache_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="log_cnt" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="is_cycled" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
+      <column name="is_called" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
+    </table>
+    <table name="compras_proveedortelefono" schema="public" catalog="SIGB" type="TABLE">
+      <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgnY29tcHJhc19wcm92ZWVkb3J0ZWxlZm9ub19pZF9zZXEnOjpyZWdjbGFzcyk=" autoIncrement="true"/>
+      <column name="telefono" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="interno" sqlType="int4" precision="10" scale="0" nullable="true" jdbcType="4"/>
+      <column name="contacto" sqlType="varchar" precision="100" scale="0" nullable="true" jdbcType="12"/>
+      <column name="codigo_operadora_telefono_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="codigo_pais_telefono_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="proveedor_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <primary-key name="compras_proveedortelefono_pkey" columns="id"/>
+      <foreign-key name="d30ab140ce621f6cbdba618273bb4378" columns="codigo_operadora_telefono_id" ref-table="bar_codigooperadoratelefono" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <foreign-key name="c_codigo_pais_telefono_id_6ac7b253_fk_bar_codigopaistelefono_id" columns="codigo_pais_telefono_id" ref-table="bar_codigopaistelefono" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <foreign-key name="compras_proveedort_proveedor_id_ee78202_fk_compras_proveedor_id" columns="proveedor_id" ref-table="compras_proveedor" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <index name="compras_proveedortelefono_7ac33b97" unique="false" columns="proveedor_id"/>
+      <index name="compras_proveedortelefono_7fd5d860" unique="false" columns="codigo_operadora_telefono_id"/>
+      <index name="compras_proveedortelefono_b2d1c229" unique="false" columns="codigo_pais_telefono_id"/>
+    </table>
+    <table name="compras_proveedortelefono_id_seq" schema="public" catalog="SIGB" type="SEQUENCE">
       <column name="sequence_name" sqlType="name" precision="2147483647" scale="0" nullable="false" jdbcType="12"/>
       <column name="last_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
       <column name="start_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
@@ -2382,6 +2808,8 @@
       <foreign-key name="personal_empleado_horario_id_56ff06d6_fk_personal_horario_id" columns="horario_id" ref-table="personal_horario" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
       <exported-key name="personal_empleadod_empleado_id_22fb6587_fk_personal_empleado_id" table="personal_empleadodocumento" schema="public" catalog="SIGB" columns="empleado_id"/>
       <exported-key name="personal_empleadot_empleado_id_5f13692c_fk_personal_empleado_id" table="personal_empleadotelefono" schema="public" catalog="SIGB" columns="empleado_id"/>
+      <exported-key name="ventas_aperturacaja_cajero_id_f74b1e6_fk_personal_empleado_id" table="ventas_aperturacaja" schema="public" catalog="SIGB" columns="cajero_id"/>
+      <exported-key name="ventas_pedido_mozo_pedido_id_ed47f40_fk_personal_empleado_id" table="ventas_pedido" schema="public" catalog="SIGB" columns="mozo_pedido_id"/>
       <index name="personal_empleado_0201ed81" unique="false" columns="ciudad_id"/>
       <index name="personal_empleado_847ec16e" unique="false" columns="pais_id"/>
       <index name="personal_empleado_932b6051" unique="false" columns="horario_id"/>
@@ -2426,15 +2854,15 @@
     <table name="personal_empleadotelefono" schema="public" catalog="SIGB" type="TABLE">
       <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgncGVyc29uYWxfZW1wbGVhZG90ZWxlZm9ub19pZF9zZXEnOjpyZWdjbGFzcyk=" autoIncrement="true"/>
       <column name="telefono" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
-      <column name="codigo_ciudad_operadora_telefono_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
       <column name="codigo_pais_telefono_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
       <column name="empleado_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="codigo_operadora_telefono_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
       <primary-key name="personal_empleadotelefono_pkey" columns="id"/>
-      <foreign-key name="D260980dc9b5a3890ac71839d3c37770" columns="codigo_ciudad_operadora_telefono_id" ref-table="bar_codigociudadoperadoratelefono" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <foreign-key name="D0d7262e6df365b8c471421781856e2a" columns="codigo_operadora_telefono_id" ref-table="bar_codigooperadoratelefono" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
       <foreign-key name="p_codigo_pais_telefono_id_3b5ff1d1_fk_bar_codigopaistelefono_id" columns="codigo_pais_telefono_id" ref-table="bar_codigopaistelefono" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
       <foreign-key name="personal_empleadot_empleado_id_5f13692c_fk_personal_empleado_id" columns="empleado_id" ref-table="personal_empleado" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
-      <index name="personal_empleadotelefono_12cb3fb3" unique="false" columns="codigo_ciudad_operadora_telefono_id"/>
       <index name="personal_empleadotelefono_473dea9e" unique="false" columns="empleado_id"/>
+      <index name="personal_empleadotelefono_7fd5d860" unique="false" columns="codigo_operadora_telefono_id"/>
       <index name="personal_empleadotelefono_b2d1c229" unique="false" columns="codigo_pais_telefono_id"/>
     </table>
     <table name="personal_empleadotelefono_id_seq" schema="public" catalog="SIGB" type="SEQUENCE">
@@ -2469,38 +2897,19 @@
       <column name="is_cycled" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
       <column name="is_called" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
     </table>
-    <table name="stock_deposito" schema="public" catalog="SIGB" type="TABLE">
-      <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgnc3RvY2tfZGVwb3NpdG9faWRfc2VxJzo6cmVnY2xhc3Mp" autoIncrement="true"/>
-      <column name="deposito" sqlType="varchar" precision="3" scale="0" nullable="false" jdbcType="12"/>
-      <column name="descripcion" sqlType="varchar" precision="100" scale="0" nullable="false" jdbcType="12"/>
-      <column name="tipo_deposito_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
-      <primary-key name="stock_deposito_pkey" columns="id"/>
-      <foreign-key name="stock_deposito_tipo_deposito_id_7d6a7545_fk_bar_tipodeposito_id" columns="tipo_deposito_id" ref-table="bar_tipodeposito" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
-      <index name="stock_deposito_401dbe4e" unique="false" columns="tipo_deposito_id"/>
-    </table>
-    <table name="stock_deposito_id_seq" schema="public" catalog="SIGB" type="SEQUENCE">
-      <column name="sequence_name" sqlType="name" precision="2147483647" scale="0" nullable="false" jdbcType="12"/>
-      <column name="last_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
-      <column name="start_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
-      <column name="increment_by" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
-      <column name="max_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
-      <column name="min_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
-      <column name="cache_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
-      <column name="log_cnt" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
-      <column name="is_cycled" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
-      <column name="is_called" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
-    </table>
-    <table name="stock_precioproducto" schema="public" catalog="SIGB" type="TABLE">
-      <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgnc3RvY2tfcHJlY2lvcHJvZHVjdG9faWRfc2VxJzo6cmVnY2xhc3Mp" autoIncrement="true"/>
-      <column name="fecha" sqlType="timestamptz" precision="35" scale="6" nullable="false" jdbcType="93"/>
-      <column name="precio_venta" sqlType="numeric" precision="20" scale="2" nullable="false" jdbcType="2"/>
-      <column name="producto_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+    <table name="stock_precioventaproducto" schema="public" catalog="SIGB" type="TABLE">
+      <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgnc3RvY2tfcHJlY2lvdmVudGFwcm9kdWN0b19pZF9zZXEnOjpyZWdjbGFzcyk=" autoIncrement="true"/>
+      <column name="fecha_precio_venta_producto" sqlType="timestamptz" precision="35" scale="6" nullable="false" jdbcType="93"/>
+      <column name="precio_venta" sqlType="numeric" precision="20" scale="0" nullable="false" jdbcType="2"/>
       <column name="activo" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
-      <primary-key name="stock_precioproducto_pkey" columns="id"/>
-      <foreign-key name="stock_precioproducto_producto_id_49113f35_fk_stock_producto_id" columns="producto_id" ref-table="stock_producto" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
-      <index name="stock_precioproducto_bb91903a" unique="false" columns="producto_id"/>
+      <column name="producto_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <primary-key name="stock_precioventaproducto_pkey" columns="id"/>
+      <foreign-key name="stock_precioventaprod_producto_id_1ee3ac38_fk_stock_producto_id" columns="producto_id" ref-table="stock_producto" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <exported-key name="b2fca37ab90d32a4f07a4432cafd3174" table="ventas_pedidodetalle" schema="public" catalog="SIGB" columns="precio_producto_pedido_id"/>
+      <exported-key name="D878c745f993b5cdc3558942d038bd86" table="ventas_ventadetalle" schema="public" catalog="SIGB" columns="precio_producto_venta_id"/>
+      <index name="stock_precioventaproducto_bb91903a" unique="false" columns="producto_id"/>
     </table>
-    <table name="stock_precioproducto_id_seq" schema="public" catalog="SIGB" type="SEQUENCE">
+    <table name="stock_precioventaproducto_id_seq" schema="public" catalog="SIGB" type="SEQUENCE">
       <column name="sequence_name" sqlType="name" precision="2147483647" scale="0" nullable="false" jdbcType="12"/>
       <column name="last_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
       <column name="start_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
@@ -2518,20 +2927,31 @@
       <column name="codigo_barra" sqlType="varchar" precision="100" scale="0" nullable="false" jdbcType="12"/>
       <column name="marca" sqlType="varchar" precision="100" scale="0" nullable="false" jdbcType="12"/>
       <column name="categoria_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
-      <column name="unidad_medida_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
-      <column name="contenido" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="contenido" sqlType="numeric" precision="10" scale="3" nullable="false" jdbcType="2"/>
       <column name="imagen" sqlType="varchar" precision="100" scale="0" nullable="false" jdbcType="12"/>
       <column name="tipo_producto_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="subcategoria_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="fecha_alta_producto" sqlType="timestamptz" precision="35" scale="6" nullable="false" jdbcType="93"/>
+      <column name="unidad_medida_contenido_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="unidad_medida_compra_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
       <primary-key name="stock_producto_pkey" columns="id"/>
       <foreign-key name="stock_product_categoria_id_63daa7b1_fk_bar_categoriaproducto_id" columns="categoria_id" ref-table="bar_categoriaproducto" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <foreign-key name="stock_p_subcategoria_id_6d4cdfe6_fk_bar_subcategoriaproducto_id" columns="subcategoria_id" ref-table="bar_subcategoriaproducto" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
       <foreign-key name="stock_producto_tipo_producto_id_ad2e3f1_fk_bar_tipoproducto_id" columns="tipo_producto_id" ref-table="bar_tipoproducto" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
-      <foreign-key name="stock_produc_unidad_medida_id_69d6a7ae_fk_stock_unidadmedida_id" columns="unidad_medida_id" ref-table="stock_unidadmedida" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
-      <exported-key name="stock_precioproducto_producto_id_49113f35_fk_stock_producto_id" table="stock_precioproducto" schema="public" catalog="SIGB" columns="producto_id"/>
-      <exported-key name="stock_recetadetalle_producto_id_44546d45_fk_stock_producto_id" table="stock_recetadetalle" schema="public" catalog="SIGB" columns="producto_id"/>
-      <exported-key name="ventas_pedidodetalle_producto_id_6a1b4aaa_fk_stock_producto_id" table="ventas_pedidodetalle" schema="public" catalog="SIGB" columns="producto_id"/>
+      <foreign-key name="D3698d7b6fead410dfb9fb1c7cc06d86" columns="unidad_medida_contenido_id" ref-table="bar_unidadmedidaproducto" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <foreign-key name="unidad_medida_compra_id_2c99c72_fk_bar_unidadmedidaproducto_id" columns="unidad_medida_compra_id" ref-table="bar_unidadmedidaproducto" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <exported-key name="compras_orde_producto_orden_compra_id_edf8_fk_stock_producto_id" table="compras_ordencompradetalle" schema="public" catalog="SIGB" columns="producto_orden_compra_id"/>
+      <exported-key name="compras_productoprove_producto_id_707cefdf_fk_stock_producto_id" table="compras_productoproveedor" schema="public" catalog="SIGB" columns="producto_id"/>
+      <exported-key name="stock_precioventaprod_producto_id_1ee3ac38_fk_stock_producto_id" table="stock_precioventaproducto" schema="public" catalog="SIGB" columns="producto_id"/>
+      <exported-key name="stock_productocompues_producto_id_4e670055_fk_stock_producto_id" table="stock_productocompuestodetalle" schema="public" catalog="SIGB" columns="producto_id"/>
+      <exported-key name="stock_stock_producto_stock_id_1a438cd_fk_stock_producto_id" table="stock_stock" schema="public" catalog="SIGB" columns="producto_stock_id"/>
+      <exported-key name="ventas_pedidod_producto_pedido_id_75484ebf_fk_stock_producto_id" table="ventas_pedidodetalle" schema="public" catalog="SIGB" columns="producto_pedido_id"/>
+      <exported-key name="ventas_ventadeta_producto_venta_id_709d7b9_fk_stock_producto_id" table="ventas_ventadetalle" schema="public" catalog="SIGB" columns="producto_venta_id"/>
+      <index name="stock_producto_0e694634" unique="false" columns="unidad_medida_contenido_id"/>
+      <index name="stock_producto_3f824484" unique="false" columns="unidad_medida_compra_id"/>
+      <index name="stock_producto_9ef96962" unique="false" columns="subcategoria_id"/>
       <index name="stock_producto_ab4462f4" unique="false" columns="tipo_producto_id"/>
       <index name="stock_producto_daf3833b" unique="false" columns="categoria_id"/>
-      <index name="stock_producto_f574f20a" unique="false" columns="unidad_medida_id"/>
     </table>
     <table name="stock_producto_id_seq" schema="public" catalog="SIGB" type="SEQUENCE">
       <column name="sequence_name" sqlType="name" precision="2147483647" scale="0" nullable="false" jdbcType="12"/>
@@ -2545,14 +2965,24 @@
       <column name="is_cycled" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
       <column name="is_called" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
     </table>
-    <table name="stock_receta" schema="public" catalog="SIGB" type="TABLE">
-      <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgnc3RvY2tfcmVjZXRhX2lkX3NlcSc6OnJlZ2NsYXNzKQ==" autoIncrement="true"/>
-      <column name="receta" sqlType="varchar" precision="100" scale="0" nullable="false" jdbcType="12"/>
-      <column name="estado" sqlType="varchar" precision="2" scale="0" nullable="false" jdbcType="12"/>
-      <primary-key name="stock_receta_pkey" columns="id"/>
-      <exported-key name="stock_recetadetalle_receta_id_305b5661_fk_stock_receta_id" table="stock_recetadetalle" schema="public" catalog="SIGB" columns="receta_id"/>
+    <table name="stock_productocompuesto" schema="public" catalog="SIGB" type="TABLE">
+      <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgnc3RvY2tfcHJvZHVjdG9jb21wdWVzdG9faWRfc2VxJzo6cmVnY2xhc3Mp" autoIncrement="true"/>
+      <column name="producto_compuesto" sqlType="varchar" precision="100" scale="0" nullable="false" jdbcType="12"/>
+      <column name="fecha_alta_producto_compuesto" sqlType="timestamptz" precision="35" scale="6" nullable="false" jdbcType="93"/>
+      <column name="imagen" sqlType="varchar" precision="100" scale="0" nullable="false" jdbcType="12"/>
+      <column name="categoria_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="subcategoria_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="tipo_producto_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <primary-key name="stock_productocompuesto_pkey" columns="id"/>
+      <foreign-key name="stock_product_categoria_id_212151f5_fk_bar_categoriaproducto_id" columns="categoria_id" ref-table="bar_categoriaproducto" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <foreign-key name="stock_p_subcategoria_id_28738cdc_fk_bar_subcategoriaproducto_id" columns="subcategoria_id" ref-table="bar_subcategoriaproducto" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <foreign-key name="stock_producto_tipo_producto_id_13a9abcb_fk_bar_tipoproducto_id" columns="tipo_producto_id" ref-table="bar_tipoproducto" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <exported-key name="st_producto_compuesto_id_76e58199_fk_stock_productocompuesto_id" table="stock_productocompuestodetalle" schema="public" catalog="SIGB" columns="producto_compuesto_id"/>
+      <index name="stock_productocompuesto_9ef96962" unique="false" columns="subcategoria_id"/>
+      <index name="stock_productocompuesto_ab4462f4" unique="false" columns="tipo_producto_id"/>
+      <index name="stock_productocompuesto_daf3833b" unique="false" columns="categoria_id"/>
     </table>
-    <table name="stock_receta_id_seq" schema="public" catalog="SIGB" type="SEQUENCE">
+    <table name="stock_productocompuesto_id_seq" schema="public" catalog="SIGB" type="SEQUENCE">
       <column name="sequence_name" sqlType="name" precision="2147483647" scale="0" nullable="false" jdbcType="12"/>
       <column name="last_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
       <column name="start_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
@@ -2564,18 +2994,18 @@
       <column name="is_cycled" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
       <column name="is_called" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
     </table>
-    <table name="stock_recetadetalle" schema="public" catalog="SIGB" type="TABLE">
-      <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgnc3RvY2tfcmVjZXRhZGV0YWxsZV9pZF9zZXEnOjpyZWdjbGFzcyk=" autoIncrement="true"/>
-      <column name="cantidad_producto" sqlType="numeric" precision="20" scale="2" nullable="false" jdbcType="2"/>
+    <table name="stock_productocompuestodetalle" schema="public" catalog="SIGB" type="TABLE">
+      <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgnc3RvY2tfcHJvZHVjdG9jb21wdWVzdG9kZXRhbGxlX2lkX3NlcSc6OnJlZ2NsYXNzKQ==" autoIncrement="true"/>
+      <column name="cantidad_producto" sqlType="numeric" precision="10" scale="3" nullable="false" jdbcType="2"/>
       <column name="producto_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
-      <column name="receta_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
-      <primary-key name="stock_recetadetalle_pkey" columns="id"/>
-      <foreign-key name="stock_recetadetalle_producto_id_44546d45_fk_stock_producto_id" columns="producto_id" ref-table="stock_producto" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
-      <foreign-key name="stock_recetadetalle_receta_id_305b5661_fk_stock_receta_id" columns="receta_id" ref-table="stock_receta" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
-      <index name="stock_recetadetalle_b81fb5e8" unique="false" columns="receta_id"/>
-      <index name="stock_recetadetalle_bb91903a" unique="false" columns="producto_id"/>
+      <column name="producto_compuesto_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <primary-key name="stock_productocompuestodetalle_pkey" columns="id"/>
+      <foreign-key name="stock_productocompues_producto_id_4e670055_fk_stock_producto_id" columns="producto_id" ref-table="stock_producto" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <foreign-key name="st_producto_compuesto_id_76e58199_fk_stock_productocompuesto_id" columns="producto_compuesto_id" ref-table="stock_productocompuesto" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <index name="stock_productocompuestodetalle_bb91903a" unique="false" columns="producto_id"/>
+      <index name="stock_productocompuestodetalle_c7225fb9" unique="false" columns="producto_compuesto_id"/>
     </table>
-    <table name="stock_recetadetalle_id_seq" schema="public" catalog="SIGB" type="SEQUENCE">
+    <table name="stock_productocompuestodetalle_id_seq" schema="public" catalog="SIGB" type="SEQUENCE">
       <column name="sequence_name" sqlType="name" precision="2147483647" scale="0" nullable="false" jdbcType="12"/>
       <column name="last_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
       <column name="start_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
@@ -2587,14 +3017,84 @@
       <column name="is_cycled" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
       <column name="is_called" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
     </table>
-    <table name="stock_unidadmedida" schema="public" catalog="SIGB" type="TABLE">
-      <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgnc3RvY2tfdW5pZGFkbWVkaWRhX2lkX3NlcSc6OnJlZ2NsYXNzKQ==" autoIncrement="true"/>
-      <column name="unidad_medida" sqlType="varchar" precision="2" scale="0" nullable="false" jdbcType="12"/>
-      <column name="descripcion" sqlType="varchar" precision="100" scale="0" nullable="false" jdbcType="12"/>
-      <primary-key name="stock_unidadmedida_pkey" columns="id"/>
-      <exported-key name="stock_produc_unidad_medida_id_69d6a7ae_fk_stock_unidadmedida_id" table="stock_producto" schema="public" catalog="SIGB" columns="unidad_medida_id"/>
+    <table name="stock_stock" schema="public" catalog="SIGB" type="TABLE">
+      <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgnc3RvY2tfc3RvY2tfaWRfc2VxJzo6cmVnY2xhc3Mp" autoIncrement="true"/>
+      <column name="stock_minimo" sqlType="numeric" precision="10" scale="3" nullable="false" jdbcType="2"/>
+      <column name="cantidad_existente" sqlType="numeric" precision="10" scale="3" nullable="false" jdbcType="2"/>
+      <column name="producto_stock_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="ubicacion_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <primary-key name="stock_stock_pkey" columns="id"/>
+      <foreign-key name="stock_stock_ubicacion_id_38306d4c_fk_bar_deposito_id" columns="ubicacion_id" ref-table="bar_deposito" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <foreign-key name="stock_stock_producto_stock_id_1a438cd_fk_stock_producto_id" columns="producto_stock_id" ref-table="stock_producto" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <exported-key name="stock_stockdetalle_stock_id_343470ff_fk_stock_stock_id" table="stock_stockdetalle" schema="public" catalog="SIGB" columns="stock_id"/>
+      <index name="stock_stock_producto_stock_id_64f69a67_uniq" unique="true" columns="producto_stock_id,ubicacion_id"/>
+      <index name="stock_stock_11d79d11" unique="false" columns="producto_stock_id"/>
+      <index name="stock_stock_c0b82519" unique="false" columns="ubicacion_id"/>
     </table>
-    <table name="stock_unidadmedida_id_seq" schema="public" catalog="SIGB" type="SEQUENCE">
+    <table name="stock_stock_id_seq" schema="public" catalog="SIGB" type="SEQUENCE">
+      <column name="sequence_name" sqlType="name" precision="2147483647" scale="0" nullable="false" jdbcType="12"/>
+      <column name="last_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="start_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="increment_by" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="max_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="min_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="cache_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="log_cnt" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="is_cycled" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
+      <column name="is_called" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
+    </table>
+    <table name="stock_stockdetalle" schema="public" catalog="SIGB" type="TABLE">
+      <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgnc3RvY2tfc3RvY2tkZXRhbGxlX2lkX3NlcSc6OnJlZ2NsYXNzKQ==" autoIncrement="true"/>
+      <column name="fecha_hora_registro_stock" sqlType="timestamptz" precision="35" scale="6" nullable="false" jdbcType="93"/>
+      <column name="tipo_movimiento" sqlType="varchar" precision="2" scale="0" nullable="false" jdbcType="12"/>
+      <column name="cantidad_entrante" sqlType="numeric" precision="10" scale="3" nullable="false" jdbcType="2"/>
+      <column name="cantidad_saliente" sqlType="numeric" precision="10" scale="3" nullable="false" jdbcType="2"/>
+      <column name="stock_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <primary-key name="stock_stockdetalle_pkey" columns="id"/>
+      <foreign-key name="stock_stockdetalle_stock_id_343470ff_fk_stock_stock_id" columns="stock_id" ref-table="stock_stock" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <index name="stock_stockdetalle_aff86b81" unique="false" columns="stock_id"/>
+    </table>
+    <table name="stock_stockdetalle_id_seq" schema="public" catalog="SIGB" type="SEQUENCE">
+      <column name="sequence_name" sqlType="name" precision="2147483647" scale="0" nullable="false" jdbcType="12"/>
+      <column name="last_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="start_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="increment_by" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="max_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="min_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="cache_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="log_cnt" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="is_cycled" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
+      <column name="is_called" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
+    </table>
+    <table name="ventas_aperturacaja" schema="public" catalog="SIGB" type="TABLE">
+      <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgndmVudGFzX2FwZXJ0dXJhY2FqYV9pZF9zZXEnOjpyZWdjbGFzcyk=" autoIncrement="true"/>
+      <column name="fecha_hora_apertura_caja" sqlType="timestamptz" precision="35" scale="6" nullable="false" jdbcType="93"/>
+      <column name="monto_apertura" sqlType="numeric" precision="20" scale="0" nullable="false" jdbcType="2"/>
+      <column name="caja_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="cajero_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <primary-key name="ventas_aperturacaja_pkey" columns="id"/>
+      <foreign-key name="ventas_aperturacaja_caja_id_41ec3e9b_fk_bar_caja_id" columns="caja_id" ref-table="bar_caja" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <foreign-key name="ventas_aperturacaja_cajero_id_f74b1e6_fk_personal_empleado_id" columns="cajero_id" ref-table="personal_empleado" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <index name="ventas_aperturacaja_00f81d68" unique="false" columns="caja_id"/>
+      <index name="ventas_aperturacaja_dc44dec3" unique="false" columns="cajero_id"/>
+    </table>
+    <table name="ventas_aperturacaja_id_seq" schema="public" catalog="SIGB" type="SEQUENCE">
+      <column name="sequence_name" sqlType="name" precision="2147483647" scale="0" nullable="false" jdbcType="12"/>
+      <column name="last_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="start_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="increment_by" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="max_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="min_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="cache_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="log_cnt" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="is_cycled" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
+      <column name="is_called" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
+    </table>
+    <table name="ventas_cocina" schema="public" catalog="SIGB" type="TABLE">
+      <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgndmVudGFzX2NvY2luYV9pZF9zZXEnOjpyZWdjbGFzcyk=" autoIncrement="true"/>
+      <primary-key name="ventas_cocina_pkey" columns="id"/>
+    </table>
+    <table name="ventas_cocina_id_seq" schema="public" catalog="SIGB" type="SEQUENCE">
       <column name="sequence_name" sqlType="name" precision="2147483647" scale="0" nullable="false" jdbcType="12"/>
       <column name="last_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
       <column name="start_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
@@ -2608,12 +3108,19 @@
     </table>
     <table name="ventas_pedido" schema="public" catalog="SIGB" type="TABLE">
       <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgndmVudGFzX3BlZGlkb19pZF9zZXEnOjpyZWdjbGFzcyk=" autoIncrement="true"/>
-      <column name="fecha" sqlType="timestamptz" precision="35" scale="6" nullable="false" jdbcType="93"/>
-      <column name="mesa_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="mesa_pedido_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="estado_pedido_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="fecha_pedido" sqlType="timestamptz" precision="35" scale="6" nullable="false" jdbcType="93"/>
+      <column name="mozo_pedido_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="total_pedido" sqlType="numeric" precision="20" scale="0" nullable="false" jdbcType="2"/>
       <primary-key name="ventas_pedido_pkey" columns="id"/>
-      <foreign-key name="ventas_pedido_mesa_id_5846e072_fk_bar_mesa_id" columns="mesa_id" ref-table="bar_mesa" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <foreign-key name="ventas_pedido_mesa_pedido_id_4625ff41_fk_bar_mesa_id" columns="mesa_pedido_id" ref-table="bar_mesa" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <foreign-key name="ventas_pedido_estado_pedido_id_1c964479_fk_bar_pedidoestado_id" columns="estado_pedido_id" ref-table="bar_pedidoestado" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <foreign-key name="ventas_pedido_mozo_pedido_id_ed47f40_fk_personal_empleado_id" columns="mozo_pedido_id" ref-table="personal_empleado" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
       <exported-key name="ventas_pedidodetalle_pedido_id_28a44399_fk_ventas_pedido_id" table="ventas_pedidodetalle" schema="public" catalog="SIGB" columns="pedido_id"/>
-      <index name="ventas_pedido_05432d71" unique="false" columns="mesa_id"/>
+      <index name="ventas_pedido_05432d71" unique="false" columns="mesa_pedido_id"/>
+      <index name="ventas_pedido_8131720e" unique="false" columns="mozo_pedido_id"/>
+      <index name="ventas_pedido_9e919978" unique="false" columns="estado_pedido_id"/>
     </table>
     <table name="ventas_pedido_id_seq" schema="public" catalog="SIGB" type="SEQUENCE">
       <column name="sequence_name" sqlType="name" precision="2147483647" scale="0" nullable="false" jdbcType="12"/>
@@ -2629,16 +3136,82 @@
     </table>
     <table name="ventas_pedidodetalle" schema="public" catalog="SIGB" type="TABLE">
       <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgndmVudGFzX3BlZGlkb2RldGFsbGVfaWRfc2VxJzo6cmVnY2xhc3Mp" autoIncrement="true"/>
-      <column name="cantidad_producto" sqlType="numeric" precision="20" scale="2" nullable="false" jdbcType="2"/>
       <column name="pedido_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
-      <column name="producto_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="producto_pedido_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="cantidad_producto_pedido" sqlType="numeric" precision="10" scale="3" nullable="false" jdbcType="2"/>
+      <column name="fecha_pedido_detalle" sqlType="timestamptz" precision="35" scale="6" nullable="false" jdbcType="93"/>
+      <column name="total_producto_pedido" sqlType="numeric" precision="20" scale="0" nullable="false" jdbcType="2"/>
+      <column name="precio_producto_pedido_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
       <primary-key name="ventas_pedidodetalle_pkey" columns="id"/>
-      <foreign-key name="ventas_pedidodetalle_producto_id_6a1b4aaa_fk_stock_producto_id" columns="producto_id" ref-table="stock_producto" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <foreign-key name="b2fca37ab90d32a4f07a4432cafd3174" columns="precio_producto_pedido_id" ref-table="stock_precioventaproducto" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <foreign-key name="ventas_pedidod_producto_pedido_id_75484ebf_fk_stock_producto_id" columns="producto_pedido_id" ref-table="stock_producto" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
       <foreign-key name="ventas_pedidodetalle_pedido_id_28a44399_fk_ventas_pedido_id" columns="pedido_id" ref-table="ventas_pedido" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
       <index name="ventas_pedidodetalle_8253d097" unique="false" columns="pedido_id"/>
-      <index name="ventas_pedidodetalle_bb91903a" unique="false" columns="producto_id"/>
+      <index name="ventas_pedidodetalle_86eaf978" unique="false" columns="precio_producto_pedido_id"/>
+      <index name="ventas_pedidodetalle_bb91903a" unique="false" columns="producto_pedido_id"/>
     </table>
     <table name="ventas_pedidodetalle_id_seq" schema="public" catalog="SIGB" type="SEQUENCE">
+      <column name="sequence_name" sqlType="name" precision="2147483647" scale="0" nullable="false" jdbcType="12"/>
+      <column name="last_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="start_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="increment_by" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="max_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="min_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="cache_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="log_cnt" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="is_cycled" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
+      <column name="is_called" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
+    </table>
+    <table name="ventas_venta" schema="public" catalog="SIGB" type="TABLE">
+      <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgndmVudGFzX3ZlbnRhX2lkX3NlcSc6OnJlZ2NsYXNzKQ==" autoIncrement="true"/>
+      <column name="fecha_venta" sqlType="timestamptz" precision="35" scale="6" nullable="false" jdbcType="93"/>
+      <column name="total_venta" sqlType="numeric" precision="20" scale="0" nullable="false" jdbcType="2"/>
+      <column name="cliente_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="empresa_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="estado_venta_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="forma_pago_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="reserva_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <primary-key name="ventas_venta_pkey" columns="id"/>
+      <foreign-key name="ventas_venta_forma_pago_id_2c40b8d5_fk_bar_formapagoventa_id" columns="forma_pago_id" ref-table="bar_formapagoventa" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <foreign-key name="ventas_venta_estado_venta_id_59c6e4d5_fk_bar_ventaestado_id" columns="estado_venta_id" ref-table="bar_ventaestado" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <foreign-key name="ventas_venta_cliente_id_cc2bc83_fk_clientes_cliente_id" columns="cliente_id" ref-table="clientes_cliente" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <foreign-key name="ventas_venta_reserva_id_4a9d36c7_fk_clientes_reserva_id" columns="reserva_id" ref-table="clientes_reserva" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <foreign-key name="ventas__empresa_id_7eb1b452_fk_compras_empresa_proveedor_ptr_id" columns="empresa_id" ref-table="compras_empresa" ref-schema="public" ref-catalog="" ref-columns="proveedor_ptr_id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <exported-key name="ventas_ventadetalle_venta_id_14dc2d85_fk_ventas_venta_id" table="ventas_ventadetalle" schema="public" catalog="SIGB" columns="venta_id"/>
+      <index name="ventas_venta_439aeb9b" unique="false" columns="estado_venta_id"/>
+      <index name="ventas_venta_4a860110" unique="false" columns="cliente_id"/>
+      <index name="ventas_venta_7faa80b1" unique="false" columns="reserva_id"/>
+      <index name="ventas_venta_b81ac747" unique="false" columns="forma_pago_id"/>
+      <index name="ventas_venta_e8f8b1ef" unique="false" columns="empresa_id"/>
+    </table>
+    <table name="ventas_venta_id_seq" schema="public" catalog="SIGB" type="SEQUENCE">
+      <column name="sequence_name" sqlType="name" precision="2147483647" scale="0" nullable="false" jdbcType="12"/>
+      <column name="last_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="start_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="increment_by" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="max_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="min_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="cache_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="log_cnt" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
+      <column name="is_cycled" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
+      <column name="is_called" sqlType="bool" precision="1" scale="0" nullable="false" jdbcType="-7"/>
+    </table>
+    <table name="ventas_ventadetalle" schema="public" catalog="SIGB" type="TABLE">
+      <column name="id" sqlType="serial" precision="10" scale="0" nullable="false" jdbcType="4" def="bmV4dHZhbCgndmVudGFzX3ZlbnRhZGV0YWxsZV9pZF9zZXEnOjpyZWdjbGFzcyk=" autoIncrement="true"/>
+      <column name="cantidad_producto_venta" sqlType="numeric" precision="10" scale="3" nullable="false" jdbcType="2"/>
+      <column name="total_producto_venta" sqlType="numeric" precision="20" scale="0" nullable="false" jdbcType="2"/>
+      <column name="producto_venta_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="venta_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <column name="precio_producto_venta_id" sqlType="int4" precision="10" scale="0" nullable="false" jdbcType="4"/>
+      <primary-key name="ventas_ventadetalle_pkey" columns="id"/>
+      <foreign-key name="D878c745f993b5cdc3558942d038bd86" columns="precio_producto_venta_id" ref-table="stock_precioventaproducto" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <foreign-key name="ventas_ventadeta_producto_venta_id_709d7b9_fk_stock_producto_id" columns="producto_venta_id" ref-table="stock_producto" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <foreign-key name="ventas_ventadetalle_venta_id_14dc2d85_fk_ventas_venta_id" columns="venta_id" ref-table="ventas_venta" ref-schema="public" ref-catalog="" ref-columns="id" update-rule="3" delete-rule="3" deferrability="1"/>
+      <index name="ventas_ventadetalle_2e7dea68" unique="false" columns="precio_producto_venta_id"/>
+      <index name="ventas_ventadetalle_7195cb8c" unique="false" columns="producto_venta_id"/>
+      <index name="ventas_ventadetalle_a3d89257" unique="false" columns="venta_id"/>
+    </table>
+    <table name="ventas_ventadetalle_id_seq" schema="public" catalog="SIGB" type="SEQUENCE">
       <column name="sequence_name" sqlType="name" precision="2147483647" scale="0" nullable="false" jdbcType="12"/>
       <column name="last_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>
       <column name="start_value" sqlType="int8" precision="19" scale="0" nullable="false" jdbcType="-5"/>

@@ -1,18 +1,26 @@
 from django.contrib import admin
 
 # Register your models here.
-from stock.forms import PrecioProductoForm
+from stock.forms import PrecioVentaProductoForm
 
-from .models import Producto, PrecioProducto, Stock  # Receta, RecetaDetalle,
+from .models import Producto, PrecioVentaProducto, ProductoCompuesto, ProductoCompuestoDetalle, Stock, StockDetalle
+# SolicitaTransferenciaStock, ConfirmaTransferenciaStock
 
 
-class PrecioProductoInline(admin.TabularInline):
-    model = PrecioProducto
+# class PrecioVentaProductoAdmin(admin.ModelAdmin):
+#     list_display = ('producto', 'fecha_precio_producto', 'precio_venta', 'activo')
+#     list_filter = ['producto', 'fecha_precio_producto', 'precio_venta', 'activo']
+#     search_fields = ['producto', 'fecha_precio_producto', 'precio_venta', 'activo']
+
+class PrecioVentaProductoInline(admin.TabularInline):
+    model = PrecioVentaProducto
     extra = 0
-    form = PrecioProductoForm
+    form = PrecioVentaProductoForm
+    readonly_fields = ['fecha_precio_venta_producto']
 
 
 class ProductoAdmin(admin.ModelAdmin):
+
     # form =
 
     class Media:
@@ -23,8 +31,8 @@ class ProductoAdmin(admin.ModelAdmin):
     readonly_fields = ['fecha_alta_producto', 'thumb']
 
     fieldsets = [
-        ('Datos del Producto', {'fields': ['producto', 'codigo_barra', 'marca', 'fecha_alta_producto',
-                                           'unidad_medida_compra', 'imagen', 'thumb']}),
+        ('Datos del Producto', {'fields': ['producto', 'codigo_barra', 'marca', 'unidad_medida_compra', 'imagen',
+                                           'thumb', 'fecha_alta_producto']}),
         ('Contenido del Producto', {'fields': ['tipo_producto', 'categoria', 'subcategoria', 'unidad_medida_contenido',
                                                'contenido']}),
     ]
@@ -32,53 +40,187 @@ class ProductoAdmin(admin.ModelAdmin):
     # PrecioProducto debe estar disponible como Inline solo para los Productos que tienen Tipo de Producto
     # "VE - Para la Venta", serian los registrados con este Tipo de Producto en la pantalla de Productos mas
     # los Productos Compuestos
-    # inlines = [PrecioProductoInline]
+    inlines = [PrecioVentaProductoInline]
 
     # list_select_related = True
     list_display = ('id', 'producto', 'marca', 'fecha_alta_producto', 'unidad_medida_compra', 'tipo_producto',
                     'categoria', 'subcategoria', 'unidad_medida_contenido', 'contenido', 'thumb')
     list_filter = ['id', 'producto', 'marca', 'fecha_alta_producto', 'tipo_producto', 'categoria', 'subcategoria']
-    search_fields = ['id', 'producto', 'marca', 'fecha_alta_producto', 'tipo_producto', 'categoria', 'subcategoria']
+    search_fields = ['id', 'producto', 'marca', 'fecha_alta_producto', 'tipo_producto__tipo_producto',
+                     'categoria__categoria', 'subcategoria__subcategoria']
 
 
-# class PrecioProductoAdmin(admin.ModelAdmin):
-#     list_display = ('producto', 'fecha_precio_producto', 'precio_venta', 'activo')
-#     list_filter = ['producto', 'fecha_precio_producto', 'precio_venta', 'activo']
-#     search_fields = ['producto', 'fecha_precio_producto', 'precio_venta', 'activo']
+class ProductoCompuestoDetalleInline(admin.TabularInline):
+    model = ProductoCompuestoDetalle
+    extra = 0
+#    form = RecetaDetalleForm
+    raw_id_fields = ['producto']
+    verbose_name = 'Detalle de Productos del Producto Compuesto'
+    verbose_name_plural = 'Detalles de Productos de los Productos Compuestos'
+    fk_name = 'producto_compuesto'
 
 
-# class RecetaDetalleInline(admin.TabularInline):
-#     model = RecetaDetalle
-#     extra = 1
-# #    form = RecetaDetalleForm
-#
-#
-# class RecetaAdmin(admin.ModelAdmin):
-#
-#     inlines = [RecetaDetalleInline]
-#
-#     list_display = ('id', 'receta', 'estado')
-#     list_filter = ['id', 'receta', 'estado']
-#     search_fields = ['id', 'receta', 'estado']
-#
-#
-# class RecetaDetalleAdmin(admin.ModelAdmin):
-#     list_display = ('id', 'receta', 'producto', 'cantidad_producto')
-#     list_filter = ['id', 'receta', 'producto', 'cantidad_producto']
-#     search_fields = ['id', 'receta', 'producto', 'cantidad_producto']
+
+
+class ProductoCompuestoAdmin(admin.ModelAdmin):
+
+    # form =
+
+    class Media:
+        js = [
+            'stock/js/producto_compuesto.js'
+        ]
+
+    readonly_fields = ['fecha_alta_producto', 'thumb']
+
+    fieldsets = [
+        ('Datos del Producto Compuesto', {'fields': ['producto', 'tipo_producto', 'categoria',
+                                                     'subcategoria', 'fecha_alta_producto', 'imagen',
+                                                     'thumb']}),
+    ]
+
+    inlines = [ProductoCompuestoDetalleInline]
+
+    list_display = ('id', 'producto', 'tipo_producto', 'categoria', 'subcategoria',
+                    'fecha_alta_producto', 'thumb')
+    list_filter = ['id', 'producto', 'tipo_producto', 'categoria', 'subcategoria',
+                   'fecha_alta_producto']
+    search_fields = ['id', 'producto', 'tipo_producto', 'categoria', 'subcategoria',
+                     'fecha_alta_producto']
+
+    def save_model(self, request, obj, form, change):
+        if not change:
+            producto = Producto()
+        else:
+            producto = Producto.objects.get(obj.pk)
+        producto.imagen = obj.imagen
+        producto.producto = obj.producto
+        producto.tipo_producto = obj.tipo_producto
+        producto.categoria=obj.categoria
+        producto.subcategoria=obj.subcategoria
+        producto.save()
+
+    def save_formset(self, request, form, formset, change):
+        obj = form.instance
+        for f in formset:
+            detalle = ProductoCompuestoDetalle()
+            detalle.cantidad_producto = f.cleaned_data['cantidad_producto']
+            detalle.producto_compuesto_id = f.cleaned_data['cantidad_producto']
+            detalle.save()
+
+        return super(ProductoCompuestoAdmin,self).save_formset()
+
+
+
+
+    def get_queryset(self, request):
+        queryset = ProductoCompuesto.objects.filter(compuesto=True)
+        return queryset
+
+
+class StockDetalleInline(admin.TabularInline):
+    model = StockDetalle
+    extra = 0
+    readonly_fields = ['fecha_hora_registro_stock']
+    # form =
+    # raw_id_fields =
+    # verbose_name = ''
+    # verbose_name_plural = ''
 
 
 class StockAdmin(admin.ModelAdmin):
-    list_display = ('id', 'producto_stock', 'ubicacion', 'fecha_hora_registro_stock', 'stock_minimo',
-                    'cantidad_existente', 'cantidad_entrante', 'cantidad_saliente')
-    list_filter = ['id', 'producto_stock', 'ubicacion', 'fecha_hora_registro_stock', 'stock_minimo',
-                   'cantidad_existente', 'cantidad_entrante', 'cantidad_saliente']
-    search_fields = ['id', 'producto_stock', 'ubicacion', 'fecha_hora_registro_stock', 'stock_minimo',
-                     'cantidad_existente', 'cantidad_entrante', 'cantidad_saliente']
+
+    # form =
+
+    class Media:
+        js = [
+            'stock/js/stock.js'
+        ]
+
+    # readonly_fields = ['']
+
+    raw_id_fields = ['producto_stock']
+
+    fieldsets = [
+        ('Producto/Ubicacion', {'fields': ['producto_stock']}),
+        ('Cantidades', {'fields': ['stock_minimo', 'cantidad_existente']}),
+    ]
+
+    inlines = [StockDetalleInline]
+
+    list_display = ('id', 'producto_stock', 'stock_minimo', 'cantidad_existente')
+    list_filter = ['id', 'producto_stock__producto', 'stock_minimo', 'cantidad_existente']
+    search_fields = ['id', 'producto_stock__producto', 'stock_minimo', 'cantidad_existente']
+
+
+# class SolicitaTransferenciaStockAdmin(admin.ModelAdmin):
+#
+#     # form =
+#
+#     class Media:
+#         js = [
+#             'stock/js/transferencia_stock.js'
+#         ]
+#
+#     readonly_fields = ['estado_transferencia', 'fecha_hora_registro_transferencia']
+#
+#     # raw_id_fields = []
+#
+#     fieldsets = [
+#         ('Datos del Producto', {'fields': ['producto_transferencia', 'cantidad_producto_transferencia']}),
+#         ('Solicitante', {'fields': ['deposito_solicitante_transferencia', 'usuario_solicitante_transferencia']}),
+#         ('Proveedor', {'fields': ['deposito_proveedor_transferencia', 'usuario_autorizante_transferencia']}),
+#         ('Otros datos de la Transferencia', {'fields': ['estado_transferencia', 'fecha_hora_registro_transferencia']})
+#     ]
+#
+#     # inlines =
+#
+#     list_display = ['producto_transferencia', 'cantidad_producto_transferencia', 'deposito_solicitante_transferencia',
+#                     'usuario_solicitante_transferencia', 'deposito_proveedor_transferencia',
+#                     'usuario_autorizante_transferencia', 'estado_transferencia', 'fecha_hora_registro_transferencia']
+#     list_filter = ['producto_transferencia', 'deposito_solicitante_transferencia', 'usuario_solicitante_transferencia',
+#                    'deposito_proveedor_transferencia', 'usuario_autorizante_transferencia', 'estado_transferencia',
+#                    'fecha_hora_registro_transferencia']
+#     search_fields = ['producto_transferencia', 'cantidad_producto_transferencia', 'deposito_solicitante_transferencia',
+#                      'usuario_solicitante_transferencia', 'deposito_proveedor_transferencia',
+#                      'usuario_autorizante_transferencia', 'estado_transferencia', 'fecha_hora_registro_transferencia']
+#
+#
+# class ConfirmaTransferenciaStockAdmin(admin.ModelAdmin):
+#
+#     # form =
+#
+#     class Media:
+#         js = [
+#             'stock/js/transferencia_stock.js'
+#         ]
+#
+#     readonly_fields = ['estado_transferencia', 'fecha_hora_registro_transferencia']
+#
+#     # raw_id_fields = []
+#
+#     fieldsets = [
+#         ('Datos del Producto', {'fields': ['producto_transferencia', 'cantidad_producto_transferencia']}),
+#         ('Solicitante', {'fields': ['deposito_solicitante_transferencia', 'usuario_solicitante_transferencia']}),
+#         ('Proveedor', {'fields': ['deposito_proveedor_transferencia', 'usuario_autorizante_transferencia']}),
+#         ('Otros datos de la Transferencia', {'fields': ['estado_transferencia', 'fecha_hora_registro_transferencia']})
+#     ]
+#
+#     # inlines =
+#
+#     list_display = ['producto_transferencia', 'cantidad_producto_transferencia', 'deposito_solicitante_transferencia',
+#                     'usuario_solicitante_transferencia', 'deposito_proveedor_transferencia',
+#                     'usuario_autorizante_transferencia', 'estado_transferencia', 'fecha_hora_registro_transferencia']
+#     list_filter = ['producto_transferencia', 'deposito_solicitante_transferencia', 'usuario_solicitante_transferencia',
+#                    'deposito_proveedor_transferencia', 'usuario_autorizante_transferencia', 'estado_transferencia',
+#                    'fecha_hora_registro_transferencia']
+#     search_fields = ['producto_transferencia', 'cantidad_producto_transferencia', 'deposito_solicitante_transferencia',
+#                      'usuario_solicitante_transferencia', 'deposito_proveedor_transferencia',
+#                      'usuario_autorizante_transferencia', 'estado_transferencia', 'fecha_hora_registro_transferencia']
 
 admin.site.register(Producto, ProductoAdmin)
-# admin.site.register(PrecioProducto, PrecioProductoAdmin)
-# admin.site.register(Receta, RecetaAdmin)
-# admin.site.register(RecetaDetalle, RecetaDetalleAdmin)
-# admin.site.register(Deposito, DepositoAdmin)
+# admin.site.register(PrecioVentaProducto, PrecioVentaProductoAdmin)
+admin.site.register(ProductoCompuesto, ProductoCompuestoAdmin)
 admin.site.register(Stock, StockAdmin)
+# admin.site.register(SolicitaTransferenciaStock, SolicitaTransferenciaStockAdmin)
+# admin.site.register(ConfirmaTransferenciaStock, ConfirmaTransferenciaStockAdmin)

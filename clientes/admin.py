@@ -10,6 +10,7 @@ class ClienteDocumentoInline(admin.TabularInline):
     model = ClienteDocumento
     extra = 0
 #    form = ClienteDocumentoForm
+    readonly_fields = ['digito_verificador']
     min_num = 1
     verbose_name = 'Documento del Cliente'
     verbose_name_plural = 'Documentos del Cliente'
@@ -55,37 +56,54 @@ class ClienteAdmin(admin.ModelAdmin):
 
     def upper_case_name(self, obj):
         return ("%s %s" % (obj.nombres, obj.apellidos)).upper()
-    upper_case_name.short_description = 'Nombre'
+    upper_case_name.short_description = 'Nombres y Apellidos'
 
 
 class ReservaAdmin(admin.ModelAdmin):
 
     form = ReservaForm
 
+    readonly_fields = ('estado', 'usuario_registro', 'fecha_hora_registro_reserva',)
+
     raw_id_fields = ['cliente']
 
-    list_display = ('id', 'descripcion', 'cliente', 'fecha_hora', 'cantidad_personas', 'estado', 'pago')
-    list_filter = ['cliente', 'fecha_hora', 'estado']
-    search_fields = ['cliente', 'fecha_hora', 'estado']
+    fieldsets = [
+        ('Descripcion de la Reserva', {'fields': ['descripcion']}),
+        ('Cliente', {'fields': ['cliente']}),
+        ('Datos de la Reserva', {'fields': ['fecha_hora_reserva', 'cantidad_personas', 'mesas', 'pago', 'estado']}),
+        ('Otros Datos', {'fields': ['usuario_registro', 'fecha_hora_registro_reserva']}),
+    ]
+
+    list_display = ('id', 'descripcion', 'cliente', 'fecha_hora_reserva', 'cantidad_personas', 'estado', 'pago',
+                    'usuario_registro', 'fecha_hora_registro_reserva')
+    list_filter = ['cliente', 'fecha_hora_reserva', 'estado', 'usuario_registro']
+    search_fields = ['cliente', 'fecha_hora_reserva', 'estado', 'usuario_registro']
+
+    def save_model(self, request, obj, form, change):
+        if getattr(obj, 'usuario_registro', None) is None:
+            obj.usuario_registro = request.user
+        super(ReservaAdmin, self).save_model(request, obj, form, change)
+
+        # 2) Validar que las Mesas seleccionadas ya no se encuentran Reservadas para la fecha/hora indicada.
+        # if obj.
 
 
-class ClienteDocumentoAdmin(admin.ModelAdmin):
-    list_display = ('cliente', 'tipo_documento', 'numero_documento')
-    list_filter = ['cliente', 'tipo_documento', 'numero_documento']
-    search_fields = ['cliente', 'tipo_documento', 'numero_documento']
-
-
-class ClienteTelefonoAdmin(admin.ModelAdmin):
-    list_display = ('cliente', 'codigo_pais_telefono', 'codigo_operadora_telefono', 'telefono')
-    list_filter = ['cliente', 'codigo_pais_telefono', 'codigo_operadora_telefono', 'telefono']
-    search_fields = ['cliente', 'codigo_pais_telefono', 'codigo_operadora_telefono', 'telefono']
+# class ClienteDocumentoAdmin(admin.ModelAdmin):
+#     list_display = ('cliente', 'tipo_documento', 'numero_documento')
+#     list_filter = ['cliente', 'tipo_documento', 'numero_documento']
+#     search_fields = ['cliente', 'tipo_documento', 'numero_documento']
+#
+#
+# class ClienteTelefonoAdmin(admin.ModelAdmin):
+#     list_display = ('cliente', 'codigo_pais_telefono', 'codigo_operadora_telefono', 'telefono')
+#     list_filter = ['cliente', 'codigo_pais_telefono', 'codigo_operadora_telefono', 'telefono']
+#     search_fields = ['cliente', 'codigo_pais_telefono', 'codigo_operadora_telefono', 'telefono']
 
 
 # class MyAdminSite(admin.AdminSite):
 #     site_header = 'SIGB administracion de Clientes'
 #
 # admin_site = MyAdminSite(name='myadmin')
-
 
 admin.site.register(Cliente, ClienteAdmin)
 admin.site.register(Reserva, ReservaAdmin)

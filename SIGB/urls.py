@@ -15,7 +15,7 @@ Including another URLconf
 """
 from django.conf.urls import include, url
 from django.contrib import admin
-from controlcenter.views import controlcenter
+# from controlcenter.views import controlcenter
 from django.conf import settings
 from django.conf.urls.static import static
 from clientes.api import ClienteResource, PaisResource
@@ -44,7 +44,7 @@ urlpatterns = [
     # url(r'^grappelli/', include('grappelli.urls')),
     url(r'^admin/', include(admin.site.urls)),
     url(r'^api/', include(v1_api.urls)),
-    url(r'^admin/dashboard/', include(controlcenter.urls)),
+    # url(r'^admin/dashboard/', include(controlcenter.urls)),
     url(r'^sigb/', include(admin.site.urls)),
 
     # url(r'^myadmin/', include(admin.site.urls)),

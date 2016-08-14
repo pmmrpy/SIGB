@@ -47,7 +47,7 @@ INSTALLED_APPS = (
     'django.contrib.messages',
     'django.contrib.staticfiles',
     # 'polymorphic',
-    'controlcenter',
+    # 'controlcenter',
     'bar',
     'clientes',
     'compras',
@@ -148,9 +148,9 @@ SUIT_CONFIG = {
     # 'LIST_PER_PAGE': 15
 }
 
-CONTROLCENTER_DASHBOARDS = (
-    'SIGB.dashboards.MyDashboard',
-)
+# CONTROLCENTER_DASHBOARDS = (
+#     'SIGB.dashboards.MyDashboard',
+# )
 
 
 WSGI_APPLICATION = 'SIGB.wsgi.application'

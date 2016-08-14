@@ -1,6 +1,9 @@
 # coding=utf-8
+import datetime
 from django.db import models
 from django.utils import timezone
+from django.core.exceptions import ValidationError
+from django.utils.translation import ugettext_lazy as _
 
 # Create your models here.
 
@@ -25,6 +28,9 @@ class ReservaEstado(models.Model):
         ordering = ('id',)
         verbose_name = 'Reserva - Estado'
         verbose_name_plural = 'Reservas - Estados'
+
+    # VALIDACIONES/FUNCIONALIDADES
+    # 1)
 
     def __unicode__(self):
         return "%s" % (self.get_reserva_estado_display())
@@ -339,6 +345,9 @@ class SubCategoriaProducto(models.Model):
     #       ('ALH', 'Al horno')
     #       ('VER', 'Verduras')
     #       ('FRU', 'Frutas')
+    #       ('ENV', 'Envasados')
+    #       ('PRE', 'Preelaborados')
+    #       ('CAR', 'Carnicos')
     #     ('CIG', 'Cigarrillos'),
     # ),
     descripcion = models.CharField(max_length=200, verbose_name='Descripcion de la SubCategoria',
@@ -440,7 +449,7 @@ class Cotizacion(models.Model):
     Registra el historial de Cotizaciones de Monedas.
     """
     moneda = models.ForeignKey('Moneda', help_text='Seleccione la moneda para la cual definir su cotizacion.')
-    fecha_cotizacion = models.DateTimeField(default=timezone.now(), verbose_name='Fecha de Cotizacion',
+    fecha_cotizacion = models.DateTimeField(auto_now_add=True, verbose_name='Fecha de Cotizacion',
                                             help_text='Registra la fecha y hora en la que se definio la Cotizacion. '
                                                       'Corresponde a la fecha y hora actual.')
     cotizacion = models.DecimalField(max_digits=20, decimal_places=2,
@@ -605,9 +614,9 @@ class PedidoEstado(models.Model):
     """
     ESTADOS_PEDIDO = (
         ('VIG', 'Vigente'),
-        ('CAD', 'Caducada'),
-        ('UTI', 'Utilizada'),
-        ('CAN', 'Cancelada'),
+        # ('CAD', 'Caducado'),
+        ('PRO', 'Procesado'),
+        ('CAN', 'Cancelado'),
     )
     pedido_estado = models.CharField(max_length=3, choices=ESTADOS_PEDIDO, verbose_name='Estado del Pedido',
                                      help_text='Ingrese el identificador del Estado del Pedido. (Hasta 3 caracteres)')
@@ -645,3 +654,128 @@ class VentaEstado(models.Model):
 
     def __unicode__(self):
         return "%s" % (self.get_venta_estado_display())
+
+
+class Timbrado(models.Model):
+    """
+    Registra los datos de los Timbrados para la Empresa.
+    """
+    ESTADOS_TIMBRADO = {
+        ('AC', 'Activo'),
+        ('IN', 'Inactivo'),
+    }
+    empresa = models.ForeignKey('compras.Empresa')
+    timbrado = models.DecimalField(max_digits=8, decimal_places=0, verbose_name='Numero de Timbrado', default=1,
+                                   help_text='Ingrese el numero de Timbrado.')
+    descripcion_timbrado = models.CharField(max_length=200, verbose_name='Descripcion del Timbrado',
+                                            help_text='Ingrese la descripcion del Timbrado. (Hasta 200 caracteres)')
+    fecha_autorizacion_timbrado = models.DateField(default=timezone.datetime.today(),
+                                                   verbose_name='Fecha de Autorizacion del Timbrado',
+                                                   help_text='Ingrese la Fecha de Autorizacion del Timbrado')
+    fecha_limite_vigencia_timbrado = models.DateField(default=(timezone.datetime.today() +
+                                                               datetime.timedelta(days=365)),
+                                                      verbose_name='Fecha Limite de Vigencia del Timbrado',
+                                                      help_text='Ingrese la Fecha Limite de Vigencia del Timbrado')
+    estado_timbrado = models.CharField(max_length=2, choices=ESTADOS_TIMBRADO,
+                                       verbose_name='Estado del Timbrado',
+                                       help_text='Seleccione el Estado del Timbrado (Solo un Timbrado puede tener el '
+                                                 'estado ACTIVO.)')
+
+    # def clean(self):
+    #     Valida que la fecha_limite_vigencia_timbrado sea mayor a la fecha_autorizacion_timbrado
+    #     if self.fecha_limite_vigencia_timbrado <= self.fecha_autorizacion_timbrado:
+    #         raise ValidationError({'fecha_limite_vigencia_timbrado': _('La Fecha Limite de Vigencia del Timbrado '
+    #                                                                    'debe ser mayor a la Fecha de Autorizacion '
+    #                                                                    'del Timbrado.')})
+    #
+    #     Validar que exista un unico Timbrado como Activo.
+
+    def __unicode__(self):
+        return "%s - %s" % (self.timbrado, self.descripcion_timbrado)
+
+
+class Factura(models.Model):
+    """
+    Mantiene los datos de los Numeros de Factura por Punto de Expedicion (Cajas).
+    """
+    caja = models.OneToOneField('Caja')
+    numero_factura_inicial = models.PositiveIntegerField()
+    numero_factura_final = models.PositiveIntegerField()
+    numero_factura_actual = models.PositiveIntegerField()
+
+
+class TipoMovimientoStock(models.Model):
+    """
+    Diversos TIPOS DE MOVIMIENTO que se pueden registrar en el Stock de un Producto.
+    """
+    TIPOS_MOVIMIENTO_STOCK = (
+        ('VE', 'Venta'),
+        ('CO', 'Compra'),
+        ('ME', 'Mermas'),
+        ('TR', 'Transferencias'),
+        ('DE', 'Devoluciones'),
+    )
+    tipo_movimiento_stock = models.CharField(max_length=2, choices=TIPOS_MOVIMIENTO_STOCK,
+                                             verbose_name='Tipo de Movimiento de Stock',
+                                             help_text='Ingrese el identificador del Tipo de Movimiento de Stock. '
+                                                       '(Hasta 2 caracteres)')
+    descripcion = models.CharField(max_length=200, verbose_name='Descripcion del Tipo de Movimiento de Stock',
+                                   help_text='Ingrese la descripcion del Tipo de Movimiento de Stock. (Hasta 200 '
+                                             'caracteres)')
+
+    class Meta:
+        ordering = ('id',)
+        verbose_name = 'Stock - Tipo de Movimiento'
+        verbose_name_plural = 'Stock - Tipos de Movimientos'
+
+    def __unicode__(self):
+        return "%s" % self.get_tipo_movimiento_stock_display()
+
+
+class TransferenciaStockEstado(models.Model):
+    """
+    Diversos ESTADOS que puede tener una Transferencia de Stock entre Depositos.
+    """
+    ESTADOS_TRANSFERENCIA = (
+        ('PEN', 'Pendiente'),
+        ('PRO', 'Procesada'),
+        ('CAN', 'Cancelada'),
+    )
+    estado_transferencia_stock = models.CharField(max_length=3, choices=ESTADOS_TRANSFERENCIA,
+                                                  verbose_name='Estado de la Transferencia de Stock',
+                                                  help_text='Ingrese el identificador del Estado de la Transferencia '
+                                                            'de Stock entre depositos. (Hasta 3 caracteres)')
+    descripcion = models.CharField(max_length=200, verbose_name='Descripcion del Estado',
+                                   help_text='Ingrese la descripcion del Estado del Pedido. (Hasta 200 caracteres)')
+
+    class Meta:
+        ordering = ('id',)
+        verbose_name = 'Stock - Transferencia - Estado'
+        verbose_name_plural = 'Stock - Transferencias - Estados'
+
+    def __unicode__(self):
+        return "%s" % (self.get_estado_transferencia_stock_display())
+
+
+class TipoFacturaCompra(models.Model):
+    """
+    Registra las opciones de Formas de Pagos disponibles para las compras.
+    """
+    TIPOS_FACTURA_COMPRA = (
+        ('CON', 'Contado'),
+        ('CRE', 'Credito'),
+    )
+    tipo_factura_compra = models.CharField(max_length=3, choices=TIPOS_FACTURA_COMPRA,  # default='CON',
+                                           verbose_name='Tipo de Factura Compra',
+                                           help_text='Ingrese el identificador del Tipo de Factura de Compra. '
+                                                     '(Hasta 3 caracteres)')
+    descripcion = models.CharField(max_length=200, verbose_name='Descripcion del Tipo de Factura Compra',
+                                   help_text='Ingrese la descripcion del Tipo de Factura Compra. (Hasta 200 '
+                                             'caracteres)')
+
+    class Meta:
+        verbose_name = 'Compra - Tipo de Factura'
+        verbose_name_plural = 'Compra - Tipo de Factura'
+
+    def __unicode__(self):
+        return "%s" % (self.get_tipo_factura_compra_display())

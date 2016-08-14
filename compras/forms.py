@@ -1,29 +1,47 @@
 __author__ = 'pmmr'
 
 from django import forms
-from .models import LineaCreditoProveedor, OrdenCompra, OrdenCompraDetalle, Compra
-from clientes.models import Cliente
+from .models import LineaCreditoProveedor, LineaCreditoProveedorDetalle, PagoProveedor, FacturaProveedor, OrdenCompra, \
+    OrdenCompraDetalle, Compra, CompraDetalle
 
-# Restringir la carga de un mismo producto varias veces (Es correcto esto?)
 
+# def get_my_choices():
+#     # you place some logic here
+#     choices_list = (
+#         ('EPP', 'En Proceso Proveedor'),
+#         # ('ENT', 'Entregada por Proveedor'),
+#         # ('PEP', 'Pendiente Entrega Proveedor'),
+#         ('CAN', 'Cancelada'),
+#     )
+#     return choices_list
 
 class LineaCreditoProveedorForm(forms.ModelForm):
     class Meta:
         model = LineaCreditoProveedor
         fields = '__all__'
-        localized_fields = ('linea_credito_proveedor',)
+        localized_fields = ['linea_credito_proveedor', 'monto_total_facturas_proveedor', 'monto_total_pagos_proveedor',
+        'uso_linea_credito_proveedor']
 
 
-def get_my_choices():
-    # you place some logic here
-    choices_list = (
-        ('EPP', 'En Proceso Proveedor'),
-        # ('ENT', 'Entregada por Proveedor'),
-        # ('PEP', 'Pendiente Entrega Proveedor'),
-        ('CAN', 'Cancelada'),
-    )
-    return choices_list
+class LineaCreditoProveedorDetalleForm(forms.ModelForm):
+    class Meta:
+        model = LineaCreditoProveedorDetalle
+        fields = '__all__'
+        localized_fields = ['monto_movimiento']
 
+
+class PagoProveedorForm(forms.ModelForm):
+    class Meta:
+        model = PagoProveedor
+        fields = '__all__'
+        localized_fields = ['monto_pago_proveedor']
+
+
+class FacturaProveedorForm(forms.ModelForm):
+    class Meta:
+        model = FacturaProveedor
+        fields = '__all__'
+        localized_fields = ['total_pago_factura']
 
 class OrdenCompraForm(forms.ModelForm):
 
@@ -33,7 +51,7 @@ class OrdenCompraForm(forms.ModelForm):
     class Meta:
         model = OrdenCompra
         fields = '__all__'
-        localized_fields = ('total_orden_compra',)
+        localized_fields = ['total_orden_compra']
     #     # widgets = {
     #     #     'estado_orden_compra': forms.Select(),
     #     # }
@@ -50,11 +68,18 @@ class OrdenCompraDetalleForm(forms.ModelForm):
     class Meta:
         model = OrdenCompraDetalle
         fields = '__all__'
-        localized_fields = ('precio_producto_orden_compra', 'total_producto_orden_compra')
+        localized_fields = ['precio_producto_orden_compra', 'total_producto_orden_compra']
 
 
 class CompraForm(forms.ModelForm):
     class Meta:
         model = Compra
         fields = '__all__'
-        localized_fields = ('total_compra',)
+        localized_fields = ['total_compra']
+
+
+class CompraDetalleForm(forms.ModelForm):
+    class Meta:
+        model = CompraDetalle
+        fields = '__all__'
+        localized_fields = ['precio_producto_compra', 'total_producto_compra']
