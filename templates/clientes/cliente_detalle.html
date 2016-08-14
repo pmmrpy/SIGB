@@ -1,0 +1,20 @@
+{% extends 'clientes/base.html' %}
+
+{% block content %}
+    <div class="cliente">
+        {% if cliente.fecha_nacimiento %}
+            <div class="date">
+                {{ cliente.fecha_nacimiento }}
+            </div>
+        {% endif %}
+        {% if user.is_authenticated %}
+            <a class="btn btn-default" href="{% url 'cliente_edit' cliente_id=cliente.pk %}"><span class="glyphicon glyphicon-pencil"></span></a>
+        {% endif %}
+        <h1>{{ cliente.nombres }} {{ cliente.apellidos }}</h1>
+        <p>Sexo: {{ cliente.sexo }}</p>
+        <p>Direccion: {{ cliente.direccion}}</p>
+        <p>Pais: {{ cliente.pais }}</p>
+        <p>Ciudad: {{ cliente.ciudad }}</p>
+        <p>Email: {{ cliente.email }}</p>
+    </div>
+{% endblock %}

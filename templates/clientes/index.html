@@ -1,0 +1,13 @@
+{% extends 'clientes/base.html' %}
+
+{% block content %}
+    {% for cliente in clientes %}
+        <div class="cliente">
+            <div class="date">
+                <p>Fecha de nacimiento: {{ cliente.fecha_nacimiento }}</p>
+            </div>
+            <h2><a href="{% url 'cliente_detalle' cliente_id=cliente.pk %}">{{ cliente.nombres }} {{ cliente.apellidos }}</a></h2>
+            <p>Direccion: {{ cliente.direccion }}</p>
+        </div>
+    {% endfor %}
+{% endblock %}

@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <title>Table dependents report - compras_proveedor</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <style type="text/css">
+      body {  font-family: verdana, helvetica, sans-serif; margin: 0px; padding: 0; }
+      h1 { font-weight: bold; font-size: 150%; border-bottom-style: solid; border-bottom-width: 2px; margin-top: 0px; padding-bottom: 0.5ex; color: #eeeeee; overflow: hidden; text-overflow: ellipsis; }
+      h2 { font-size: 130%; padding-bottom: 0.5ex; color: #009ACE; border-bottom-style: solid; border-bottom-width: 2px; }
+      h3 { font-size: 110%; padding-bottom: 0.5ex; color: #000000; }
+      th { text-align: left; background-color: #009ACE; color: #eeeeee; }
+      #ReportHeader { padding: 10px; background-color: #009ACE; color: #eeeeee; border-bottom-style: solid; border-bottom-width: 2px; border-color: #999999; }
+      #ReportHeader th { width: 25%; white-space: nowrap; vertical-align: top; }
+      #ReportHeader td { vertical-align: top; color: #eeeeee; }
+      #ReportNotes { padding: 10px; background-color: #eeeeee; font-size: 80%; border-bottom-style: solid; border-bottom-width: 2px; border-color: #999999; }
+      .ReportSQL { margin-bottom: 10px; padding: 10px; display: block; background-color: #eeeeee; font-family: monospace; }
+      #ReportDetails { margin-left: 10px; margin-right: 10px; margin-bottom: 10px; }
+      #ReportDetails td, th { font-size: 80%; margin-left: 2px; margin-right: 2px; }
+      #ReportDetails th { border-bottom-color: #777777; border-bottom-style: solid; border-bottom-width: 2px; }
+      .ReportDetailsOddDataRow { background-color: #dddddd; }
+      .ReportDetailsEvenDataRow { background-color: #eeeeee; }
+      .ReportTableHeaderCell { background-color: #dddddd; color: #009ACE; vertical-align: top; font-size: 80%; white-space: nowrap; }
+      .ReportTableValueCell { vertical-align: top; font-size: 80%; white-space: nowrap; }
+      .ReportTableInfo { font-size: 80%; font-style: italic; }
+      #ReportFooter { font-weight: bold; font-size: 80%; text-align: right; background-color: #009ACE; color: #eeeeee; margin-top: 10px; padding: 2px; border-bottom-style: solid; border-bottom-width: 2px; border-top-style: solid; border-top-width: 2px; border-color: #999999; }
+      #ReportFooter a { color: #ffffff; text-decoration: none; }
+    </style>
+  </head>
+  <body>
+    <div id="ReportHeader"><h1>Table dependents report - compras_proveedor</h1><b>Generated: </b>28/07/2016 02:43:55 p.m.<br /><b>Server: </b>PostgreSQL 9.4 (x86) (localhost:5432)<br /><b>Database: </b>SIGB<br /><b>Schema: </b>public<br /></div>
+    <div id="ReportDetails">
+      <h2>Table dependents</h2>
+      <div style="overflow:auto;">
+        <table>
+          <tr>
+            <th class="ReportTableHeaderCell" width="33,3333333333333%">Type</th>
+            <th class="ReportTableHeaderCell" width="33,3333333333333%">Name</th>
+            <th class="ReportTableHeaderCell" width="33,3333333333333%">Restriction</th>
+          </tr>
+          <tr class="ReportDetailsEvenDataRow">
+            <td class="ReportTableValueCell">Sequence</td>
+            <td class="ReportTableValueCell">compras_proveedor_id_seq</td>
+            <td class="ReportTableValueCell">auto</td>
+          </tr>
+          <tr class="ReportDetailsOddDataRow">
+            <td class="ReportTableValueCell">Index</td>
+            <td class="ReportTableValueCell">compras_proveedor_266085d5</td>
+            <td class="ReportTableValueCell">auto</td>
+          </tr>
+          <tr class="ReportDetailsEvenDataRow">
+            <td class="ReportTableValueCell">Index</td>
+            <td class="ReportTableValueCell">compras_proveedor_65042eb5</td>
+            <td class="ReportTableValueCell">auto</td>
+          </tr>
+          <tr class="ReportDetailsOddDataRow">
+            <td class="ReportTableValueCell">Index</td>
+            <td class="ReportTableValueCell">compras_proveedor_d6dd4c2d</td>
+            <td class="ReportTableValueCell">auto</td>
+          </tr>
+          <tr class="ReportDetailsEvenDataRow">
+            <td class="ReportTableValueCell">Index</td>
+            <td class="ReportTableValueCell">compras_proveedor_ruc_1db0ec41_like</td>
+            <td class="ReportTableValueCell">auto</td>
+          </tr>
+          <tr class="ReportDetailsOddDataRow">
+            <td class="ReportTableValueCell">Function</td>
+            <td class="ReportTableValueCell">nextval('compras_proveedor_id_seq'::regclass)</td>
+            <td class="ReportTableValueCell">auto</td>
+          </tr>
+          <tr class="ReportDetailsEvenDataRow">
+            <td class="ReportTableValueCell">Foreign Key</td>
+            <td class="ReportTableValueCell">compras_proveedor.compras_proveedo_persona_proveedor_id_a1da523_fk_bar_persona_id</td>
+            <td class="ReportTableValueCell">auto</td>
+          </tr>
+          <tr class="ReportDetailsOddDataRow">
+            <td class="ReportTableValueCell">Foreign Key</td>
+            <td class="ReportTableValueCell">compras_proveedor.compras_proveedor_ciudad_proveedor_id_4d385122_fk_bar_ciudad_id</td>
+            <td class="ReportTableValueCell">auto</td>
+          </tr>
+          <tr class="ReportDetailsEvenDataRow">
+            <td class="ReportTableValueCell">Foreign Key</td>
+            <td class="ReportTableValueCell">compras_proveedor.compras_proveedor_pais_proveedor_id_430f8a11_fk_bar_pais_id</td>
+            <td class="ReportTableValueCell">auto</td>
+          </tr>
+          <tr class="ReportDetailsOddDataRow">
+            <td class="ReportTableValueCell">Primary Key</td>
+            <td class="ReportTableValueCell">compras_proveedor_pkey</td>
+            <td class="ReportTableValueCell">auto</td>
+          </tr>
+          <tr class="ReportDetailsEvenDataRow">
+            <td class="ReportTableValueCell">Unique</td>
+            <td class="ReportTableValueCell">compras_proveedor_ruc_key</td>
+            <td class="ReportTableValueCell">auto</td>
+          </tr>
+          <tr class="ReportDetailsOddDataRow">
+            <td class="ReportTableValueCell">Foreign Key</td>
+            <td class="ReportTableValueCell">compras_empresa.compras_empre_proveedor_ptr_id_12fcdc94_fk_compras_proveedor_id</td>
+            <td class="ReportTableValueCell">normal</td>
+          </tr>
+          <tr class="ReportDetailsEvenDataRow">
+            <td class="ReportTableValueCell">Foreign Key</td>
+            <td class="ReportTableValueCell">compras_lineacreditoproveedor.compras_lineacred_proveedor_id_245af655_fk_compras_proveedor_id</td>
+            <td class="ReportTableValueCell">normal</td>
+          </tr>
+          <tr class="ReportDetailsOddDataRow">
+            <td class="ReportTableValueCell">Foreign Key</td>
+            <td class="ReportTableValueCell">compras_ordencompra.compr_proveedor_orden_compra_id_1985c7f_fk_compras_proveedor_id</td>
+            <td class="ReportTableValueCell">normal</td>
+          </tr>
+          <tr class="ReportDetailsEvenDataRow">
+            <td class="ReportTableValueCell">Foreign Key</td>
+            <td class="ReportTableValueCell">compras_productoproveedor.compras_productop_proveedor_id_743b788a_fk_compras_proveedor_id</td>
+            <td class="ReportTableValueCell">normal</td>
+          </tr>
+          <tr class="ReportDetailsOddDataRow">
+            <td class="ReportTableValueCell">Foreign Key</td>
+            <td class="ReportTableValueCell">compras_proveedortelefono.compras_proveedort_proveedor_id_ee78202_fk_compras_proveedor_id</td>
+            <td class="ReportTableValueCell">normal</td>
+          </tr>
+        </table>
+      </div>
+      <br />
+    </div>
+    <div id="ReportFooter">
+Report generated by <a href="http://www.pgadmin.org/">pgAdmin III</a></div>
+    <br />
+  </body>
+</html>
