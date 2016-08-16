@@ -56,6 +56,7 @@ class ProveedorAdmin(admin.ModelAdmin):
 
     list_display = ('id', 'proveedor', 'persona_proveedor', 'ruc', 'digito_verificador', 'direccion', 'pais_proveedor',
                     'ciudad_proveedor', 'pagina_web', 'fecha_alta_proveedor')
+    list_display_links = ['proveedor']
     list_filter = ['id', 'proveedor', 'ruc', 'fecha_alta_proveedor']
     search_fields = ['id', 'proveedor', 'ruc', 'fecha_alta_proveedor']
 
@@ -124,32 +125,37 @@ class FacturaProveedorAdmin(admin.ModelAdmin):
             ''
         ]
 
-    readonly_fields = ['compra', 'numero_factura_compra', 'fecha_factura_compra', 'tipo_factura_compra',
-                       'forma_pago_compra', 'plazo_factura_compra', 'total_factura_compra', 'total_pago_factura']
+    readonly_fields = ['proveedor', 'compra', 'numero_factura_compra', 'fecha_factura_compra', 'tipo_factura_compra',
+                       'forma_pago_compra', 'plazo_factura_compra', 'total_factura_compra', 'total_pago_factura',
+                       'estado_factura_compra']
+
+    # readonly_fields = ['__all__']
 
     raw_id_fields = ['compra']
 
     fieldsets = [
-        ('Datos de la Factura', {'fields': ['compra', 'numero_factura_compra', 'fecha_factura_compra',
+        ('Datos de la Factura', {'fields': ['proveedor', 'compra', 'numero_factura_compra', 'fecha_factura_compra',
                                             'tipo_factura_compra', 'forma_pago_compra', 'plazo_factura_compra',
-                                            'total_factura_compra', 'total_pago_factura']}),
+                                            'total_factura_compra', 'total_pago_factura', 'estado_factura_compra']}),
     ]
 
     inlines = [PagoProveedorInline]
 
-    list_display = ['id', 'compra', 'numero_factura_compra', 'fecha_factura_compra', 'tipo_factura_compra',
-                    'forma_pago_compra', 'plazo_factura_compra', 'total_factura_compra', 'total_pago_factura']
-    list_filter = ['id', 'compra', 'numero_factura_compra', 'fecha_factura_compra', 'tipo_factura_compra',
-                   'forma_pago_compra', 'plazo_factura_compra']
-    search_fields = ['id', 'compra', 'numero_factura_compra', 'fecha_factura_compra', 'tipo_factura_compra',
-                     'forma_pago_compra', 'plazo_factura_compra']
+    list_display = ['id', 'proveedor', 'compra', 'numero_factura_compra', 'fecha_factura_compra', 'tipo_factura_compra',
+                    'forma_pago_compra', 'plazo_factura_compra', 'total_factura_compra', 'total_pago_factura',
+                    'estado_factura_compra']
+    list_display_links = ['proveedor']
+    list_filter = ['id', 'proveedor', 'compra', 'numero_factura_compra', 'fecha_factura_compra', 'tipo_factura_compra',
+                   'forma_pago_compra', 'plazo_factura_compra', 'estado_factura_compra']
+    search_fields = ['id', 'proveedor', 'compra', 'numero_factura_compra', 'fecha_factura_compra',
+                     'tipo_factura_compra', 'forma_pago_compra', 'plazo_factura_compra', 'estado_factura_compra']
 
 
-class ProductoProveedorAdmin(admin.ModelAdmin):
-    raw_id_fields = ['producto']
-    list_display = ('id', 'proveedor', 'producto')
-    list_filter = ['id', 'proveedor', 'producto']
-    search_fields = ['id', 'proveedor', 'producto']
+# class ProductoProveedorAdmin(admin.ModelAdmin):
+#     raw_id_fields = ['producto']
+#     list_display = ('id', 'proveedor', 'producto')
+#     list_filter = ['id', 'proveedor', 'producto']
+#     search_fields = ['id', 'proveedor', 'producto']
 
 
 class EmpresaAdmin(admin.ModelAdmin):
@@ -219,15 +225,18 @@ class OrdenCompraAdmin(admin.ModelAdmin):
 
     class Media:
         js = [
-            'compras/js/ordencompra.js'
+            'compras/js/orden_compra.js'
         ]
 
     # readonly_fields = ('numero_orden_compra', 'fecha_orden_compra', 'estado_orden_compra')
 
+    raw_id_fields = ['proveedor_orden_compra']
+
     fieldsets = [
         ('Numero Orden de Compra', {'fields': ['numero_orden_compra']}),
         ('Datos del Proveedor', {'fields': ['proveedor_orden_compra', 'forma_pago_orden_compra']}),
-        ('Fechas', {'fields': ['fecha_orden_compra', 'fecha_entrega_orden_compra']}),
+        ('Fechas', {'fields': ['fecha_orden_compra', 'fecha_ultima_modificacion_orden_compra',
+                               'fecha_entrega_orden_compra']}),
         # ('Fecha de Entrega del Pedido', {'fields': ['fecha_entrega']}),
         ('Otros datos de la Orden de Compra', {'fields': ['estado_orden_compra', 'total_orden_compra']}),
     ]
@@ -236,12 +245,14 @@ class OrdenCompraAdmin(admin.ModelAdmin):
 
     # list_select_related = True
     list_display = ('numero_orden_compra', 'proveedor_orden_compra', 'fecha_orden_compra',
-                    'fecha_entrega_orden_compra', 'forma_pago_orden_compra', 'estado_orden_compra',
-                    'total_orden_compra')
+                    'fecha_ultima_modificacion_orden_compra', 'fecha_entrega_orden_compra', 'forma_pago_orden_compra',
+                    'estado_orden_compra', 'total_orden_compra')
     list_filter = ['numero_orden_compra', ('proveedor_orden_compra', admin.RelatedOnlyFieldListFilter),
-                   'fecha_orden_compra', 'fecha_entrega_orden_compra', 'forma_pago_orden_compra', 'estado_orden_compra']
+                   'fecha_orden_compra', 'fecha_ultima_modificacion_orden_compra', 'fecha_entrega_orden_compra',
+                   'forma_pago_orden_compra', 'estado_orden_compra']
     search_fields = ['numero_orden_compra', 'proveedor_orden_compra', 'fecha_orden_compra',
-                     'fecha_entrega_orden_compra', 'forma_pago_orden_compra', 'estado_orden_compra']
+                     'fecha_ultima_modificacion_orden_compra', 'fecha_entrega_orden_compra', 'forma_pago_orden_compra',
+                     'estado_orden_compra']
 
     # def get_readonly_fields(self, request, obj=None):
     #     if obj:  # This is the case when obj is already created i.e. it's an edit
@@ -252,12 +263,14 @@ class OrdenCompraAdmin(admin.ModelAdmin):
 
     def get_readonly_fields(self, request, obj=None):
         if obj is not None and obj.estado_orden_compra.estado_orden_compra in ('EPP', 'PEP'):
-            return ['numero_orden_compra', 'fecha_orden_compra', 'estado_orden_compra', 'proveedor_orden_compra']
+            return ['numero_orden_compra', 'fecha_orden_compra', 'fecha_ultima_modificacion_orden_compra',
+                    'estado_orden_compra', 'proveedor_orden_compra']
         elif obj is not None and obj.estado_orden_compra.estado_orden_compra in ('ENT', 'CAN'):
             return [i.name for i in self.model._meta.fields] + \
                    [i.name for i in self.model._meta.many_to_many]
         elif obj is None:
-            return ['numero_orden_compra', 'fecha_orden_compra', 'estado_orden_compra']
+            return ['numero_orden_compra', 'fecha_orden_compra', 'fecha_ultima_modificacion_orden_compra',
+                    'estado_orden_compra']
         else:
             return super(OrdenCompraAdmin, self).get_readonly_fields(request, obj)
 
@@ -267,7 +280,8 @@ class OrdenCompraAdmin(admin.ModelAdmin):
         extra_context['show_button'] = True
         if object_id is not None:
             orden_compra_actual = OrdenCompra.objects.get(pk=object_id)
-            extra_context['show_button'] = orden_compra_actual.estado_orden_compra.estado_orden_compra not in ('ENT', 'CAN')
+            extra_context['show_button'] = orden_compra_actual.estado_orden_compra.estado_orden_compra \
+                                           not in ('ENT', 'CAN')
 
         return super(OrdenCompraAdmin, self).changeform_view(request, object_id, form_url, extra_context)
 
@@ -310,11 +324,14 @@ class CompraAdmin(admin.ModelAdmin):
             'compras/js/compra.js'
         ]
 
-    readonly_fields = ['numero_compra', 'tipo_factura_compra', 'fecha_compra', 'estado_compra']  # 'total_compra',
+    readonly_fields = ['numero_compra', 'proveedor', 'tipo_factura_compra', 'fecha_compra', 'estado_compra',
+                       'total_compra']
+
+    # raw_id_fields = ['numero_orden_compra']
 
     fieldsets = [
         ('Compra ID', {'fields': ['numero_compra']}),
-        ('Numero Orden de Compra', {'fields': ['numero_orden_compra']}),
+        ('Numero Orden de Compra', {'fields': ['numero_orden_compra', 'proveedor']}),
         # ('Datos de la Orden de Compra', {'fields': ['orden_compra__proveedor_orden_compra',
         #                                             'orden_compra__forma_pago_orden_compra',
         #                                             ('orden_compra__fecha_orden_compra',
@@ -328,13 +345,14 @@ class CompraAdmin(admin.ModelAdmin):
 
     # raw_id_fields = ("numero_orden_compra",)
 
-    list_display = ('numero_compra', 'numero_orden_compra', 'fecha_compra', 'numero_factura_compra',
+    list_display = ('numero_compra', 'proveedor', 'numero_orden_compra', 'fecha_compra', 'numero_factura_compra',
                     'tipo_factura_compra', 'fecha_factura_compra', 'estado_compra', 'total_compra')
-    list_filter = ['numero_compra', ('numero_orden_compra', admin.RelatedOnlyFieldListFilter), 'fecha_compra',
-                   'numero_factura_compra', 'tipo_factura_compra', 'fecha_factura_compra', 'estado_compra',
-                   'total_compra']
-    search_fields = ['numero_compra', 'numero_orden_compra', 'fecha_compra', 'numero_factura_compra',
-                     'tipo_factura_compra', 'fecha_factura_compra', 'estado_compra', 'total_compra']
+    list_filter = ['numero_compra', 'proveedor', ('numero_orden_compra', admin.RelatedOnlyFieldListFilter),
+                   'fecha_compra', 'numero_factura_compra', 'tipo_factura_compra', 'fecha_factura_compra',
+                   'estado_compra', 'total_compra']
+    search_fields = ['numero_compra', 'proveedor', 'numero_orden_compra__numero_orden_compra', 'fecha_compra',
+                     'numero_factura_compra', 'tipo_factura_compra__tipo_factura_compra', 'fecha_factura_compra',
+                     'estado_compra__estado_compra', 'total_compra']
 
     def save_model(self, request, obj, form, change):
         compra_actual = obj
@@ -349,6 +367,7 @@ class CompraAdmin(admin.ModelAdmin):
         if "_continue" in request.POST and compra_actual.estado_compra.estado_compra == 'PEN':
             if compra_anterior is None \
                     or compra_anterior.numero_orden_compra_id != compra_actual.numero_orden_compra_id:
+                compra_actual.proveedor = compra_actual.numero_orden_compra.proveedor_orden_compra
                 CompraDetalle.objects.filter(numero_compra_id=compra_actual.numero_compra).delete()
                 for detalle in OrdenCompraDetalle.objects.filter(numero_orden_compra_id=compra_actual.numero_orden_compra_id):
                     compra_detalle = CompraDetalle(numero_compra_id=compra_actual.numero_compra,
@@ -384,23 +403,57 @@ class CompraAdmin(admin.ModelAdmin):
             orden.estado_orden_compra = OrdenCompraEstado.objects.get(estado_orden_compra='ENT')
         # 3) Al confirmar la Compra se debe generar un registro en FacturaProveedor con los datos de la factura a pagar.
             factura_proveedor = FacturaProveedor(compra_id=compra_actual.numero_compra,
+                                                 proveedor_id=compra_actual.numero_orden_compra.proveedor_orden_compra_id,
                                                  numero_factura_compra=compra_actual.numero_factura_compra,
                                                  fecha_factura_compra=compra_actual.fecha_factura_compra,
                                                  tipo_factura_compra_id=compra_actual.tipo_factura_compra_id,
                                                  forma_pago_compra_id=orden.forma_pago_orden_compra_id,
                                                  plazo_factura_compra=orden.forma_pago_orden_compra.plazo_compra,
                                                  total_factura_compra=compra_actual.total_compra,
-                                                 total_pago_factura=0)
+                                                 total_pago_factura=0,
+                                                 estado_factura_compra="PEN")
         # Al confirmar la Compra se debe generar un registro en LineaCreditoProveedorDetalle con los datos de la factura
         # de la Compra.
             proveedor = orden.proveedor_orden_compra
             # Validar que exista una Linea de Credito para el Proveedor, de lo contrario sugerir la creacion de la misma
-            linea_credito_proveedor = LineaCreditoProveedor.objects.get(proveedor_id=proveedor)
-            linea_credito_proveedor_detalle = LineaCreditoProveedorDetalle(linea_credito_proveedor_id=linea_credito_proveedor.id,
-                                                                           monto_movimiento=compra_actual.total_compra,
-                                                                           tipo_movimiento='FAC',
-                                                                           numero_comprobante=compra_actual.numero_factura_compra,
-                                                                           fecha_movimiento=compra_actual.fecha_factura_compra)
+            linea_credito_proveedor_actual = LineaCreditoProveedor.objects.filter(proveedor_id=proveedor.id)
+            if not linea_credito_proveedor_actual.exists():
+                linea_credito_proveedor_cabecera = LineaCreditoProveedor(proveedor_id=compra_actual.numero_orden_compra.proveedor_orden_compra_id,
+                                                                         linea_credito_proveedor=5000000,
+                                                                         fecha_linea_credito_proveedor=timezone.now(),
+                                                                         monto_total_facturas_proveedor=compra_actual.total_compra,
+                                                                         monto_total_pagos_proveedor=0,
+                                                                         uso_linea_credito_proveedor=compra_actual.total_compra,
+                                                                         estado_linea_credito_proveedor="DEL")
+                linea_credito_proveedor_cabecera.save()
+                linea_credito_proveedor_detalle = LineaCreditoProveedorDetalle(linea_credito_proveedor_id=linea_credito_proveedor_cabecera.id,
+                                                                               monto_movimiento=compra_actual.total_compra,
+                                                                               tipo_movimiento='FAC',
+                                                                               numero_comprobante=compra_actual.numero_factura_compra,
+                                                                               fecha_movimiento=compra_actual.fecha_factura_compra)
+                linea_credito_proveedor_detalle.save()
+            else:
+                linea_credito_proveedor_cabecera = LineaCreditoProveedor(id=linea_credito_proveedor_actual.first().id,
+                                                                         proveedor_id=compra_actual.numero_orden_compra.proveedor_orden_compra_id,
+                                                                         linea_credito_proveedor=linea_credito_proveedor_actual.first().linea_credito_proveedor,
+                                                                         fecha_linea_credito_proveedor=linea_credito_proveedor_actual.first().fecha_linea_credito_proveedor,
+                                                                         monto_total_facturas_proveedor=linea_credito_proveedor_actual.first().monto_total_facturas_proveedor + compra_actual.total_compra,
+                                                                         monto_total_pagos_proveedor=linea_credito_proveedor_actual.first().monto_total_pagos_proveedor,
+                                                                         uso_linea_credito_proveedor=linea_credito_proveedor_actual.first().uso_linea_credito_proveedor + compra_actual.total_compra,
+                                                                         estado_linea_credito_proveedor="DEL")
+                                                                         # Asignar el valor de estado_linea_credito_proveedor evaluando una condicion
+                                                                         # if linea_credito_proveedor_actual.uso_linea_credito_proveedor + compra_actual.total_compra > linea_credito_proveedor_actual.linea_credito_proveedor:
+                                                                         #     estado_linea_credito_proveedor="SOB"
+                                                                         # else:
+                                                                         #     estado_linea_credito_proveedor="DEL")
+                linea_credito_proveedor_cabecera.save()
+                linea_credito_proveedor_detalle = LineaCreditoProveedorDetalle(linea_credito_proveedor_id=linea_credito_proveedor_actual.first().id,
+                                                                               monto_movimiento=compra_actual.total_compra,
+                                                                               tipo_movimiento='FAC',
+                                                                               numero_comprobante=compra_actual.numero_factura_compra,
+                                                                               fecha_movimiento=compra_actual.fecha_factura_compra)
+                linea_credito_proveedor_detalle.save()
+
             super(CompraAdmin, self).save_model(request, obj, form, change)
             orden.save()
             factura_proveedor.save()
@@ -419,12 +472,12 @@ class CompraAdmin(admin.ModelAdmin):
                 # registro cabecera en la tabla Stock y luego el detalle en Stock_Detalle
                 # import pdb;
                 # pdb.set_trace()
-                #stock_actual = Stock.objects.get(producto_stock_id=detalle.producto_compra_id)
+                # stock_actual = Stock.objects.get(producto_stock_id=detalle.producto_compra_id)
                 stock_actual = Stock.objects.filter(producto_stock_id=detalle.producto_compra_id)
                 if not stock_actual.exists():
                     stock = Stock(producto_stock_id=detalle.producto_compra_id,
                                   stock_minimo=0,
-                                  cantidad_existente=0)
+                                  cantidad_existente=detalle.cantidad_producto_compra)
                     stock.save()
                     stock_detalle = StockDetalle(stock_id=stock.id,
                                                  tipo_movimiento=TipoMovimientoStock.objects.get(tipo_movimiento_stock='CO'),
@@ -434,11 +487,12 @@ class CompraAdmin(admin.ModelAdmin):
                                                  fecha_hora_registro_stock=timezone.now())
                     stock_detalle.save()
                 else:
-                    stock = Stock(producto_stock_id=detalle.producto_compra_id,
-                                  stock_minimo=stock_actual.stock_minimo,
+                    stock = Stock(id=stock_actual.first().id,
+                                  producto_stock_id=detalle.producto_compra_id,
+                                  stock_minimo=stock_actual.first().stock_minimo,
                                   cantidad_existente=stock_actual.first().cantidad_existente + detalle.cantidad_producto_compra)
                     stock.save()
-                    stock_detalle = StockDetalle(stock_id=stock_actual.id,
+                    stock_detalle = StockDetalle(stock_id=stock_actual.first().id,
                                                  tipo_movimiento=TipoMovimientoStock.objects.get(tipo_movimiento_stock='CO'),
                                                  ubicacion=Deposito.objects.get(deposito='DCE'),
                                                  cantidad_entrante=detalle.cantidad_producto_compra,
@@ -462,12 +516,6 @@ class CompraAdmin(admin.ModelAdmin):
             extra_context['show_button'] = compra_actual.estado_compra.estado_compra not in ('CON', 'CAN')
 
         return super(CompraAdmin, self).changeform_view(request, object_id, form_url, extra_context)
-
-
-# class CompraDetalleAdmin(admin.ModelAdmin):
-#     list_display = ('compra', 'producto', 'cantidad_producto', 'precio_compra_producto', 'total_compra_producto')
-#     list_filter = ['compra', 'producto', 'cantidad_producto', 'precio_compra_producto']
-#     search_fields = ['compra', 'producto', 'cantidad_producto', 'precio_compra_producto']
 
 
 # ======================================================================================================================

@@ -4,6 +4,7 @@ from django.contrib import admin
 from .forms import ClienteForm, ReservaForm  # ClienteDocumentoForm
 from .models import Cliente, ClienteTelefono, Reserva, ClienteDocumento  # TelefonoMovilCliente,
 # from ajax_select import make_ajax_form
+from personal.models import Empleado
 
 
 class ClienteDocumentoInline(admin.TabularInline):
@@ -22,11 +23,6 @@ class ClienteTelefonoInline(admin.TabularInline):
     min_num = 1
     verbose_name = 'Telefono del Cliente'
     verbose_name_plural = 'Telefonos del Cliente'
-
-
-# class TelefonoMovilClienteInline(admin.TabularInline):
-#     model = TelefonoMovilCliente
-#     extra = 1
 
 
 class ClienteAdmin(admin.ModelAdmin):
@@ -49,6 +45,7 @@ class ClienteAdmin(admin.ModelAdmin):
     inlines = [ClienteTelefonoInline, ClienteDocumentoInline]
 
     list_display = ['id', 'upper_case_name', 'direccion', 'pais', 'ciudad', 'fecha_nacimiento', 'email']  # 'nombres', 'apellidos',
+    list_display_links = ['upper_case_name']
     list_filter = ['nombres', 'apellidos', 'pais', 'ciudad', 'fecha_nacimiento', 'email']
     # search_fields = ['id', 'nombres', 'apellidos', 'direccion', 'pais', 'ciudad', 'email']
     search_fields = ['id', 'nombres', 'apellidos', 'direccion', 'pais__pais', 'ciudad__ciudad', 'fecha_nacimiento',
@@ -56,7 +53,7 @@ class ClienteAdmin(admin.ModelAdmin):
 
     def upper_case_name(self, obj):
         return ("%s %s" % (obj.nombres, obj.apellidos)).upper()
-    upper_case_name.short_description = 'Nombres y Apellidos'
+    upper_case_name.short_description = 'Cliente'
 
 
 class ReservaAdmin(admin.ModelAdmin):
@@ -76,12 +73,13 @@ class ReservaAdmin(admin.ModelAdmin):
 
     list_display = ('id', 'descripcion', 'cliente', 'fecha_hora_reserva', 'cantidad_personas', 'estado', 'pago',
                     'usuario_registro', 'fecha_hora_registro_reserva')
+    list_display_links = ['descripcion']
     list_filter = ['cliente', 'fecha_hora_reserva', 'estado', 'usuario_registro']
     search_fields = ['cliente', 'fecha_hora_reserva', 'estado', 'usuario_registro']
 
     def save_model(self, request, obj, form, change):
         if getattr(obj, 'usuario_registro', None) is None:
-            obj.usuario_registro = request.user
+            obj.usuario_registro = Empleado.objects.get(usuario_id=request.user)
         super(ReservaAdmin, self).save_model(request, obj, form, change)
 
         # 2) Validar que las Mesas seleccionadas ya no se encuentran Reservadas para la fecha/hora indicada.

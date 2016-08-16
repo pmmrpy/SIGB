@@ -1,7 +1,7 @@
 from django.db import models
 # from django.contrib.auth.models import User
 from django.utils import timezone
-from random import randint
+# from random import randint
 
 # Create your models here.
 
@@ -32,7 +32,7 @@ class Empleado(models.Model):
     horario = models.ForeignKey('Horario',  # default=1,
                                 help_text='Seleccione el horario del Empleado.')
     # Generar de forma automatica un Codigo de Venta de 4 digitos numerico
-    usuario = models.ForeignKey('auth.User', help_text='Seleccione el usuario del Empleado.')  # default=1
+    usuario = models.OneToOneField('auth.User', help_text='Seleccione el usuario del Empleado.')  # default=1
     _codigo_venta = models.PositiveIntegerField(db_column="codigo_venta", null=True, verbose_name='Codigo de Venta')  # default=100
     documentos = models.ManyToManyField('bar.Documento', through='EmpleadoDocumento')
 
@@ -80,6 +80,8 @@ class Cargo(models.Model):
         ('CA', 'Cajer@'),
         ('CO', 'Cociner@'),
         ('DE', 'Depositer@'),
+        ('EI', 'Encargado Informatica'),
+        ('RP', 'Relaciones Publicas'),
     )
     # id = models.AutoField(primary_key=True)
     cargo = models.CharField(max_length=2, choices=CARGOS, verbose_name='Cargo',

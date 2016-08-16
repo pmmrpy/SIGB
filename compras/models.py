@@ -77,7 +77,7 @@ class Proveedor(models.Model):
 
     # VALIDACIONES/FUNCIONALIDADES
     # ============================
-    # 1) Implementar el calculo del Digito Verificador del RUC tomando la funcion publicada por la SET.
+    # 1) Implementar el calculo del Digito Verificador del RUC tomando la funcion publicada por la SET. OK!
 
     def __unicode__(self):
         return "%s" % self.proveedor
@@ -130,8 +130,8 @@ class LineaCreditoProveedor(models.Model):
     #         'de la Linea de Credito en el tiempo.')
 
     class Meta:
-        verbose_name = 'Linea de Credito con Proveedor'
-        verbose_name_plural = 'Lineas de Credito con Proveedores'
+        verbose_name = 'Linea de Credito Proveedor'
+        verbose_name_plural = 'Proveedores - Lineas de Credito'
 
     # VALIDACIONES/FUNCIONALIDADES
     # ============================
@@ -147,21 +147,24 @@ class LineaCreditoProveedorDetalle(models.Model):
     Detalle de LineaCreditoProveedor que lleva el registro de las facturas y los pagos y realiza un balance para saber
     si la Linea de Credito no fue superada.
     """
+    TIPOS_MOVIMIENTO = (
+        ('PAG', 'Pago'),
+        ('FAC', 'Factura'),
+    )
     linea_credito_proveedor = models.ForeignKey('LineaCreditoProveedor')
     monto_movimiento = models.DecimalField(max_digits=18, decimal_places=0, default=0,
                                            verbose_name='Monto del Movimiento',
                                            help_text='Ingrese el Monto del Movimiento.')
-    tipo_movimiento = models.CharField(max_length=3, choices=(
-        ('PAG', 'Pago'),
-        ('FAC', 'Factura'),
-    ), verbose_name='Tipo de Movimiento', help_text='Seleccione el Tipo de Movimiento.')
+    tipo_movimiento = models.CharField(max_length=3, choices=TIPOS_MOVIMIENTO,
+                                       verbose_name='Tipo de Movimiento',
+                                       help_text='Seleccione el Tipo de Movimiento.')
     numero_comprobante = models.IntegerField(verbose_name='Numero Comprobante Movimiento',
                                              help_text='Ingrese el Numero de Comprobante del Movimiento.')
     fecha_movimiento = models.DateField(default=timezone.now(), verbose_name='Fecha Registro Movimiento',
                                         help_text='Ingrese la fecha del Movimiento.')
 
     class Meta:
-        verbose_name = 'Linea de Credito con Proveedor - Detalle'
+        verbose_name = 'Detalle Linea de Credito con Proveedor'
         verbose_name_plural = 'Lineas de Credito con Proveedores - Detalles'
 
     def __unicode__(self):
@@ -186,7 +189,7 @@ class ProveedorTelefono(models.Model):
                                                                                  'caracteres)')
 
     class Meta:
-        verbose_name = 'Proveedor - Telefono'
+        verbose_name = 'Telefono del Proveedor'
         verbose_name_plural = 'Proveedores - Telefonos'
 
     def __unicode__(self):
@@ -234,14 +237,23 @@ class FacturaProveedor(models.Model):
     """
     Registrar facturas pendienes de pago.
     """
+    ESTADOS_FACTURA_COMPRA = (
+        ('PEN', 'Pendiente'),
+        ('PAG', 'Pagada'),
+        ('CAN', 'Cancelada'),
+    )
     # Filtrar las Compras que estan pendientes de pago
     compra = models.ForeignKey('Compra', limit_choices_to={'estado_compra__estado_compra': "CON"},
                                verbose_name='Compra Asociada',
                                help_text='Seleccione la Compra cuya Factura sera registrada.')
-    numero_factura_compra = models.IntegerField(verbose_name='Numero de Factura de la Compra',  # default=1,
+    # Verificar que se inserte correctamente el dato del Proveedor en esta tabla.
+    proveedor = models.ForeignKey('Proveedor', default=2,
+                                  verbose_name='Proveedor',
+                                  help_text='Seleccione el Proveedor.')
+    numero_factura_compra = models.IntegerField(verbose_name='Numero de Factura Compra',  # default=1,
                                                 help_text='Ingrese el Numero de Factura que acompana la Compra.')
     fecha_factura_compra = models.DateField(default=datetime.date.today(),
-                                            verbose_name='Fecha de la Factura de la Compra',
+                                            verbose_name='Fecha de la Factura Compra',
                                             help_text='Ingrese la fecha de la Factura.')
     tipo_factura_compra = models.ForeignKey('bar.TipoFacturaCompra', verbose_name='Tipo de Factura Compra',
                                             help_text='Seleccione el Tipo de Factura.')
@@ -251,16 +263,20 @@ class FacturaProveedor(models.Model):
                                                        help_text='En caso de Credito establecer el plazo de tiempo en '
                                                                  'dias para el pago.')
     total_factura_compra = models.DecimalField(max_digits=18, decimal_places=0, default=0,
-                                               verbose_name='Monto Total de la Factura',
+                                               verbose_name='Monto Total de la Factura Compra',
                                                help_text='Este valor se calcula automaticamente en funcion al detalle '
                                                          'de la Compra.')
     total_pago_factura = models.DecimalField(max_digits=18, decimal_places=0, default=0,
-                                             verbose_name='Total Pagado de la Factura',
+                                             verbose_name='Total Pagado de la Factura Compra',
                                              help_text='Este valor se calcula automaticamente en funcion a los pagos '
                                                        'registrados para la Factura.')
+    estado_factura_compra = models.CharField(max_length=3, choices=ESTADOS_FACTURA_COMPRA, default="PEN",
+                                             verbose_name='Estado de la Factura Compra',
+                                             help_text='Indique el Estado de la Factura de la Compra de acuerdo a los '
+                                                       'pagos aplicados para la misma.')
 
     class Meta:
-        verbose_name = 'Proveedor - Factura/Pago'
+        verbose_name = 'Factura/Pago Proveedor'
         verbose_name_plural = 'Proveedores - Facturas/Pagos'
 
     # VALIDACIONES/FUNCIONALIDADES
@@ -286,8 +302,8 @@ class ProductoProveedor(models.Model):
     producto = models.ForeignKey('stock.Producto', help_text='Seleccione el Producto a relacionar con el Proveedor.')
 
     class Meta:
-        verbose_name = 'Producto por Proveedor'
-        verbose_name_plural = 'Productos por Proveedores'
+        verbose_name = 'Proveedor - Producto'
+        verbose_name_plural = 'Proveedores - Productos'
 
     # VALIDACIONES/FUNCIONALIDADES
     # ============================
@@ -338,7 +354,7 @@ class OrdenCompra(models.Model):
     """
     # id = models.AutoField(primary_key=True)
     numero_orden_compra = models.AutoField(primary_key=True,
-                                           verbose_name='Numero de Orden de Compra',
+                                           verbose_name='Numero Orden de Compra',
                                            help_text='Este dato se genera automaticamente cada vez que se va crear '
                                                      'una Orden de Compra.')
     # ===============================================================================================================
@@ -350,11 +366,15 @@ class OrdenCompra(models.Model):
     # models.CharField(default='XXXXXX', max_length=6, unique=True,
     # ===============================================================================================================
 
-    fecha_orden_compra = models.DateTimeField(default=timezone.now(),  # editable=True, auto_now_add=True,
-                                              verbose_name='Fecha de la Orden de Compra',
+    fecha_orden_compra = models.DateTimeField(auto_now_add=True,  # editable=True, auto_now_add=True,
+                                              verbose_name='Fecha/hora Orden de Compra',
                                               help_text='La fecha y hora de la Orden de Compra se asignan al momento '
                                                         'de guardar los datos del pedido. No se requiere el ingreso de '
                                                         'este dato.')
+    fecha_ultima_modificacion_orden_compra = models.DateTimeField(auto_now=True,  # default=timezone.now(),
+                                                                  verbose_name='Fecha/hora Ult. Modif.',
+                                                                  help_text='Registra la fecha/hora de ultima '
+                                                                            'modificacion de la Orden de Compra.')
     # Aumenta 1 dia la fecha_entrega a partir de la fecha actual
     fecha_entrega_orden_compra = models.DateTimeField(default=(timezone.now() + datetime.timedelta(days=1)),
                                                       verbose_name='Fecha/hora de Entrega',
@@ -369,18 +389,18 @@ class OrdenCompra(models.Model):
     # Se debe definir un metodo o funcion que compare OrdenCompra.fecha_entrega_orden_compra contra la fecha actual y
     # modificar si corresponde el ESTADO de la Orden de Compra.
     estado_orden_compra = models.ForeignKey('bar.OrdenCompraEstado', default=1,
-                                            verbose_name='Estado de la Orden de Compra',
+                                            verbose_name='Estado Orden de Compra',
                                             help_text='El estado de la Orden de Compra se establece automaticamente de '
                                                       'acuerdo a la Fecha de Entrega ingresada.')
 
     # Calcular la suma de todos los totales de compra de cada producto
     # Debe ir en la cabecera y no en el detalle
     total_orden_compra = models.DecimalField(max_digits=18, decimal_places=0, default=0,
-                                             verbose_name='Total de la Orden de Compra')  # blank=False (Defau is False)
+                                             verbose_name='Total Orden de Compra')  # blank=False (Defau is False)
 
     class Meta:
         verbose_name = 'Orden de Compra'
-        verbose_name_plural = 'Ordenes de Compras'
+        verbose_name_plural = 'Compras - Ordenes'
 
     # VALIDACIONES/FUNCIONALIDADES
     # ============================
@@ -395,22 +415,26 @@ class OrdenCompra(models.Model):
     # Se debe definir un metodo o funcion que compare OrdenCompra.fecha_entrega_orden_compra contra la fecha actual y
     # modificar si corresponde el ESTADO de la Orden de Compra.
     # def verifica_estado_orden_compra(self):
-    # def __init__(self):
-    #     if self.estado_orden_compra not in ('ENT', 'CAN') and self.fecha_entrega_orden_compra < timezone.now():
-    #         self.estado_orden_compra == OrdenCompraEstado.objects.get(estado_orden_compra='PEP')
-    #         self.estado_orden_compra.save()
-    #     elif self.estado_orden_compra not in ('ENT', 'CAN') and self.fecha_entrega_orden_compra >= timezone.now():
-    #         self.estado_orden_compra == OrdenCompraEstado.objects.get(estado_orden_compra='EPP')
-    #         self.estado_orden_compra.save()
-
     # def from_db(cls, db, field_names, values):
     #     verifica_estado_orden_compra
 
+    # def __init__(self, *args, **kwargs):
+    #     if self.estado_orden_compra.estado_orden_compra not in ('ENT', 'CAN') \
+    #             and self.fecha_entrega_orden_compra < timezone.now():
+    #         self.estado_orden_compra == OrdenCompraEstado.objects.get(estado_orden_compra='PEP')
+    #         # self.estado_orden_compra.save()
+    #     elif self.estado_orden_compra.estado_orden_compra not in ('ENT', 'CAN') \
+    #             and self.fecha_entrega_orden_compra >= timezone.now():
+    #         self.estado_orden_compra == OrdenCompraEstado.objects.get(estado_orden_compra='EPP')
+    #         # self.estado_orden_compra.save()
+    #     super(OrdenCompra, self).__init__(*args, **kwargs)
+
     def clean(self):
         # Valida que la fecha_entrega_orden_compra sea mayor o igual a la fecha_orden_compra
-        if self.fecha_entrega_orden_compra < self.fecha_orden_compra:
-            raise ValidationError({'fecha_entrega_orden_compra': _('La Fecha/Hora de Entrega no puede ser menor que la '
-                                                                   'Fecha del Pedido de la Orden de Compra.')})
+        # Esta condicion no se va dar si se valida que la fecha_entrega_orden_compra sea mayor que la fecha/hora actual
+        # if self.fecha_orden_compra is None or self.fecha_entrega_orden_compra < self.fecha_orden_compra:
+        #     raise ValidationError({'fecha_entrega_orden_compra': _('La Fecha/hora de Entrega no puede ser menor que '
+        #                                                            'la Fecha/hora de la Orden de Compra.')})
 
         # Valida que la fecha_entrega_orden_compra sea mayor que la fecha/hora actual
         now = timezone.now()
@@ -466,6 +490,7 @@ class OrdenCompraDetalle(models.Model):
     # La idea es filtrar los Productos de acuerdo al Proveedor seleccionado.
     # Finalmente se direcciono a la tabla de Productos.
     producto_orden_compra = models.ForeignKey('stock.Producto', related_name='orden_compra_productos',
+                                              limit_choices_to={'compuesto': False},
                                               verbose_name='Producto',
                                               help_text='Seleccione un Producto a ordenar.')
     precio_producto_orden_compra = models.DecimalField(max_digits=18, decimal_places=0,
@@ -503,8 +528,8 @@ class OrdenCompraDetalle(models.Model):
     # ===============================================================================================================
 
     class Meta:
-        verbose_name = 'Orden de Compra - Detalle'
-        verbose_name_plural = 'Ordenes de Compras - Detalles'
+        verbose_name = 'Detalle de Orden de Compra'
+        verbose_name_plural = 'Compras - Detalles de Ordenes'
 
     # def __unicode__(self):
     #     return self.compra + ' - ' + self.producto
@@ -535,8 +560,8 @@ class Compra(models.Model):
                                                verbose_name='Numero de Orden de Compra',
                                                help_text='Seleccione el Numero de Orden de Compra para la cual se '
                                                          'confirmara la Compra.')
-    # proveedor = models.ForeignKey('Compra', to_field='proveedor', related_name='proveedor')
-    numero_factura_compra = models.IntegerField(verbose_name='Numero de Factura de la Compra',  # default=1,
+    proveedor = models.ForeignKey('Proveedor', default=9)
+    numero_factura_compra = models.IntegerField(verbose_name='Numero de Factura de la Compra', default=1,
                                                 help_text='Ingrese el Numero de Factura que acompana la Compra.')
     tipo_factura_compra = models.ForeignKey('bar.TipoFacturaCompra', default=1,
                                             verbose_name='Tipo de Factura',
@@ -552,7 +577,7 @@ class Compra(models.Model):
     #                                                            'la Compra en caso de que la Forma de Pago de la '
     #                                                            'misma sea a Credito.')
 
-    fecha_compra = models.DateTimeField(auto_now_add=True,  # editable=True, default=timezone.now(),
+    fecha_compra = models.DateTimeField(auto_now=True,  # editable=True, default=timezone.now(),
                                         verbose_name='Fecha y hora de la Compra',
                                         help_text='La fecha y hora se asignan al momento de guardar los datos de la '
                                                   'Compra. No se requiere el ingreso de este dato.')
@@ -567,8 +592,8 @@ class Compra(models.Model):
 
     class Meta:
         # proxy = True
-        verbose_name = 'Confirmacion de Compra'
-        verbose_name_plural = 'Confirmaciones de Compras'
+        verbose_name = 'Confirmacion de Orden de Compra'
+        verbose_name_plural = 'Compras - Confirmaciones de Ordenes'
 
     # VALIDACIONES/FUNCIONALIDADES
     # ============================
@@ -596,6 +621,7 @@ class Compra(models.Model):
 class CompraDetalle(models.Model):
     numero_compra = models.ForeignKey('Compra')
     producto_compra = models.ForeignKey('stock.Producto', default=1, related_name='compra_productos',
+                                        limit_choices_to={'compuesto': False},
                                         verbose_name='Producto a Comprar',
                                         help_text='Seleccione un producto a comprar.')
     precio_producto_compra = models.DecimalField(max_digits=18, decimal_places=0,
@@ -636,8 +662,8 @@ class CompraDetalle(models.Model):
     # ===============================================================================================================
 
     class Meta:
-        verbose_name = 'Compra - Detalle'
-        verbose_name_plural = 'Compras - Detalles'
+        verbose_name = 'Detalle de Confirmacion de Orden de Compra'
+        verbose_name_plural = 'Compras - Detalles de Confirmaciones de Ordenes'
 
     # def __unicode__(self):
     #     return self.compra + ' - ' + self.producto

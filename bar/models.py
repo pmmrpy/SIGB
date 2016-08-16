@@ -53,7 +53,7 @@ class Mesa(models.Model):
         verbose_name_plural = 'Mesas'
 
     def __unicode__(self):
-        return "%s - %s" % (self.numero_mesa, self.nombre_mesa)
+        return "Nro. Mesa: %s - %s - Ubic: %s" % (self.numero_mesa, self.nombre_mesa, self.ubicacion)
 
 
 class MesaEstado(models.Model):
@@ -305,13 +305,14 @@ class CategoriaProducto(models.Model):
     """
     Categorias de Productos.
     """
-    categoria = models.CharField(max_length=2, verbose_name='Categoria',
+    categoria = models.CharField(max_length=2, verbose_name='Categoria', unique=True,
                                  help_text='Ingrese el identificador de la Categoria de los productos. '
                                            '(Hasta 2 caracteres)')
     #     choices=(
     #     ('BE', 'Bebidas'),
     #     ('CO', 'Comidas'),
     #     ('CI', 'Cigarrillos'),
+    #     ('GO', 'Golosinas'),
     # ),
     descripcion = models.CharField(max_length=200, verbose_name='Descripcion de la Categoria',
                                    help_text='Ingrese la descripcion de la Categoria de los productos. '
@@ -355,6 +356,7 @@ class SubCategoriaProducto(models.Model):
                                              '(Hasta 200 caracteres)')
 
     class Meta:
+        unique_together = ['categoria', 'subcategoria']
         verbose_name = 'Producto - SubCategoria'
         verbose_name_plural = 'Productos - SubCategorias'
 

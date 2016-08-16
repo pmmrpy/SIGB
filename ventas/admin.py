@@ -2,8 +2,9 @@ from django.contrib import admin
 
 # Register your models here.
 
-from .models import Pedido, PedidoDetalle, Venta, VentaDetalle, Cocina, AperturaCaja
-
+from .models import Pedido, PedidoDetalle, Venta, VentaDetalle, Comanda, AperturaCaja, MovimientoCaja, CierreCaja, \
+    IngresoValorCaja, RetiroValorCaja
+from personal.models import Empleado
 
 # class PedidoDetalleAdmin(admin.ModelAdmin):
 #     list_display = ('id', 'pedido', 'producto_pedido', 'cantidad_producto_pedido')
@@ -29,9 +30,11 @@ class PedidoAdmin(admin.ModelAdmin):
             'ventas/js/pedido.js'
         ]
 
-    readonly_fields = ['estado_pedido', 'fecha_pedido']  # Agregar 'total_pedido'
+    readonly_fields = ['mozo_pedido', 'estado_pedido', 'fecha_pedido']  # Agregar 'total_pedido'
 
     raw_id_fields = ['reserva']
+
+    filter_horizontal = ['mesa_pedido']
 
     fieldsets = [
         ('Datos de la Reserva', {'fields': ['reserva', 'monto_entrega_reserva']}),
@@ -41,9 +44,16 @@ class PedidoAdmin(admin.ModelAdmin):
 
     inlines = [PedidoDetalleInline]
 
-    list_display = ('id', 'reserva', 'monto_entrega_reserva', 'mozo_pedido', 'estado_pedido', 'fecha_pedido', 'total_pedido')
+    list_display = ('id', 'reserva', 'monto_entrega_reserva', 'mozo_pedido', 'estado_pedido', 'fecha_pedido',
+                    'total_pedido')
     list_filter = ['id', 'mesa_pedido', 'mozo_pedido', 'estado_pedido', 'fecha_pedido']
     search_fields = ['id', 'mesa_pedido', 'mozo_pedido', 'estado_pedido', 'fecha_pedido']
+
+    def save_model(self, request, obj, form, change):
+        if getattr(obj, 'mozo_pedido', None) is None:
+            # empleado = Empleado.objects.filter(usuario=request.user)
+            obj.mozo_pedido = Empleado.objects.get(usuario_id=request.user)
+        super(PedidoAdmin, self).save_model(request, obj, form, change)
 
 
 class VentaDetalleInline(admin.TabularInline):
@@ -68,14 +78,14 @@ class VentaAdmin(admin.ModelAdmin):
     # raw_id_fields = []
 
     fieldsets = [
-        ('', {'fields': ['empresa', 'numero_factura_venta', 'fecha_venta', 'caja', 'numero_pedido', 'reserva',
+        ('Datos Venta', {'fields': ['empresa', 'numero_factura_venta', 'fecha_venta', 'caja', 'numero_pedido', 'reserva',
                          'cliente', 'forma_pago', 'total_venta', 'estado_venta']})
     ]
 
     inlines = [VentaDetalleInline]
 
-    list_display = ('numero_factura_venta', 'numero_factura_venta', 'caja', 'numero_pedido', 'reserva',
-                         'reserva', 'forma_pago', 'total_venta', 'estado_venta')
+    list_display = ('numero_factura_venta', 'fecha_venta', 'caja', 'numero_pedido', 'reserva', 'cliente', 'forma_pago',
+                    'total_venta', 'estado_venta')
     list_filter = []
     search_fields = []
 
@@ -91,4 +101,8 @@ class AperturaCajaAdmin(admin.ModelAdmin):
 admin.site.register(Pedido, PedidoAdmin)
 admin.site.register(Venta, VentaAdmin)
 admin.site.register(AperturaCaja)
-admin.site.register(Cocina)
+admin.site.register(Comanda)
+admin.site.register(MovimientoCaja)
+admin.site.register(CierreCaja)
+admin.site.register(IngresoValorCaja)
+admin.site.register(RetiroValorCaja)

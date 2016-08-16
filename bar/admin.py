@@ -21,7 +21,8 @@ class ReservaEstadoAdmin(admin.ModelAdmin):
 
 
 class MesaAdmin(admin.ModelAdmin):
-    list_display = ('id', 'numero_mesa', 'nombre_mesa', 'ubicacion', 'estado')
+    list_display = ('nombre_mesa', 'numero_mesa', 'ubicacion', 'estado')
+    list_display_links = ['nombre_mesa']
     list_filter = ['id', 'numero_mesa', 'nombre_mesa', 'ubicacion', 'estado']
     search_fields = ['id', 'numero_mesa', 'nombre_mesa', 'ubicacion', 'estado']
 

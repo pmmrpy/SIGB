@@ -1,22 +1,17 @@
 from django.contrib import admin
 
 # Register your models here.
-from stock.forms import PrecioVentaProductoForm
+# from stock.forms import PrecioVentaProductoForm
 
-from .models import Producto, PrecioVentaProducto, ProductoCompuesto, ProductoCompuestoDetalle, Stock, StockDetalle
-# SolicitaTransferenciaStock, ConfirmaTransferenciaStock
+from .models import Producto, ProductoCompuesto, ProductoCompuestoDetalle, Stock, StockDetalle, Devolucion
+# PrecioVentaProducto, SolicitaTransferenciaStock, ConfirmaTransferenciaStock
 
 
-# class PrecioVentaProductoAdmin(admin.ModelAdmin):
-#     list_display = ('producto', 'fecha_precio_producto', 'precio_venta', 'activo')
-#     list_filter = ['producto', 'fecha_precio_producto', 'precio_venta', 'activo']
-#     search_fields = ['producto', 'fecha_precio_producto', 'precio_venta', 'activo']
-
-class PrecioVentaProductoInline(admin.TabularInline):
-    model = PrecioVentaProducto
-    extra = 0
-    form = PrecioVentaProductoForm
-    readonly_fields = ['fecha_precio_venta_producto']
+# class PrecioVentaProductoInline(admin.TabularInline):
+#     model = PrecioVentaProducto
+#     extra = 0
+#     form = PrecioVentaProductoForm
+#     readonly_fields = ['fecha_precio_venta_producto']
 
 
 class ProductoAdmin(admin.ModelAdmin):
@@ -28,26 +23,33 @@ class ProductoAdmin(admin.ModelAdmin):
             'stock/js/producto.js'
         ]
 
-    readonly_fields = ['fecha_alta_producto', 'thumb']
+    readonly_fields = ['fecha_alta_producto', 'compuesto', 'thumb']
 
     fieldsets = [
         ('Datos del Producto', {'fields': ['producto', 'codigo_barra', 'marca', 'unidad_medida_compra', 'imagen',
-                                           'thumb', 'fecha_alta_producto']}),
+                                           'thumb', 'fecha_alta_producto', 'compuesto']}),
         ('Contenido del Producto', {'fields': ['tipo_producto', 'categoria', 'subcategoria', 'unidad_medida_contenido',
                                                'contenido']}),
+        ('Precio de Venta', {'fields': ['precio_venta']}),
     ]
 
     # PrecioProducto debe estar disponible como Inline solo para los Productos que tienen Tipo de Producto
     # "VE - Para la Venta", serian los registrados con este Tipo de Producto en la pantalla de Productos mas
     # los Productos Compuestos
-    inlines = [PrecioVentaProductoInline]
+    # inlines = [PrecioVentaProductoInline]
 
     # list_select_related = True
     list_display = ('id', 'producto', 'marca', 'fecha_alta_producto', 'unidad_medida_compra', 'tipo_producto',
-                    'categoria', 'subcategoria', 'unidad_medida_contenido', 'contenido', 'thumb')
+                    'categoria', 'subcategoria', 'unidad_medida_contenido', 'contenido', 'compuesto', 'precio_venta',
+                    'thumb')
+    list_display_links = ['producto']
     list_filter = ['id', 'producto', 'marca', 'fecha_alta_producto', 'tipo_producto', 'categoria', 'subcategoria']
     search_fields = ['id', 'producto', 'marca', 'fecha_alta_producto', 'tipo_producto__tipo_producto',
                      'categoria__categoria', 'subcategoria__subcategoria']
+
+    # def get_queryset(self, request):
+    #     queryset = Producto.objects.filter(compuesto=False)
+    #     return queryset
 
 
 class ProductoCompuestoDetalleInline(admin.TabularInline):
@@ -60,8 +62,6 @@ class ProductoCompuestoDetalleInline(admin.TabularInline):
     fk_name = 'producto_compuesto'
 
 
-
-
 class ProductoCompuestoAdmin(admin.ModelAdmin):
 
     # form =
@@ -71,47 +71,45 @@ class ProductoCompuestoAdmin(admin.ModelAdmin):
             'stock/js/producto_compuesto.js'
         ]
 
-    readonly_fields = ['fecha_alta_producto', 'thumb']
+    readonly_fields = ['compuesto', 'tipo_producto', 'fecha_alta_producto', 'thumb', 'unidad_medida_contenido',
+                       'contenido']
 
     fieldsets = [
-        ('Datos del Producto Compuesto', {'fields': ['producto', 'tipo_producto', 'categoria',
-                                                     'subcategoria', 'fecha_alta_producto', 'imagen',
-                                                     'thumb']}),
+        ('Datos del Producto Compuesto', {'fields': ['producto', 'compuesto', 'tipo_producto', 'categoria',
+                                                     'subcategoria', 'fecha_alta_producto', 'imagen', 'thumb']}),
+        ('Contenido del Producto', {'fields': ['unidad_medida_contenido', 'contenido']}),
+        ('Precio de Venta', {'fields': ['precio_venta']})
     ]
 
     inlines = [ProductoCompuestoDetalleInline]
 
-    list_display = ('id', 'producto', 'tipo_producto', 'categoria', 'subcategoria',
-                    'fecha_alta_producto', 'thumb')
-    list_filter = ['id', 'producto', 'tipo_producto', 'categoria', 'subcategoria',
-                   'fecha_alta_producto']
-    search_fields = ['id', 'producto', 'tipo_producto', 'categoria', 'subcategoria',
-                     'fecha_alta_producto']
+    list_display = ('id', 'producto', 'compuesto', 'fecha_alta_producto', 'tipo_producto', 'categoria', 'subcategoria',
+                    'unidad_medida_contenido', 'contenido', 'precio_venta', 'thumb')
+    list_display_links = ['producto']
+    list_filter = ['id', 'producto', 'categoria', 'subcategoria', 'fecha_alta_producto']
+    search_fields = ['id', 'producto', 'categoria', 'subcategoria', 'fecha_alta_producto']
 
-    def save_model(self, request, obj, form, change):
-        if not change:
-            producto = Producto()
-        else:
-            producto = Producto.objects.get(obj.pk)
-        producto.imagen = obj.imagen
-        producto.producto = obj.producto
-        producto.tipo_producto = obj.tipo_producto
-        producto.categoria=obj.categoria
-        producto.subcategoria=obj.subcategoria
-        producto.save()
-
-    def save_formset(self, request, form, formset, change):
-        obj = form.instance
-        for f in formset:
-            detalle = ProductoCompuestoDetalle()
-            detalle.cantidad_producto = f.cleaned_data['cantidad_producto']
-            detalle.producto_compuesto_id = f.cleaned_data['cantidad_producto']
-            detalle.save()
-
-        return super(ProductoCompuestoAdmin,self).save_formset()
-
-
-
+    # def save_model(self, request, obj, form, change):
+    #     if not change:
+    #         producto = Producto()
+    #     else:
+    #         producto = Producto.objects.get(obj.pk)
+    #     producto.imagen = obj.imagen
+    #     producto.producto = obj.producto
+    #     producto.tipo_producto = obj.tipo_producto
+    #     producto.categoria = obj.categoria
+    #     producto.subcategoria = obj.subcategoria
+    #     producto.save()
+    #
+    # def save_formset(self, request, form, formset, change):
+    #     obj = form.instance
+    #     for f in formset:
+    #         detalle = ProductoCompuestoDetalle()
+    #         detalle.cantidad_producto = f.cleaned_data['cantidad_producto']
+    #         detalle.producto_compuesto_id = f.cleaned_data['cantidad_producto']
+    #         detalle.save()
+    #
+    #     return super(ProductoCompuestoAdmin, self).save_formset(request, form, formset, change)
 
     def get_queryset(self, request):
         queryset = ProductoCompuesto.objects.filter(compuesto=True)
@@ -121,7 +119,8 @@ class ProductoCompuestoAdmin(admin.ModelAdmin):
 class StockDetalleInline(admin.TabularInline):
     model = StockDetalle
     extra = 0
-    readonly_fields = ['fecha_hora_registro_stock']
+    readonly_fields = ['tipo_movimiento', 'ubicacion', 'cantidad_entrante', 'cantidad_saliente',
+                       'fecha_hora_registro_stock']
     # form =
     # raw_id_fields =
     # verbose_name = ''
@@ -137,9 +136,9 @@ class StockAdmin(admin.ModelAdmin):
             'stock/js/stock.js'
         ]
 
-    # readonly_fields = ['']
+    readonly_fields = ['producto_stock', 'cantidad_existente']
 
-    raw_id_fields = ['producto_stock']
+    # raw_id_fields = ['producto_stock']
 
     fieldsets = [
         ('Producto/Ubicacion', {'fields': ['producto_stock']}),
@@ -149,10 +148,12 @@ class StockAdmin(admin.ModelAdmin):
     inlines = [StockDetalleInline]
 
     list_display = ('id', 'producto_stock', 'stock_minimo', 'cantidad_existente')
+    list_display_links = ['producto_stock']
     list_filter = ['id', 'producto_stock__producto', 'stock_minimo', 'cantidad_existente']
     search_fields = ['id', 'producto_stock__producto', 'stock_minimo', 'cantidad_existente']
 
 
+# ======================================================================================================================
 # class SolicitaTransferenciaStockAdmin(admin.ModelAdmin):
 #
 #     # form =
@@ -217,6 +218,7 @@ class StockAdmin(admin.ModelAdmin):
 #     search_fields = ['producto_transferencia', 'cantidad_producto_transferencia', 'deposito_solicitante_transferencia',
 #                      'usuario_solicitante_transferencia', 'deposito_proveedor_transferencia',
 #                      'usuario_autorizante_transferencia', 'estado_transferencia', 'fecha_hora_registro_transferencia']
+# ======================================================================================================================
 
 admin.site.register(Producto, ProductoAdmin)
 # admin.site.register(PrecioVentaProducto, PrecioVentaProductoAdmin)
@@ -224,3 +226,4 @@ admin.site.register(ProductoCompuesto, ProductoCompuestoAdmin)
 admin.site.register(Stock, StockAdmin)
 # admin.site.register(SolicitaTransferenciaStock, SolicitaTransferenciaStockAdmin)
 # admin.site.register(ConfirmaTransferenciaStock, ConfirmaTransferenciaStockAdmin)
+admin.site.register(Devolucion)

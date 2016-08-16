@@ -43,10 +43,15 @@ class EmpleadoAdmin(admin.ModelAdmin):
 
     inlines = [EmpleadoTelefonoInline, EmpleadoDocumentoInline]
 
-    list_display = ['id', 'nombres', 'apellidos', 'fecha_nacimiento', 'direccion', 'pais', 'ciudad', 'barrio',
-                    'cargo', 'horario', 'usuario', 'email']
+    list_display = ['id', 'upper_case_name', 'fecha_nacimiento', 'direccion', 'pais', 'ciudad', 'barrio',
+                    'cargo', 'horario', 'usuario', 'email']  # 'nombres', 'apellidos',
+    list_display_links = ['upper_case_name']
     list_filter = ['id', 'nombres', 'apellidos', 'direccion', 'cargo', 'horario', 'usuario', 'email']
     search_fields = ['id', 'nombres', 'apellidos', 'direccion', 'cargo', 'horario', 'usuario', 'email']
+
+    def upper_case_name(self, obj):
+        return ("%s %s" % (obj.nombres, obj.apellidos)).upper()
+    upper_case_name.short_description = 'Empleado'
 
     def save_model(self, request, obj, form, change):
         if obj._codigo_venta is None:
@@ -73,7 +78,8 @@ class HorarioAdmin(admin.ModelAdmin):
 
 
 class CargoAdmin(admin.ModelAdmin):
-    list_display = ['cargo']
+    list_display = ['id', 'cargo']
+    list_display_links = ['cargo']
     list_filter = ['id', 'cargo']
     search_fields = ['id', 'cargo']
 

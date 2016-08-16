@@ -4,6 +4,7 @@ from django.db import models
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 from django.utils.translation import ugettext_lazy as _
+from personal.models import Empleado
 
 # Create your models here.
 
@@ -120,7 +121,9 @@ class Reserva(models.Model):
                                          'consumision.')
     estado = models.ForeignKey('bar.ReservaEstado', default=1)
     # Debe ser el usuario con el cual se esta realizando la carga de la Reserva, no se debe poder seleccionar el usuario
-    usuario_registro = models.ForeignKey('auth.User', verbose_name='Usuario que registra Reserva',  # default=1,
+    usuario_registro = models.ForeignKey('personal.Empleado', limit_choices_to={'cargo__cargo': "RP"},
+                                         # to_field='usuario',  # 'auth.User', default=1,
+                                         verbose_name='Usuario que registra Reserva',
                                          help_text='Este dato se completara automaticamente cuando la Reserva sea '
                                                    'guardada.')
     fecha_hora_registro_reserva = models.DateTimeField(auto_now_add=True,  # default=timezone.now(),

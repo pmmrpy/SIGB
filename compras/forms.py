@@ -1,8 +1,10 @@
 __author__ = 'pmmr'
 
 from django import forms
+# from django.utils import timezone
 from .models import LineaCreditoProveedor, LineaCreditoProveedorDetalle, PagoProveedor, FacturaProveedor, OrdenCompra, \
     OrdenCompraDetalle, Compra, CompraDetalle
+# from bar.models import OrdenCompraEstado
 
 
 # def get_my_choices():
@@ -43,6 +45,7 @@ class FacturaProveedorForm(forms.ModelForm):
         fields = '__all__'
         localized_fields = ['total_pago_factura']
 
+
 class OrdenCompraForm(forms.ModelForm):
 
     # prueba2 = forms.CharField(max_length=100)
@@ -59,9 +62,6 @@ class OrdenCompraForm(forms.ModelForm):
     # def __init__(self, *args, **kwargs):
     #     super(OrdenCompraForm, self).__init__(*args, **kwargs)
     #     self.fields['estado_orden_compra'] = forms.ChoiceField(choices=get_my_choices())
-
-    # def clean_estado_orden_compra(self):
-    #     self.
 
 
 class OrdenCompraDetalleForm(forms.ModelForm):
