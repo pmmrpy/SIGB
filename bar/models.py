@@ -105,6 +105,18 @@ class Caja(models.Model):
     numero_caja = models.PositiveIntegerField(verbose_name='Numero de Caja', unique=True,
                                               help_text='Ingrese el Numero de Caja.')
     ubicacion = models.ForeignKey('CajaUbicacion')
+    punto_expedicion = models.CharField(max_length=3, default="001",
+                                        verbose_name='Punto de Expedicion',
+                                        help_text='Ingrese el Punto de Expedicion.')
+    marca = models.CharField(max_length=50, default="PC Standard",
+                             verbose_name='Marca',
+                             help_text='Ingrese la marca de la Caja.')
+    modelo_fabricacion = models.CharField(max_length=100, default="PC Standard Proc. Intel - 4 GBs de RAM",
+                                          verbose_name='Modelo de Fabricacion',
+                                          help_text='Ingrese el modelo de fabricacion de la Caja.')
+    numero_serie = models.CharField(max_length=20, default="1234567890",
+                                    verbose_name='Numero de Serie',
+                                    help_text='Ingrese el numero de serie de la Caja.')
     estado = models.ForeignKey('CajaEstado')
 
     class Meta:
@@ -288,6 +300,9 @@ class Deposito(models.Model):
     #     ('DBA', 'Deposito Barra Arriba'),
     #     ('DCO', 'Deposito Cocina'),
     #     ('DBI', 'Deposito Barrita'),
+    #     ('PRO', 'Proveedor'),
+    #     ('EXT', 'Externo'),
+    #     ('BAS', 'Basurero'),
     # ),
     descripcion = models.CharField(max_length=200, verbose_name='Descripcion del Deposito',
                                    help_text='Ingrese la descripcion del Deposito. (Hasta 200 caracteres)')
@@ -667,7 +682,8 @@ class Timbrado(models.Model):
         ('IN', 'Inactivo'),
     }
     empresa = models.ForeignKey('compras.Empresa')
-    timbrado = models.DecimalField(max_digits=8, decimal_places=0, verbose_name='Numero de Timbrado', default=1,
+    timbrado = models.DecimalField(max_digits=8, decimal_places=0, default=1,
+                                   verbose_name='Numero de Timbrado',
                                    help_text='Ingrese el numero de Timbrado.')
     descripcion_timbrado = models.CharField(max_length=200, verbose_name='Descripcion del Timbrado',
                                             help_text='Ingrese la descripcion del Timbrado. (Hasta 200 caracteres)')
@@ -696,14 +712,21 @@ class Timbrado(models.Model):
         return "%s - %s" % (self.timbrado, self.descripcion_timbrado)
 
 
-class Factura(models.Model):
+class FacturaVenta(models.Model):
     """
     Mantiene los datos de los Numeros de Factura por Punto de Expedicion (Cajas).
     """
-    caja = models.OneToOneField('Caja')
-    numero_factura_inicial = models.PositiveIntegerField()
-    numero_factura_final = models.PositiveIntegerField()
-    numero_factura_actual = models.PositiveIntegerField()
+    ESTADOS_FACTURA_VENTA = (
+        ('AC', 'Activo'),
+        ('IN', 'Inactivo'),
+    )
+    empresa = models.ForeignKey('compras.Empresa', default=1)
+    caja = models.ForeignKey('Caja')
+    estado = models.CharField(max_length=2, choices=ESTADOS_FACTURA_VENTA, default="AC",
+                              help_text='Seleccione el estado de la Factura.')
+    numero_factura_inicial = models.DecimalField(max_digits=7, decimal_places=0, default=1)
+    numero_factura_final = models.DecimalField(max_digits=7, decimal_places=0, default=9999999)
+    numero_factura_actual = models.DecimalField(max_digits=7, decimal_places=0, default=1)
 
 
 class TipoMovimientoStock(models.Model):

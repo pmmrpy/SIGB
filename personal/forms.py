@@ -6,6 +6,7 @@ from personal.models import Empleado, EmpleadoTelefono
 # from suit.widgets import HTML5Input
 # from django.forms.widgets import TextInput
 # from django.contrib import humanize
+from datetimewidget.widgets import DateWidget
 
 
 class EmpleadoForm(forms.ModelForm):
@@ -19,6 +20,7 @@ class EmpleadoForm(forms.ModelForm):
             # 'fecha_nacimiento': HTML5Input(input_type='date'),
             # 'salario': NumberInput,  #(attrs={'localize': 'True'}),  # (attrs={'class': 'input-mini'}), # 'min': '1', 'max': '5'
             # 'salario': HTML5Input(input_type='number')
+            'fecha_nacimiento': DateWidget,
         }
 
 

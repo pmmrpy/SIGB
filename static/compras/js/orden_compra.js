@@ -3,6 +3,9 @@
  */
 (function($) {
     $(document).ready(function() {
+
+        $('.auto').autoNumeric('init', {aSign: '  GS', pSign: 's', mDec:0});
+
         $(".field-precio_producto_orden_compra input, .field-cantidad_producto_orden_compra input").blur(function (event) {
             var valor = $(event.target);
             var columna = valor.parent();

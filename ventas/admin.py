@@ -78,8 +78,8 @@ class VentaAdmin(admin.ModelAdmin):
     # raw_id_fields = []
 
     fieldsets = [
-        ('Datos Venta', {'fields': ['empresa', 'numero_factura_venta', 'fecha_venta', 'caja', 'numero_pedido', 'reserva',
-                         'cliente', 'forma_pago', 'total_venta', 'estado_venta']})
+        ('Datos Venta', {'fields': ['empresa', 'numero_factura_venta', 'fecha_venta', 'caja', 'numero_pedido',
+                                    'reserva', 'cliente', 'forma_pago', 'total_venta', 'estado_venta']})
     ]
 
     inlines = [VentaDetalleInline]

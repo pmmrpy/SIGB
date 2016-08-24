@@ -4,13 +4,18 @@ from django.contrib import admin
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 from django.utils.translation import ugettext_lazy as _
-from bar.models import CompraEstado, OrdenCompraEstado, TipoMovimientoStock, Deposito, TipoFacturaCompra
-from stock.models import Stock, StockDetalle
 from .forms import LineaCreditoProveedorForm, LineaCreditoProveedorDetalleForm, PagoProveedorForm, \
-    FacturaProveedorForm, OrdenCompraForm, OrdenCompraDetalleForm, CompraForm, CompraDetalleForm
+    FacturaProveedorForm, EmpresaForm, OrdenCompraForm, OrdenCompraDetalleForm, CompraForm, CompraDetalleForm
 from .models import ProveedorTelefono, LineaCreditoProveedor, LineaCreditoProveedorDetalle, Proveedor, PagoProveedor, \
     FacturaProveedor, ProductoProveedor, Empresa, OrdenCompra, OrdenCompraDetalle, Compra, CompraDetalle \
     # , ModelA, ModelB, ModelC
+from bar.models import CompraEstado, OrdenCompraEstado, TipoMovimientoStock, Deposito, TipoFacturaCompra
+from stock.models import Stock, StockDetalle
+from personal.models import Empleado
+
+from django.http import HttpResponse
+from reports import ReportOrdenCompra, GraphicsReport, MasterReport
+from geraldo.generators import PDFGenerator
 
 # Register your models here.
 
@@ -71,6 +76,8 @@ class ProveedorAdmin(admin.ModelAdmin):
 class LineaCreditoProveedorDetalleInline(admin.TabularInline):
     model = LineaCreditoProveedorDetalle
     extra = 0
+    readonly_fields = ['monto_movimiento', 'tipo_movimiento', 'numero_comprobante', 'fecha_movimiento']
+    fields = ['tipo_movimiento', 'monto_movimiento', 'numero_comprobante', 'fecha_movimiento']
     form = LineaCreditoProveedorDetalleForm
     # verbose_name = 'Linea de Credito del Proveedor'
     # verbose_name_plural = 'Lineas de Credito del Proveedor'
@@ -85,8 +92,8 @@ class LineaCreditoProveedorAdmin(admin.ModelAdmin):
             ''
         ]
 
-    readonly_fields = ['fecha_linea_credito_proveedor', 'monto_total_facturas_proveedor', 'monto_total_pagos_proveedor',
-                       'uso_linea_credito_proveedor', 'estado_linea_credito_proveedor']
+    readonly_fields = ['proveedor', 'fecha_linea_credito_proveedor', 'monto_total_facturas_proveedor',
+                       'monto_total_pagos_proveedor', 'uso_linea_credito_proveedor', 'estado_linea_credito_proveedor']
 
     # raw_id_fields =
 
@@ -160,6 +167,8 @@ class FacturaProveedorAdmin(admin.ModelAdmin):
 
 class EmpresaAdmin(admin.ModelAdmin):
 
+    form = EmpresaForm
+
     readonly_fields = ('digito_verificador', 'fecha_alta_proveedor', 'thumb')
 
     # list_editable = ('id', 'proveedor', 'ruc', 'digito_verificador', 'direccion', 'pagina_web')
@@ -171,10 +180,12 @@ class EmpresaAdmin(admin.ModelAdmin):
         ('Direccion', {'fields': ['direccion', ('pais_proveedor', 'ciudad_proveedor')]}),
         ('Otros datos', {'fields': ['pagina_web', 'fecha_apertura', 'fecha_alta_proveedor']}),
         # ('Timbrado', {'fields': ['timbrado']}),
+        ('Datos Tributarios', {'fields': ['codigo_establecimiento', 'actividad_economica', 'salario_minimo_vigente']})
     ]
 
     list_display = ('id', 'proveedor', 'persona_proveedor', 'ruc', 'digito_verificador', 'direccion', 'pais_proveedor',
-                    'ciudad_proveedor', 'pagina_web', 'fecha_apertura', 'fecha_alta_proveedor', 'thumb')
+                    'ciudad_proveedor', 'pagina_web', 'fecha_apertura', 'fecha_alta_proveedor',
+                    'codigo_establecimiento', 'thumb')
     list_filter = ['id', 'proveedor', 'ruc', 'fecha_alta_proveedor']
     search_fields = ['id', 'proveedor', 'ruc', 'fecha_alta_proveedor']
 
@@ -225,7 +236,7 @@ class OrdenCompraAdmin(admin.ModelAdmin):
 
     class Media:
         js = [
-            'compras/js/orden_compra.js'
+            'compras/js/autoNumeric.js', 'compras/js/orden_compra.js'  # 'compras/js/change_form.js',
         ]
 
     # readonly_fields = ('numero_orden_compra', 'fecha_orden_compra', 'estado_orden_compra')
@@ -246,13 +257,13 @@ class OrdenCompraAdmin(admin.ModelAdmin):
     # list_select_related = True
     list_display = ('numero_orden_compra', 'proveedor_orden_compra', 'fecha_orden_compra',
                     'fecha_ultima_modificacion_orden_compra', 'fecha_entrega_orden_compra', 'forma_pago_orden_compra',
-                    'estado_orden_compra', 'total_orden_compra')
+                    'estado_orden_compra', 'total_orden_compra', 'usuario_registro_orden_compra')
     list_filter = ['numero_orden_compra', ('proveedor_orden_compra', admin.RelatedOnlyFieldListFilter),
                    'fecha_orden_compra', 'fecha_ultima_modificacion_orden_compra', 'fecha_entrega_orden_compra',
-                   'forma_pago_orden_compra', 'estado_orden_compra']
+                   'forma_pago_orden_compra', 'estado_orden_compra', 'usuario_registro_orden_compra']
     search_fields = ['numero_orden_compra', 'proveedor_orden_compra', 'fecha_orden_compra',
                      'fecha_ultima_modificacion_orden_compra', 'fecha_entrega_orden_compra', 'forma_pago_orden_compra',
-                     'estado_orden_compra']
+                     'estado_orden_compra', 'usuario_registro_orden_compra']
 
     # def get_readonly_fields(self, request, obj=None):
     #     if obj:  # This is the case when obj is already created i.e. it's an edit
@@ -260,6 +271,23 @@ class OrdenCompraAdmin(admin.ModelAdmin):
     #     # elif object.
     #     else:
     #         return ['numero_orden_compra', 'fecha_orden_compra', 'estado_orden_compra']
+
+    def save_model(self, request, obj, form, change):
+        # if "_print" in request.POST:
+        #     # ordencompra_report(request)
+        #     resp = HttpResponse(content_type='application/pdf')
+        #     ordenes = OrdenCompra.objects.order_by('fecha_orden_compra')
+        #     report = ReportOrdenCompra(queryset=ordenes)
+        #     report.generate_by(PDFGenerator, filename=resp)
+        #     return resp
+        # super(OrdenCompraAdmin, self).save_model(request, obj, form, change)
+
+            # http://localhost:8001/compras/orden-compra-report/
+
+        if getattr(obj, 'usuario_registro_orden_compra', None) is None:
+            # empleado = Empleado.objects.filter(usuario=request.user)
+            obj.usuario_registro_orden_compra = Empleado.objects.get(usuario_id=request.user)
+        super(OrdenCompraAdmin, self).save_model(request, obj, form, change)
 
     def get_readonly_fields(self, request, obj=None):
         if obj is not None and obj.estado_orden_compra.estado_orden_compra in ('EPP', 'PEP'):
@@ -346,13 +374,14 @@ class CompraAdmin(admin.ModelAdmin):
     # raw_id_fields = ("numero_orden_compra",)
 
     list_display = ('numero_compra', 'proveedor', 'numero_orden_compra', 'fecha_compra', 'numero_factura_compra',
-                    'tipo_factura_compra', 'fecha_factura_compra', 'estado_compra', 'total_compra')
+                    'tipo_factura_compra', 'fecha_factura_compra', 'estado_compra', 'total_compra',
+                    'usuario_registro_compra')
     list_filter = ['numero_compra', 'proveedor', ('numero_orden_compra', admin.RelatedOnlyFieldListFilter),
                    'fecha_compra', 'numero_factura_compra', 'tipo_factura_compra', 'fecha_factura_compra',
-                   'estado_compra', 'total_compra']
-    search_fields = ['numero_compra', 'proveedor', 'numero_orden_compra__numero_orden_compra', 'fecha_compra',
-                     'numero_factura_compra', 'tipo_factura_compra__tipo_factura_compra', 'fecha_factura_compra',
-                     'estado_compra__estado_compra', 'total_compra']
+                   'estado_compra', 'total_compra', 'usuario_registro_compra']
+    search_fields = ['numero_compra', 'proveedor__proveedor', 'numero_orden_compra__numero_orden_compra',
+                     'fecha_compra', 'numero_factura_compra', 'tipo_factura_compra__tipo_factura_compra',
+                     'fecha_factura_compra', 'estado_compra__estado_compra', 'total_compra', 'usuario_registro_compra']
 
     def save_model(self, request, obj, form, change):
         compra_actual = obj
@@ -459,6 +488,11 @@ class CompraAdmin(admin.ModelAdmin):
             factura_proveedor.save()
             linea_credito_proveedor_detalle.save()
 
+        if getattr(obj, 'usuario_registro_compra', None) is None:
+            # empleado = Empleado.objects.filter(usuario=request.user)
+            obj.usuario_registro_compra = Empleado.objects.get(usuario_id=request.user)
+        super(CompraAdmin, self).save_model(request, obj, form, change)
+
     def save_formset(self, request, form, formset, change):
         # si orden cambio entonces no hacer nada
         compra_actual = form.instance
@@ -481,7 +515,9 @@ class CompraAdmin(admin.ModelAdmin):
                     stock.save()
                     stock_detalle = StockDetalle(stock_id=stock.id,
                                                  tipo_movimiento=TipoMovimientoStock.objects.get(tipo_movimiento_stock='CO'),
-                                                 ubicacion=Deposito.objects.get(deposito='DCE'),
+                                                 id_movimiento=compra_actual.numero_compra,
+                                                 ubicacion_origen=Deposito.objects.get(deposito='PRO'),
+                                                 ubicacion_destino=Deposito.objects.get(deposito='DCE'),
                                                  cantidad_entrante=detalle.cantidad_producto_compra,
                                                  cantidad_saliente=0,
                                                  fecha_hora_registro_stock=timezone.now())
@@ -494,7 +530,9 @@ class CompraAdmin(admin.ModelAdmin):
                     stock.save()
                     stock_detalle = StockDetalle(stock_id=stock_actual.first().id,
                                                  tipo_movimiento=TipoMovimientoStock.objects.get(tipo_movimiento_stock='CO'),
-                                                 ubicacion=Deposito.objects.get(deposito='DCE'),
+                                                 id_movimiento=compra_actual.numero_compra,
+                                                 ubicacion_origen=Deposito.objects.get(deposito='PRO'),
+                                                 ubicacion_destino=Deposito.objects.get(deposito='DCE'),
                                                  cantidad_entrante=detalle.cantidad_producto_compra,
                                                  cantidad_saliente=0,
                                                  fecha_hora_registro_stock=timezone.now())

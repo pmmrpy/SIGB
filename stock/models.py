@@ -1,9 +1,11 @@
 from django.db import models
 from django.utils import timezone
+from django.db.models import Q
 from django.core.exceptions import ValidationError
 from django.utils.translation import ugettext_lazy as _
 from django.utils.safestring import mark_safe
-from bar.models import TipoProducto, UnidadMedidaProducto
+from bar.models import TipoProducto, UnidadMedidaProducto, TransferenciaStockEstado
+from personal.models import Empleado
 
 # Create your models here.
 
@@ -25,6 +27,9 @@ class Producto(models.Model):
                              help_text='Ingrese la marca del Producto.')
     unidad_medida_compra = models.ForeignKey('bar.UnidadMedidaProducto', related_name='un_med_compra',  # default=1,
                                              verbose_name='Unidad de Medida Compra')
+    # stock_minimo = models.DecimalField(max_digits=10, decimal_places=3, default=1,
+    #                                    verbose_name='Stock Minimo',
+    #                                    help_text='Cantidad minima del producto a mantener en Stock.')
     imagen = models.ImageField(upload_to='stock/productos/', verbose_name='Archivo de Imagen',
                                help_text='Seleccione el archivo con la imagen del Producto.')
     fecha_alta_producto = models.DateTimeField(auto_now_add=True, editable=True,  # default=timezone.now(),
@@ -35,20 +40,25 @@ class Producto(models.Model):
                                       help_text='Seleccione el Tipo de Producto.')
     categoria = models.ForeignKey('bar.CategoriaProducto', help_text='Seleccione la Categoria del Producto.')
     subcategoria = models.ForeignKey('bar.SubCategoriaProducto', help_text='Seleccione la SubCategoria del Producto.')
-    unidad_medida_contenido = models.ForeignKey('bar.UnidadMedidaProducto', related_name='un_med_contenido',  # default=1,
-                                                verbose_name='Unidad de Medida Contenido')
+    unidad_medida_contenido = models.ForeignKey('bar.UnidadMedidaProducto', related_name='un_med_contenido',
+                                                verbose_name='Unidad de Medida Contenido')  # default=1,
     contenido = models.DecimalField(max_digits=10, decimal_places=3,  # default=0,
                                     verbose_name='Cantidad del Contenido',
                                     help_text='Ingrese el Contenido del producto de acuerdo a su Unidad de Medida.')
     compuesto = models.BooleanField(verbose_name='Es compuesto?',  # default=False,
-                                    help_text='Marque la casilla si el Producto es Compuesto.')
-
-    # Analizar si debe ser un atributo del Producto
+                                    help_text='La casilla se marca automicamente si el Producto a ser registrado es '
+                                              'Compuesto o no.')
+    cantidad_existente_stock = models.DecimalField(max_digits=10, decimal_places=3, default=0,
+                                                   verbose_name='Cantidad Existente',
+                                                   help_text='Corresponde a la cantidad existente del Producto '
+                                                             'registrada en la tabla Stock.')
+    # Analizar si precio_venta debe ser un atributo del Producto
     # Debe ser el ultimo definido en PrecioVentaProducto.
     # Cuando el Tipo de Producto es Insumo se debe poner en read-only este campo y dejar su valor en 0.
-    precio_venta = models.DecimalField(max_digits=18, decimal_places=0,  # default=1,
-                                       verbose_name='Precio Venta',
-                                       help_text='Ingrese el Precio de Venta del Producto.')
+    porcentaje_ganancia = models.DecimalField(max_digits=18, decimal_places=2, default=30,
+                                              verbose_name='Porcentaje de Ganancia',
+                                              help_text='Ingrese el Margen de Utilidad o Porcentaje de Ganancia que '
+                                                        'desea obtener de la venta del Producto.')
 
     class Meta:
         # ordering =
@@ -121,7 +131,7 @@ class ProductoCompuesto(Producto):
 
     class Meta:
         proxy = True
-        verbose_name = 'Producto - Compuesto o Elaborado (Receta)'
+        verbose_name = 'Producto Compuesto o Elaborado (Receta)'
         verbose_name_plural = 'Productos - Compuestos o Elaborados (Recetas)'
 
     # tipo_producto = "VE"
@@ -247,7 +257,7 @@ class Stock(models.Model):
         # Consultar si es correcto aplicar esta restriccion de esta manera
         # 08/08/2016: Finalmente traslade el campo "ubicacion" a StockDetalle
         # unique_together = ("producto_stock", "ubicacion")
-        verbose_name = 'Producto - Inventario'
+        verbose_name = 'Inventario de Producto'
         verbose_name_plural = 'Productos - Inventarios'
 
     # VALIDACIONES/FUNCIONALIDADES
@@ -255,6 +265,22 @@ class Stock(models.Model):
     # 2) Validar que la cantidad_existente no sea negativa.
     # 3) Realizar el calculo de la cantidad_existente (suma total de cantidad_entrante - cantidad_saliente)
     # 4) Idear una vista HTML que presente la Cantidad Total Existente del Producto.
+
+    def clean(self):
+        # 2) Valida que la cantidad_existente no sea negativa.
+        if self.cantidad_existente < 0:
+            raise ValidationError({'cantidad_existente': _('La cantidad existente del Producto no puede ser menor a '
+                                                           'cero o negativa.')})
+
+    @staticmethod
+    def verifica_estado_stock():
+        """
+        Maneja 3 estados:
+            Stock suficiente: Se asigna este estado en color Verde cuando la cantidad_existente supera al stock_minimo
+            Menor a stock minimo: Se asigna este estado en color Amarillo cuando la cantidad_existente es mayor a cero
+            e igual o menor al stock_minimo.
+            Sin stock: Se asigna este estado en color Rojo cuando la cantidad_existente es igual a cero.
+        """
 
     def __unicode__(self):
         return "Prod: %s - Cant. Exist: %s" % (self.producto_stock, self.cantidad_existente)
@@ -268,10 +294,19 @@ class StockDetalle(models.Model):
     tipo_movimiento = models.ForeignKey('bar.TipoMovimientoStock', default=1,
                                         verbose_name='Tipo de Movimiento',
                                         help_text='Seleccione el identificador del Tipo de Movimiento de Stock.')
-    ubicacion = models.ForeignKey('bar.Deposito', help_text='Ubicacion del Stock.')
-    cantidad_entrante = models.DecimalField(max_digits=10, decimal_places=3, verbose_name='Cantidad Entrante',
+    id_movimiento = models.PositiveIntegerField(verbose_name='ID Movimiento',  # default=1,
+                                                help_text='Identificador del movimiento en el Stock.')
+    ubicacion_origen = models.ForeignKey('bar.Deposito', related_name='ubicacion_origen',  # default=6,
+                                         verbose_name='Ubicacion Origen',
+                                         help_text='Ubicacion desde donde se origina el movimiento de Stock.')
+    ubicacion_destino = models.ForeignKey('bar.Deposito', related_name='ubicacion_destino',  # default=1,
+                                          verbose_name='Ubicacion Destino',
+                                          help_text='Ubicacion a donde se dirige el movimiento de Stock.')
+    cantidad_entrante = models.DecimalField(max_digits=10, decimal_places=3,
+                                            verbose_name='Cantidad Entrante',
                                             help_text='Cantidad entrante al Stock del producto.')
-    cantidad_saliente = models.DecimalField(max_digits=10, decimal_places=3, verbose_name='Cantidad Saliente',
+    cantidad_saliente = models.DecimalField(max_digits=10, decimal_places=3,
+                                            verbose_name='Cantidad Saliente',
                                             help_text='Cantidad saliente del Stock del producto.')
     fecha_hora_registro_stock = models.DateTimeField(auto_now_add=True,  # default=timezone.now()
                                                      verbose_name='Fecha/hora registro movimiento',
@@ -280,15 +315,36 @@ class StockDetalle(models.Model):
                                                                'de este dato.')
 
     class Meta:
-        verbose_name = 'Producto - Detalle de Inventario'
+        verbose_name = 'Detalle de Inventario del Producto'
         verbose_name_plural = 'Productos - Detalles de Inventarios'
 
     # def __unicode__(self):
     #     return str(self.producto) + ' - ' + str(self.marca)
+# ======================================================================================================================
+
+
+class StockProducto(models.Model):
+    """
+    Genera una vista con la agrupacion de los movimientos de Stock por Producto calculando el campo "cantidad_existente"
+    """
+
+    class Meta:
+        verbose_name = 'Inventario por Producto'
+        verbose_name_plural = 'Stock - Inventarios por Productos'
+
+
+class StockDeposito(models.Model):
+    """
+    Genera una vista con la agrupacion de los movimientos de Stock por Deposito calculando el campo "cantidad_existente"
+    """
+
+    class Meta:
+        verbose_name = 'Inventario por Deposito'
+        verbose_name_plural = 'Stock - Inventarios por Depositos'
 
 
 # ======================================================================================================================
-class SolicitaTransferenciaStock(models.Model):
+class TransferenciaStock(models.Model):
     """
     21/06/2016: Transferir productos del Deposito Central a los Depositos Operativos.
 
@@ -300,9 +356,15 @@ class SolicitaTransferenciaStock(models.Model):
 
     Los Depositos que realizan las ventas son los Depositos Operativos exceptuando a la Cocina.
     """
-    producto_transferencia = models.ForeignKey('Producto', related_name='producto_transferencia',
+    producto_transferencia = models.ForeignKey('Stock', related_name='producto_solicitado',
+                                               # limit_choices_to={'cantidad_existente' > 0},
+                                               limit_choices_to=Q(cantidad_existente__gt=0),
                                                verbose_name='Producto a Transferir',
                                                help_text='Seleccione el producto a Transferir entre depositos.')
+    cantidad_existente_stock = models.DecimalField(max_digits=10, decimal_places=3, default=0,
+                                                   verbose_name='Cantidad Existente',
+                                                   help_text='Despliega la cantidad existente del Producto en el '
+                                                             'Deposito Proveedor seleccionado.')
     cantidad_producto_transferencia = models.DecimalField(max_digits=10, decimal_places=3,
                                                           verbose_name='Cantidad a Transferir',
                                                           help_text='Cantidad a Transferir del producto.')
@@ -313,6 +375,7 @@ class SolicitaTransferenciaStock(models.Model):
     # Se debe registrar el usuario del Solicitante de la Transferencia que deberia ser el usuario logueado.
     usuario_solicitante_transferencia = models.ForeignKey('personal.Empleado', related_name='usuario_solicitante',
                                                           # limit_choices_to='request.user',
+                                                          to_field='usuario',
                                                           verbose_name='Usuario Solicitante',
                                                           help_text='El usuario logueado que realice la solicitud de '
                                                                     'Transferencia sera registrado automaticamente '
@@ -321,15 +384,20 @@ class SolicitaTransferenciaStock(models.Model):
                                                          verbose_name='Deposito Proveedor',
                                                          help_text='Seleccione el Deposito que se encargara de '
                                                                    'procesar la Transferencia.')
-    usuario_autorizante_transferencia = models.ForeignKey('personal.Empleado', related_name='usuario_autorizante',
+    # Se debe registrar el usuario del Autorizante de la Transferencia que deberia ser el usuario logueado.
+    usuario_autorizante_transferencia = models.ForeignKey('personal.Empleado', null=True, blank=True,
+                                                          related_name='usuario_autorizante',
                                                           # limit_choices_to='',
+                                                          to_field='usuario',
                                                           verbose_name='Usuario Autorizante',
                                                           help_text='El usuario logueado que autorice la solicitud de'
                                                                     ' Transferencia sera registrado automaticamente '
                                                                     'como el Autorizante.')
-    estado_transferencia = models.ForeignKey('bar.TransferenciaStockEstado')
+    estado_transferencia = models.ForeignKey('bar.TransferenciaStockEstado', default=1,
+                                             verbose_name='Estado Transferencia',
+                                             help_text='El estado de la Transferencia se asigna de forma automatica.')
     fecha_hora_registro_transferencia = models.DateTimeField(auto_now_add=True,
-                                                             verbose_name='Fecha/hora registro transferencia',
+                                                             verbose_name='Fecha/hora registro Transferencia',
                                                              help_text='La fecha y hora se asignan al momento de '
                                                                        'guardar los datos de la Transferencia. No se '
                                                                        'requiere el ingreso de este dato.')
@@ -346,60 +414,27 @@ class SolicitaTransferenciaStock(models.Model):
     # para que se pueda realizar la transferencia al "deposito_solicitante_transferencia".
     # 3) Las Mermas y Devoluciones podrian ser registrados como Transferencias o Movimientos. Analizar esta
     # alternativa.
+
+    def clean(self):
+        # Valida que la cantidad_producto_transferencia no sea mayor a la cantidad_existente_stock
+        if self.cantidad_producto_transferencia > self.cantidad_existente_stock:
+            raise ValidationError({'cantidad_producto_transferencia': _('La cantidad solicitada a transferir no puede '
+                                                                        'ser mayor que la cantidad existente del '
+                                                                        'Producto.')})
 
     def __unicode__(self):
         return "ID: %s - Prod. Trans: %s" % (self.id, self.producto_transferencia)
 
 
-class ConfirmaTransferenciaStock(models.Model):
+class SolicitaTransferenciaStock(TransferenciaStock):
     """
-    21/06/2016: Transferir productos del Deposito Central a los Depositos Operativos.
-
-    Las Compras ingresan totalmente al Deposito Central y a partir de ahi se transfieren a los Depositos Operativos
-    segun pedidos de transferencias: Deposito Barra Principal, Deposito Barra Arriba, Cocina y Barrita.
-
-    Estos pedidos de transferencias deben cargarse desde el Deposito solicitante y ser autorizados por el Deposito
-    Central.
-
-    Los Depositos que realizan las ventas son los Depositos Operativos exceptuando a la Cocina.
+    Pantalla para registrar la Solicitud de Transferencias de Productos entre Depositos.
     """
-    producto_transferencia = models.ForeignKey('Producto', related_name='producto_transferencia',
-                                               verbose_name='Producto a Transferir',
-                                               help_text='Seleccione el producto a Transferir entre depositos.')
-    cantidad_producto_transferencia = models.DecimalField(max_digits=10, decimal_places=3,
-                                                          verbose_name='Cantidad a Transferir',
-                                                          help_text='Cantidad a Transferir del producto.')
-    deposito_solicitante_transferencia = models.ForeignKey('bar.Deposito', related_name='deposito_solicitante',
-                                                           verbose_name='Deposito Solicitante',
-                                                           help_text='Seleccione el Deposito desde donde se solicita '
-                                                                     'la Transferencia.')
-    # Se debe registrar el usuario del Solicitante de la Transferencia que deberia ser el usuario logueado.
-    usuario_solicitante_transferencia = models.ForeignKey('personal.Empleado', related_name='usuario_solicitante',
-                                                          # limit_choices_to='request.user',
-                                                          verbose_name='Usuario Solicitante',
-                                                          help_text='El usuario logueado que realice la solicitud de '
-                                                                    'Transferencia sera registrado automaticamente '
-                                                                    'como el Solicitante.')
-    deposito_proveedor_transferencia = models.ForeignKey('bar.Deposito', related_name='deposito_proveedor',
-                                                         verbose_name='Deposito Proveedor',
-                                                         help_text='Seleccione el Deposito que se encargara de '
-                                                                   'procesar la Transferencia.')
-    usuario_autorizante_transferencia = models.ForeignKey('personal.Empleado', related_name='usuario_autorizante',
-                                                          # limit_choices_to='',
-                                                          verbose_name='Usuario Autorizante',
-                                                          help_text='El usuario logueado que autorice la solicitud de'
-                                                                    ' Transferencia sera registrado automaticamente '
-                                                                    'como el Autorizante.')
-    estado_transferencia = models.ForeignKey('bar.TransferenciaStockEstado')
-    fecha_hora_registro_transferencia = models.DateTimeField(auto_now_add=True,
-                                                             verbose_name='Fecha/hora registro transferencia',
-                                                             help_text='La fecha y hora se asignan al momento de '
-                                                                       'guardar los datos de la Transferencia. No se '
-                                                                       'requiere el ingreso de este dato.')
 
     class Meta:
-        verbose_name = 'Transferencias de Productos entre Depositos'
-        verbose_name_plural = 'Transferencias de Productos entre Depositos'
+        proxy = True
+        verbose_name = 'Solicitud de Transferencia de Producto entre Deposito'
+        verbose_name_plural = 'Stock - Transferencias de Productos entre Depositos - Solicitudes'
 
     # VALIDACIONES/FUNCIONALIDADES
     # 1) Al confirmarse la Transferencia se deben generar dos registros en StockDetalle, uno que reste la
@@ -409,6 +444,42 @@ class ConfirmaTransferenciaStock(models.Model):
     # para que se pueda realizar la transferencia al "deposito_solicitante_transferencia".
     # 3) Las Mermas y Devoluciones podrian ser registrados como Transferencias o Movimientos. Analizar esta
     # alternativa.
+
+    def __init__(self, *args, **kwargs):
+        super(SolicitaTransferenciaStock, self).__init__(*args, **kwargs)
+        self.estado_transferencia = TransferenciaStockEstado.objects.get(estado_transferencia_stock="PEN")
+        # self.usuario_autorizante_transferencia = Empleado.objects.get(usuario__username='admin')
+
+    def __unicode__(self):
+        return "ID: %s - Prod. Trans: %s" % (self.id, self.producto_transferencia)
+
+
+class ConfirmaTransferenciaStock(TransferenciaStock):
+    """
+    Pantalla para registrar la Confirmacion de Transferencias de Productos entre Depositos.
+    """
+
+    class Meta:
+        proxy = True
+        verbose_name = 'Confirmacion de Transferencia de Producto entre Deposito'
+        verbose_name_plural = 'Stock - Transferencias de Productos entre Depositos - Confirmaciones'
+
+    # VALIDACIONES/FUNCIONALIDADES
+    # 1) Al confirmarse la Transferencia se deben generar dos registros en StockDetalle, uno que reste la
+    # "cantidad_producto_transferencia" del "deposito_proveedor_transferencia" y otro que sume
+    # "cantidad_producto_transferencia" al "deposito_solicitante_transferencia".
+    # 2) Validar que el "deposito_proveedor_transferencia" disponga de la cantidad suficiente del producto solicitado
+    # para que se pueda realizar la transferencia al "deposito_solicitante_transferencia".
+    # 3) Las Mermas y Devoluciones podrian ser registrados como Transferencias o Movimientos. Analizar esta
+    # alternativa.
+
+    def clean(self):
+        # Valida que el usuario_autorizante_transferencia no sea vacio o nulo, esta condicion no deberia darse ya que
+        # este campo se completa con el dato del usuario logueado al Sistema al momento de confirmar la transferencia.
+        if self.usuario_autorizante_transferencia is None:
+            raise ValidationError({'usuario_autorizante_transferencia': _('Se debe seleccionar el Usuario Autorizante '
+                                                                          'de la Transferencia que debe ser el usuario '
+                                                                          'logueado al Sistema.')})
 
     def __unicode__(self):
         return "ID: %s - Prod. Trans: %s" % (self.id, self.producto_transferencia)

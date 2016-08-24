@@ -59,7 +59,7 @@ class Pedido(models.Model):
     # VALIDACIONES/FUNCIONALIDADES
     # ============================
     # 1) Al seleccionar la Reserva se deben cargar los datos del Monto de la Entrega y de las Mesas Reservadas.
-    # 2.1) Al guardar el Pedido se debe cambiar el estado de la Reserva a UTILIZADA en caso de que se haya utilizado una.
+    # 2.1) Al guardar el Pedido se debe cambiar el estado de la Reserva a UTILIZADA en caso de que se haya utilizado una
     # 2.2) Al guardar el Pedido se debe descontar los productos solicitados del Stock.
     # 2.3) Al guardar el Pedido se debe modificar el estado de las Mesas seleccionadas a Ocupadas.
     # 4) Modificar el Estado del Pedido de acuerdo a las acciones que se realicen con el mismo. Por de pronto el campo
@@ -153,7 +153,7 @@ class Venta(models.Model):
     * Listar las ventas mensuales, ventas al contado. Ranking de ventas por cliente, por productos, por marcas.
     """
     empresa = models.ForeignKey('compras.Empresa', default=1)
-    numero_factura_venta = models.ForeignKey('bar.Factura', default=1,  # to_field='numero_factura_actual', unique=True,
+    numero_factura_venta = models.ForeignKey('bar.FacturaVenta', default=1,  # to_field='numero_factura_actual', unique=True,
                                              verbose_name='Numero de Factura de la Venta',
                                              help_text='')
     fecha_venta = models.DateTimeField(auto_now_add=True,  # default=timezone.now()
@@ -163,7 +163,8 @@ class Venta(models.Model):
     caja = models.ForeignKey('bar.Caja', default=1)
     numero_pedido = models.OneToOneField('Pedido', limit_choices_to={'estado_pedido__pedido_estado': "VIG"},
                                          verbose_name='Numero de Pedido',  # default=1,
-                                         help_text='Seleccione el Numero de Pedido para el cual se registrara la Venta.')
+                                         help_text='Seleccione el Numero de Pedido para el cual se registrara la '
+                                                   'Venta.')
     # Si el Cliente tiene una Reserva seria conveniente tomar sus datos de la Reserva.
     reserva = models.ForeignKey('clientes.Reserva')
     cliente = models.ForeignKey('clientes.Cliente', help_text='Confirme con el Cliente si son correctos sus datos '

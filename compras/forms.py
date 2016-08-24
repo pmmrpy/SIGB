@@ -2,10 +2,10 @@ __author__ = 'pmmr'
 
 from django import forms
 # from django.utils import timezone
-from .models import LineaCreditoProveedor, LineaCreditoProveedorDetalle, PagoProveedor, FacturaProveedor, OrdenCompra, \
-    OrdenCompraDetalle, Compra, CompraDetalle
+from .models import LineaCreditoProveedor, LineaCreditoProveedorDetalle, PagoProveedor, FacturaProveedor, Empresa, \
+    OrdenCompra, OrdenCompraDetalle, Compra, CompraDetalle
 # from bar.models import OrdenCompraEstado
-
+from datetimewidget.widgets import DateWidget
 
 # def get_my_choices():
 #     # you place some logic here
@@ -16,6 +16,10 @@ from .models import LineaCreditoProveedor, LineaCreditoProveedorDetalle, PagoPro
 #         ('CAN', 'Cancelada'),
 #     )
 #     return choices_list
+
+ATTR_NUMERICO = {'style': 'text-align:right', 'class': 'auto', 'data-a-sep': '.', 'data-a-dec': ','}
+ATTR_NUMERICO_RO = ATTR_NUMERICO.copy()
+
 
 class LineaCreditoProveedorForm(forms.ModelForm):
     class Meta:
@@ -39,6 +43,15 @@ class PagoProveedorForm(forms.ModelForm):
         localized_fields = ['monto_pago_proveedor']
 
 
+class EmpresaForm(forms.ModelForm):
+    class Meta:
+        model = Empresa
+        fields = '__all__'
+        widgets = {
+            'fecha_apertura': DateWidget,
+        }
+
+
 class FacturaProveedorForm(forms.ModelForm):
     class Meta:
         model = FacturaProveedor
@@ -55,9 +68,9 @@ class OrdenCompraForm(forms.ModelForm):
         model = OrdenCompra
         fields = '__all__'
         localized_fields = ['total_orden_compra']
-    #     # widgets = {
-    #     #     'estado_orden_compra': forms.Select(),
-    #     # }
+        # widgets = {
+        #     # 'estado_orden_compra': forms.Select(),
+        # }
 
     # def __init__(self, *args, **kwargs):
     #     super(OrdenCompraForm, self).__init__(*args, **kwargs)
@@ -65,10 +78,26 @@ class OrdenCompraForm(forms.ModelForm):
 
 
 class OrdenCompraDetalleForm(forms.ModelForm):
+
+    precio_producto_orden_compra = forms.CharField(widget=forms.TextInput,  # (attrs=ATTR_NUMERICO),
+                                                   label='Precio del Producto2', required=False)
+    cantidad_producto_orden_compra = forms.CharField(widget=forms.TextInput(attrs=ATTR_NUMERICO),
+                                                     label='Cantidad del Producto2', required=False)
+    total_producto_orden_compra = forms.CharField(widget=forms.TextInput(attrs=ATTR_NUMERICO),
+                                                  label='Total del Producto2', required=False)
+
     class Meta:
         model = OrdenCompraDetalle
         fields = '__all__'
         localized_fields = ['precio_producto_orden_compra', 'total_producto_orden_compra']
+        # widgets = {
+        #     'precio_producto_orden_compra': forms.CharField(widget=forms.TextInput(attrs=ATTR_NUMERICO),
+        #                                                     label='Precio del Producto2', required=False),
+        #     'cantidad_producto_orden_compra': forms.CharField(widget=forms.TextInput(attrs=ATTR_NUMERICO),
+        #                                                       label='Cantidad del Producto2', required=False),
+        #     'total_producto_orden_compra': forms.CharField(widget=forms.TextInput(attrs=ATTR_NUMERICO),
+        #                                                    label='Total del Producto2', required=False),
+        # }
 
 
 class CompraForm(forms.ModelForm):

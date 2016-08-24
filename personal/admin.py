@@ -11,6 +11,7 @@ from random import randint
 class EmpleadoDocumentoInline(admin.TabularInline):
     model = EmpleadoDocumento
     extra = 0
+    readonly_fields = ['digito_verificador']
     min_num = 1
     verbose_name = 'Documento del Empleado'
     verbose_name_plural = 'Documentos del Empleado'

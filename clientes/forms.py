@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 __author__ = 'pmmr'
 
 from django import forms
@@ -5,12 +6,14 @@ from clientes.models import Cliente, Reserva  # ClienteDocumento
 # from dal import autocomplete
 # from ajax_select.fields import AutoCompleteSelectField, AutoCompleteSelectMultipleField
 # from suit.widgets import SuitDateWidget
-from django.forms.extras.widgets import SelectDateWidget
+# from django.forms.extras.widgets import SelectDateWidget
 # from django.contrib.admin.widgets import AdminDateWidget
 # from django.forms.widgets import DateTimeInput
 # from django.forms.widgets import DateInput
 # from django.forms.widgets import SplitDateTimeWidget
 # from functools import partial
+from datetimewidget.widgets import DateWidget
+from dal import autocomplete
 
 
 # DateInput = partial(forms.DateInput, {'class': 'datepicker'})
@@ -22,7 +25,11 @@ from django.forms.extras.widgets import SelectDateWidget
 #             'clientes/js/datepicker.js'
 #         ]
 
-BIRTH_YEAR_CHOICES = range(2012, 1920, -1)
+# BIRTH_YEAR_CHOICES = range(2012, 1920, -1)
+
+
+# class DateInput(forms.DateInput):
+#     input_type = 'date'
 
 
 class ClienteForm(forms.ModelForm):
@@ -36,14 +43,17 @@ class ClienteForm(forms.ModelForm):
         widgets = {
             # 'fecha_nacimiento': SuitDateWidget,
             # 'fecha_nacimiento': (attrs={'class': 'datepicker', 'changeMonth': 'true', 'changeYear': 'true'}),
-            'fecha_nacimiento': SelectDateWidget(years=BIRTH_YEAR_CHOICES,
-                                                 empty_label=("Seleccione el anho", "Seleccione el mes",
-                                                              "Seleccione la fecha")),
+            # 'fecha_nacimiento': SelectDateWidget(years=BIRTH_YEAR_CHOICES,
+            #                                      empty_label=(u"Seleccione el Año", "Seleccione el Mes",
+            #                                                   "Seleccione el Dia")),
             # 'fecha_nacimiento': SplitDateTimeWidget,
-            # 'fecha_nacimiento': DateInput(attrs={'class': 'datepicker'}),
+            # 'fecha_nacimiento': DateInput(),  # DateInput(attrs={'class': 'datepicker'}),
             # 'fecha_nacimiento': DateTimeInput(attrs={'type': 'date'})
-            # 'fecha_nacimiento': AdminDateWidget(attrs={'changeMonth': 'true', 'changeYear': 'true'}),
+            # 'fecha_nacimiento': AdminDateWidget(attrs={'changeMonth': True, 'changeYear': True}),
             # 'fecha_nacimiento': CalendarWidget,
+            'fecha_nacimiento': DateWidget,
+            'ciudad': autocomplete.ModelSelect2(url='/bar/ciudad-autocomplete/'),
+            # 'ciudad': autocomplete.ModelSelect2(url='bar:ciudad-autocomplete'),  # , forward=['pais']
         }
 
     # def clean_telefono(self):

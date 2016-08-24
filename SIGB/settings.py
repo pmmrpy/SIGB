@@ -37,8 +37,8 @@ INSTALLED_APPS = (
     # 'material.admin',
     # 'grappelli',
     'suit',
-    # 'dal',
-    # 'dal_select2',
+    'dal',
+    'dal_select2',
     # 'ajax_select',
     'django.contrib.admin',
     'django.contrib.auth',
@@ -48,13 +48,14 @@ INSTALLED_APPS = (
     'django.contrib.staticfiles',
     # 'polymorphic',
     # 'controlcenter',
+    'datetimewidget',
     'bar',
     'clientes',
     'compras',
     'personal',
     'stock',
     'ventas',
-    # 'geraldo',
+    'geraldo',
 )
 
 MIDDLEWARE_CLASSES = (

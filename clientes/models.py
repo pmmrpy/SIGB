@@ -1,6 +1,9 @@
+# -*- coding: utf-8 -*-
+
 from django.db import models
 # from ventas.models import Mesa
-# import datetime
+import datetime
+# from dateutil.relativedelta import *
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 from django.utils.translation import ugettext_lazy as _
@@ -20,6 +23,15 @@ def calcular_dv(numero, base=11):
     return (11 - resto) if resto > 1 else 0
 
 
+def calcular_edad(nacimiento):
+    # nacimiento = self.fecha_nacimiento
+    hoy = datetime.date.today()
+    return hoy.year - nacimiento.year - ((hoy.month, hoy.day) < (nacimiento.month, nacimiento.day))
+    # edad = relativedelta(hoy, nacimiento)
+    # edad = edad.years
+    # return edad
+
+
 class Cliente(models.Model):
     """
     07/07/2016: Registro de Clientes.
@@ -32,9 +44,10 @@ class Cliente(models.Model):
                                                           '(Hasta 80 caracteres)')
     fecha_nacimiento = models.DateField(verbose_name='Fecha de Nacimiento',  # default=timezone.now(),
                                         help_text='Seleccione la fecha de nacimiento del Cliente.')
-    sexo = models.CharField(max_length=1, choices=(  # default='F',
+    sexo = models.CharField(max_length=1, verbose_name='Genero', choices=(  # default='F',
         ('F', 'Femenino'),
         ('M', 'Masculino'),
+        ('O', 'Otros'),
     ), help_text='Seleccione el genero del Cliente.')
     direccion = models.CharField(max_length=200, help_text='Ingrese la direccion del Cliente. (Hasta 200 caracteres)')
     pais = models.ForeignKey('bar.Pais', help_text='Seleccione el pais de residencia del Cliente.')  # default=1,
@@ -48,6 +61,14 @@ class Cliente(models.Model):
     #     return '%s %s' % (self.nombres, self.apellidos)
     # full_name = property(_get_full_name)
 
+    def clean(self):
+        # Validar si el Cliente es mayor de edad.
+        # edad = datetime.date.today() - self.fecha_nacimiento
+        edad = calcular_edad(self.fecha_nacimiento)
+        if edad < 18:  # datetime.timedelta(days=365 * 18):
+            raise ValidationError({'fecha_nacimiento': _(u"El Cliente debe ser mayor de edad. Su edad es de %s años."
+                                                         % edad)})
+
     def __unicode__(self):
         # return self.nombres + ' ' + self.apellidos
         return '%s %s' % (self.nombres, self.apellidos)
@@ -56,7 +77,7 @@ class Cliente(models.Model):
 class ClienteDocumento(models.Model):
     cliente = models.ForeignKey('Cliente')
     tipo_documento = models.ForeignKey('bar.Documento', verbose_name='Tipo de Documento',
-                                       help_text='Seleccione el tipo de documento del Cliente.')
+                                       help_text='Seleccione el Tipo de Documento del Cliente.')
     numero_documento = models.CharField(max_length=50, verbose_name='Numero de Documento',  # unique=True,
                                         help_text='Ingrese el documento del Cliente. (El dato puede contener numeros '
                                                   'y letras dependiendo de la nacionalidad y tipo de documento)')

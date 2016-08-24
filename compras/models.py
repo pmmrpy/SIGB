@@ -152,12 +152,12 @@ class LineaCreditoProveedorDetalle(models.Model):
         ('FAC', 'Factura'),
     )
     linea_credito_proveedor = models.ForeignKey('LineaCreditoProveedor')
-    monto_movimiento = models.DecimalField(max_digits=18, decimal_places=0, default=0,
-                                           verbose_name='Monto del Movimiento',
-                                           help_text='Ingrese el Monto del Movimiento.')
     tipo_movimiento = models.CharField(max_length=3, choices=TIPOS_MOVIMIENTO,
                                        verbose_name='Tipo de Movimiento',
                                        help_text='Seleccione el Tipo de Movimiento.')
+    monto_movimiento = models.DecimalField(max_digits=18, decimal_places=0, default=0,
+                                           verbose_name='Monto del Movimiento',
+                                           help_text='Ingrese el Monto del Movimiento.')
     numero_comprobante = models.IntegerField(verbose_name='Numero Comprobante Movimiento',
                                              help_text='Ingrese el Numero de Comprobante del Movimiento.')
     fecha_movimiento = models.DateField(default=timezone.now(), verbose_name='Fecha Registro Movimiento',
@@ -321,6 +321,15 @@ class Empresa(Proveedor):
                                      help_text='Seleccione el archivo con el logo de la Empresa.')
     fecha_apertura = models.DateField(verbose_name='Fecha de Apertura',
                                       help_text='Indique la Fecha de Apertura de la Empresa.')
+    codigo_establecimiento = models.CharField(max_length=3, default="001",
+                                              verbose_name='Codigo de Establecimiento',
+                                              help_text='Ingrese el Codigo de Establecimiento.')
+    actividad_economica = models.CharField(max_length=100, default="Compra/venta de productos gastronomicos",
+                                           verbose_name='Actividad Economica',
+                                           help_text='Ingrese la actividad economica a la que se dedica la Empresa.')
+    salario_minimo_vigente = models.DecimalField(max_digits=18, decimal_places=0, default=1824055,
+                                                 verbose_name='Salario Minimo Vigente',
+                                                 help_text='Ingrese el Salario Minimo Vigente.')
 
     class Meta:
         verbose_name = 'Empresa'
@@ -392,6 +401,12 @@ class OrdenCompra(models.Model):
                                             verbose_name='Estado Orden de Compra',
                                             help_text='El estado de la Orden de Compra se establece automaticamente de '
                                                       'acuerdo a la Fecha de Entrega ingresada.')
+    usuario_registro_orden_compra = models.ForeignKey('personal.Empleado', default=1,
+                                                      related_name='usuario_registro_orden_compra',
+                                                      # limit_choices_to='',
+                                                      to_field='usuario',
+                                                      verbose_name='Preparado por?',
+                                                      help_text='Usuario que registro la Orden de Compra.')
 
     # Calcular la suma de todos los totales de compra de cada producto
     # Debe ir en la cabecera y no en el detalle
@@ -561,7 +576,8 @@ class Compra(models.Model):
                                                help_text='Seleccione el Numero de Orden de Compra para la cual se '
                                                          'confirmara la Compra.')
     proveedor = models.ForeignKey('Proveedor', default=9)
-    numero_factura_compra = models.IntegerField(verbose_name='Numero de Factura de la Compra', default=1,
+    numero_factura_compra = models.DecimalField(max_digits=7, decimal_places=0, default=1,
+                                                verbose_name='Numero de Factura de la Compra',
                                                 help_text='Ingrese el Numero de Factura que acompana la Compra.')
     tipo_factura_compra = models.ForeignKey('bar.TipoFacturaCompra', default=1,
                                             verbose_name='Tipo de Factura',
@@ -586,6 +602,12 @@ class Compra(models.Model):
                                       help_text='La Compra puede tener 3 estados: PENDIENTE, CONFIRMADA o CANCELADA. '
                                                 'El estado se asigna de forma automatica de acuerdo a la accion '
                                                 'realizada.')
+    usuario_registro_compra = models.ForeignKey('personal.Empleado', default=1,
+                                                related_name='usuario_registro_compra',
+                                                # limit_choices_to='',
+                                                to_field='usuario',
+                                                verbose_name='Confirmado por?',
+                                                help_text='Usuario que registro la Compra.')
     total_compra = models.DecimalField(max_digits=18, decimal_places=0, default=0,
                                        verbose_name='Total de la Compra',
                                        help_text='Este campo se calcula en funcion al detalle de la Compra.')

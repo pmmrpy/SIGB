@@ -5,7 +5,7 @@ from django.contrib import admin
 from .models import ReservaEstado, Mesa, MesaEstado, MesaUbicacion, Caja, CajaEstado, CajaUbicacion, Documento, \
     Persona, FormaPagoVenta, FormaPagoCompra, TipoDeposito, Deposito, CategoriaProducto, SubCategoriaProducto, \
     TipoProducto, UnidadMedidaProducto, Moneda, Cotizacion, CodigoPaisTelefono, CodigoOperadoraTelefono, Pais, \
-    Ciudad, CompraEstado, OrdenCompraEstado, PedidoEstado, VentaEstado, Timbrado, Factura, TipoMovimientoStock, \
+    Ciudad, CompraEstado, OrdenCompraEstado, PedidoEstado, VentaEstado, Timbrado, FacturaVenta, TipoMovimientoStock, \
     TransferenciaStockEstado, TipoFacturaCompra
 
 
@@ -247,7 +247,7 @@ admin.site.register(OrdenCompraEstado, OrdenCompraEstadoAdmin)
 admin.site.register(PedidoEstado, PedidoEstadoAdmin)
 admin.site.register(VentaEstado, VentaEstadoAdmin)
 admin.site.register(Timbrado, TimbradoAdmin)
-admin.site.register(Factura)
+admin.site.register(FacturaVenta)
 admin.site.register(TipoMovimientoStock, TipoMovimientoStockAdmin)
 admin.site.register(TransferenciaStockEstado, TransferenciaStockEstadoAdmin)
 admin.site.register(TipoFacturaCompra)

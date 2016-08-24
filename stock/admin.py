@@ -3,8 +3,9 @@ from django.contrib import admin
 # Register your models here.
 # from stock.forms import PrecioVentaProductoForm
 
-from .models import Producto, ProductoCompuesto, ProductoCompuestoDetalle, Stock, StockDetalle, Devolucion
-# PrecioVentaProducto, SolicitaTransferenciaStock, ConfirmaTransferenciaStock
+from .models import Producto, ProductoCompuesto, ProductoCompuestoDetalle, Stock, StockDetalle, StockProducto, \
+    StockDeposito, Devolucion, SolicitaTransferenciaStock, ConfirmaTransferenciaStock  # PrecioVentaProducto
+from personal.models import Empleado
 
 
 # class PrecioVentaProductoInline(admin.TabularInline):
@@ -23,14 +24,14 @@ class ProductoAdmin(admin.ModelAdmin):
             'stock/js/producto.js'
         ]
 
-    readonly_fields = ['fecha_alta_producto', 'compuesto', 'thumb']
+    readonly_fields = ['fecha_alta_producto', 'thumb']  # 'compuesto',
 
     fieldsets = [
         ('Datos del Producto', {'fields': ['producto', 'codigo_barra', 'marca', 'unidad_medida_compra', 'imagen',
-                                           'thumb', 'fecha_alta_producto', 'compuesto']}),
+                                           'thumb', 'fecha_alta_producto']}),  # 'compuesto'
         ('Contenido del Producto', {'fields': ['tipo_producto', 'categoria', 'subcategoria', 'unidad_medida_contenido',
                                                'contenido']}),
-        ('Precio de Venta', {'fields': ['precio_venta']}),
+        ('Utilidad', {'fields': ['porcentaje_ganancia']}),
     ]
 
     # PrecioProducto debe estar disponible como Inline solo para los Productos que tienen Tipo de Producto
@@ -40,8 +41,8 @@ class ProductoAdmin(admin.ModelAdmin):
 
     # list_select_related = True
     list_display = ('id', 'producto', 'marca', 'fecha_alta_producto', 'unidad_medida_compra', 'tipo_producto',
-                    'categoria', 'subcategoria', 'unidad_medida_contenido', 'contenido', 'compuesto', 'precio_venta',
-                    'thumb')
+                    'categoria', 'subcategoria', 'unidad_medida_contenido', 'contenido', 'compuesto',
+                    'porcentaje_ganancia', 'thumb')
     list_display_links = ['producto']
     list_filter = ['id', 'producto', 'marca', 'fecha_alta_producto', 'tipo_producto', 'categoria', 'subcategoria']
     search_fields = ['id', 'producto', 'marca', 'fecha_alta_producto', 'tipo_producto__tipo_producto',
@@ -78,13 +79,13 @@ class ProductoCompuestoAdmin(admin.ModelAdmin):
         ('Datos del Producto Compuesto', {'fields': ['producto', 'compuesto', 'tipo_producto', 'categoria',
                                                      'subcategoria', 'fecha_alta_producto', 'imagen', 'thumb']}),
         ('Contenido del Producto', {'fields': ['unidad_medida_contenido', 'contenido']}),
-        ('Precio de Venta', {'fields': ['precio_venta']})
+        ('Utilidad', {'fields': ['porcentaje_ganancia']})
     ]
 
     inlines = [ProductoCompuestoDetalleInline]
 
     list_display = ('id', 'producto', 'compuesto', 'fecha_alta_producto', 'tipo_producto', 'categoria', 'subcategoria',
-                    'unidad_medida_contenido', 'contenido', 'precio_venta', 'thumb')
+                    'unidad_medida_contenido', 'contenido', 'porcentaje_ganancia', 'thumb')
     list_display_links = ['producto']
     list_filter = ['id', 'producto', 'categoria', 'subcategoria', 'fecha_alta_producto']
     search_fields = ['id', 'producto', 'categoria', 'subcategoria', 'fecha_alta_producto']
@@ -119,8 +120,8 @@ class ProductoCompuestoAdmin(admin.ModelAdmin):
 class StockDetalleInline(admin.TabularInline):
     model = StockDetalle
     extra = 0
-    readonly_fields = ['tipo_movimiento', 'ubicacion', 'cantidad_entrante', 'cantidad_saliente',
-                       'fecha_hora_registro_stock']
+    readonly_fields = ['tipo_movimiento', 'id_movimiento', 'ubicacion_origen', 'ubicacion_destino', 'cantidad_entrante',
+                       'cantidad_saliente', 'fecha_hora_registro_stock']
     # form =
     # raw_id_fields =
     # verbose_name = ''
@@ -154,76 +155,89 @@ class StockAdmin(admin.ModelAdmin):
 
 
 # ======================================================================================================================
-# class SolicitaTransferenciaStockAdmin(admin.ModelAdmin):
-#
-#     # form =
-#
-#     class Media:
-#         js = [
-#             'stock/js/transferencia_stock.js'
-#         ]
-#
-#     readonly_fields = ['estado_transferencia', 'fecha_hora_registro_transferencia']
-#
-#     # raw_id_fields = []
-#
-#     fieldsets = [
-#         ('Datos del Producto', {'fields': ['producto_transferencia', 'cantidad_producto_transferencia']}),
-#         ('Solicitante', {'fields': ['deposito_solicitante_transferencia', 'usuario_solicitante_transferencia']}),
-#         ('Proveedor', {'fields': ['deposito_proveedor_transferencia', 'usuario_autorizante_transferencia']}),
-#         ('Otros datos de la Transferencia', {'fields': ['estado_transferencia', 'fecha_hora_registro_transferencia']})
-#     ]
-#
-#     # inlines =
-#
-#     list_display = ['producto_transferencia', 'cantidad_producto_transferencia', 'deposito_solicitante_transferencia',
-#                     'usuario_solicitante_transferencia', 'deposito_proveedor_transferencia',
-#                     'usuario_autorizante_transferencia', 'estado_transferencia', 'fecha_hora_registro_transferencia']
-#     list_filter = ['producto_transferencia', 'deposito_solicitante_transferencia', 'usuario_solicitante_transferencia',
-#                    'deposito_proveedor_transferencia', 'usuario_autorizante_transferencia', 'estado_transferencia',
-#                    'fecha_hora_registro_transferencia']
-#     search_fields = ['producto_transferencia', 'cantidad_producto_transferencia', 'deposito_solicitante_transferencia',
-#                      'usuario_solicitante_transferencia', 'deposito_proveedor_transferencia',
-#                      'usuario_autorizante_transferencia', 'estado_transferencia', 'fecha_hora_registro_transferencia']
-#
-#
-# class ConfirmaTransferenciaStockAdmin(admin.ModelAdmin):
-#
-#     # form =
-#
-#     class Media:
-#         js = [
-#             'stock/js/transferencia_stock.js'
-#         ]
-#
-#     readonly_fields = ['estado_transferencia', 'fecha_hora_registro_transferencia']
-#
-#     # raw_id_fields = []
-#
-#     fieldsets = [
-#         ('Datos del Producto', {'fields': ['producto_transferencia', 'cantidad_producto_transferencia']}),
-#         ('Solicitante', {'fields': ['deposito_solicitante_transferencia', 'usuario_solicitante_transferencia']}),
-#         ('Proveedor', {'fields': ['deposito_proveedor_transferencia', 'usuario_autorizante_transferencia']}),
-#         ('Otros datos de la Transferencia', {'fields': ['estado_transferencia', 'fecha_hora_registro_transferencia']})
-#     ]
-#
-#     # inlines =
-#
-#     list_display = ['producto_transferencia', 'cantidad_producto_transferencia', 'deposito_solicitante_transferencia',
-#                     'usuario_solicitante_transferencia', 'deposito_proveedor_transferencia',
-#                     'usuario_autorizante_transferencia', 'estado_transferencia', 'fecha_hora_registro_transferencia']
-#     list_filter = ['producto_transferencia', 'deposito_solicitante_transferencia', 'usuario_solicitante_transferencia',
-#                    'deposito_proveedor_transferencia', 'usuario_autorizante_transferencia', 'estado_transferencia',
-#                    'fecha_hora_registro_transferencia']
-#     search_fields = ['producto_transferencia', 'cantidad_producto_transferencia', 'deposito_solicitante_transferencia',
-#                      'usuario_solicitante_transferencia', 'deposito_proveedor_transferencia',
-#                      'usuario_autorizante_transferencia', 'estado_transferencia', 'fecha_hora_registro_transferencia']
+class SolicitaTransferenciaStockAdmin(admin.ModelAdmin):
+
+    # form =
+
+    class Media:
+        js = [
+            'stock/js/solicita_transferencia_stock.js'
+        ]
+
+    readonly_fields = ['usuario_solicitante_transferencia', 'usuario_autorizante_transferencia',
+                       'estado_transferencia', 'fecha_hora_registro_transferencia']  # 'cantidad_existente_stock',
+
+    raw_id_fields = ['producto_transferencia']
+
+    fieldsets = [
+        ('Datos del Producto', {'fields': ['producto_transferencia', 'cantidad_existente_stock',
+                                           'cantidad_producto_transferencia']}),
+        ('Solicitante', {'fields': ['deposito_solicitante_transferencia', 'usuario_solicitante_transferencia']}),
+        ('Proveedor', {'fields': ['deposito_proveedor_transferencia', 'usuario_autorizante_transferencia']}),
+        ('Otros datos de la Transferencia', {'fields': ['estado_transferencia', 'fecha_hora_registro_transferencia']})
+    ]
+
+    # inlines =
+
+    list_display = ['producto_transferencia', 'cantidad_producto_transferencia', 'deposito_solicitante_transferencia',
+                    'usuario_solicitante_transferencia', 'deposito_proveedor_transferencia',
+                    'usuario_autorizante_transferencia', 'estado_transferencia', 'fecha_hora_registro_transferencia']
+    list_filter = ['producto_transferencia', 'deposito_solicitante_transferencia', 'usuario_solicitante_transferencia',
+                   'deposito_proveedor_transferencia', 'usuario_autorizante_transferencia', 'estado_transferencia',
+                   'fecha_hora_registro_transferencia']
+    search_fields = ['producto_transferencia', 'cantidad_producto_transferencia', 'deposito_solicitante_transferencia',
+                     'usuario_solicitante_transferencia', 'deposito_proveedor_transferencia',
+                     'usuario_autorizante_transferencia', 'estado_transferencia', 'fecha_hora_registro_transferencia']
+
+    def save_model(self, request, obj, form, change):
+        if getattr(obj, 'usuario_solicitante_transferencia', None) is None:
+            # empleado = Empleado.objects.filter(usuario=request.user)
+            obj.usuario_solicitante_transferencia = Empleado.objects.get(usuario_id=request.user)
+        super(SolicitaTransferenciaStockAdmin, self).save_model(request, obj, form, change)
+
+
+class ConfirmaTransferenciaStockAdmin(admin.ModelAdmin):
+
+    # form =
+
+    class Media:
+        js = [
+            'stock/js/confirma_transferencia_stock.js'
+        ]
+
+    readonly_fields = ['producto_transferencia', 'cantidad_existente_stock', 'deposito_solicitante_transferencia',
+                       'usuario_solicitante_transferencia', 'deposito_proveedor_transferencia',
+                       'usuario_autorizante_transferencia', 'estado_transferencia', 'fecha_hora_registro_transferencia']
+
+    # raw_id_fields = []
+
+    fieldsets = [
+        ('Datos del Producto', {'fields': ['producto_transferencia', 'cantidad_existente_stock',
+                                           'cantidad_producto_transferencia']}),
+        ('Solicitante', {'fields': ['deposito_solicitante_transferencia', 'usuario_solicitante_transferencia']}),
+        ('Proveedor', {'fields': ['deposito_proveedor_transferencia', 'usuario_autorizante_transferencia']}),
+        ('Otros datos de la Transferencia', {'fields': ['estado_transferencia', 'fecha_hora_registro_transferencia']})
+    ]
+
+    # inlines =
+
+    list_display = ['producto_transferencia', 'cantidad_producto_transferencia', 'deposito_solicitante_transferencia',
+                    'usuario_solicitante_transferencia', 'deposito_proveedor_transferencia',
+                    'usuario_autorizante_transferencia', 'estado_transferencia', 'fecha_hora_registro_transferencia']
+    list_filter = ['producto_transferencia', 'deposito_solicitante_transferencia', 'usuario_solicitante_transferencia',
+                   'deposito_proveedor_transferencia', 'usuario_autorizante_transferencia', 'estado_transferencia',
+                   'fecha_hora_registro_transferencia']
+    search_fields = ['producto_transferencia', 'cantidad_producto_transferencia', 'deposito_solicitante_transferencia',
+                     'usuario_solicitante_transferencia', 'deposito_proveedor_transferencia',
+                     'usuario_autorizante_transferencia', 'estado_transferencia', 'fecha_hora_registro_transferencia']
 # ======================================================================================================================
 
 admin.site.register(Producto, ProductoAdmin)
 # admin.site.register(PrecioVentaProducto, PrecioVentaProductoAdmin)
 admin.site.register(ProductoCompuesto, ProductoCompuestoAdmin)
 admin.site.register(Stock, StockAdmin)
-# admin.site.register(SolicitaTransferenciaStock, SolicitaTransferenciaStockAdmin)
-# admin.site.register(ConfirmaTransferenciaStock, ConfirmaTransferenciaStockAdmin)
+admin.site.register(StockProducto)
+admin.site.register(StockDeposito)
+admin.site.register(SolicitaTransferenciaStock, SolicitaTransferenciaStockAdmin)
+admin.site.register(ConfirmaTransferenciaStock, ConfirmaTransferenciaStockAdmin)
 admin.site.register(Devolucion)

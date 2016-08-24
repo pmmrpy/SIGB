@@ -44,7 +44,7 @@ class ClienteAdmin(admin.ModelAdmin):
     ]
     inlines = [ClienteTelefonoInline, ClienteDocumentoInline]
 
-    list_display = ['id', 'upper_case_name', 'direccion', 'pais', 'ciudad', 'fecha_nacimiento', 'email']  # 'nombres', 'apellidos',
+    list_display = ['id', 'upper_case_name', 'direccion', 'pais', 'ciudad', 'fecha_nacimiento', 'email']
     list_display_links = ['upper_case_name']
     list_filter = ['nombres', 'apellidos', 'pais', 'ciudad', 'fecha_nacimiento', 'email']
     # search_fields = ['id', 'nombres', 'apellidos', 'direccion', 'pais', 'ciudad', 'email']

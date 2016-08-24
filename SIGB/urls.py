@@ -42,6 +42,7 @@ urlpatterns = [
     url(r'^compras/', include('compras.urls')),
     url(r'^clientes/', include('clientes.urls')),
     # url(r'^grappelli/', include('grappelli.urls')),
+    url(r'^bar/', include('bar.urls', namespace='bar')),
     url(r'^admin/', include(admin.site.urls)),
     url(r'^api/', include(v1_api.urls)),
     # url(r'^admin/dashboard/', include(controlcenter.urls)),
