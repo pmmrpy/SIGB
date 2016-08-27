@@ -83,11 +83,12 @@ class Empleado(models.Model):
     #     self._codigo_venta = value
 
     def __init__(self, *args, **kwargs):
+        # if not self.id:
+        empresa = Empresa.objects.get(pk=9)
+        # self.salario = empresa.salario_minimo_vigente
+        # self.salario = get_salario_minimo_vigente()
+        self._meta.get_field('salario').default = empresa.salario_minimo_vigente
         super(Empleado, self).__init__(*args, **kwargs)
-        if not self.id:
-            # empresa = Empresa.objects.get(pk=9)
-            # self.salario = empresa.salario_minimo_vigente
-            self.salario = get_salario_minimo_vigente()
 
     def clean(self):
         # Validar si el Cliente es mayor de edad.

@@ -1,9 +1,12 @@
+import datetime
 from django.contrib import admin
 
 # from polymorphic.admin import PolymorphicParentModelAdmin, PolymorphicChildModelAdmin, PolymorphicChildModelFilter
 from django.utils import timezone
 from django.core.exceptions import ValidationError
+from django.utils.html import format_html
 from django.utils.translation import ugettext_lazy as _
+from django.views.generic.dates import timezone_today
 from .forms import LineaCreditoProveedorForm, LineaCreditoProveedorDetalleForm, PagoProveedorForm, \
     FacturaProveedorForm, EmpresaForm, OrdenCompraForm, OrdenCompraDetalleForm, CompraForm, CompraDetalleForm
 from .models import ProveedorTelefono, LineaCreditoProveedor, LineaCreditoProveedorDetalle, Proveedor, PagoProveedor, \
@@ -194,6 +197,7 @@ class EmpresaAdmin(admin.ModelAdmin):
 class OrdenCompraDetalleInline(admin.TabularInline):
     model = OrdenCompraDetalle
     extra = 0
+    min_num = 1
     form = OrdenCompraDetalleForm
     raw_id_fields = ['producto_orden_compra']
     verbose_name = 'Orden de Compra - Detalle de Productos'
@@ -234,10 +238,10 @@ class OrdenCompraAdmin(admin.ModelAdmin):
     #         )
     #     return super(OrdenCompraAdmin, self).formfield_for_dbfield(db_field, **kwargs)
 
-    class Media:
-        js = [
-            'compras/js/autoNumeric.js', 'compras/js/orden_compra.js'  # 'compras/js/change_form.js',
-        ]
+    # class Media:
+    #     js = [
+    #         'compras/js/autoNumeric.js', 'compras/js/orden_compra.js'  # 'compras/js/change_form.js',
+    #     ]
 
     # readonly_fields = ('numero_orden_compra', 'fecha_orden_compra', 'estado_orden_compra')
 
@@ -257,7 +261,7 @@ class OrdenCompraAdmin(admin.ModelAdmin):
     # list_select_related = True
     list_display = ('numero_orden_compra', 'proveedor_orden_compra', 'fecha_orden_compra',
                     'fecha_ultima_modificacion_orden_compra', 'fecha_entrega_orden_compra', 'forma_pago_orden_compra',
-                    'estado_orden_compra', 'total_orden_compra', 'usuario_registro_orden_compra')
+                    'estado', 'total_orden_compra', 'usuario_registro_orden_compra')
     list_filter = ['numero_orden_compra', ('proveedor_orden_compra', admin.RelatedOnlyFieldListFilter),
                    'fecha_orden_compra', 'fecha_ultima_modificacion_orden_compra', 'fecha_entrega_orden_compra',
                    'forma_pago_orden_compra', 'estado_orden_compra', 'usuario_registro_orden_compra']
@@ -272,6 +276,19 @@ class OrdenCompraAdmin(admin.ModelAdmin):
     #     else:
     #         return ['numero_orden_compra', 'fecha_orden_compra', 'estado_orden_compra']
 
+    def estado(self, obj):
+        # color = 'black'
+        if obj.estado_orden_compra.estado_orden_compra == 'ENT':
+            color = 'green'
+            return format_html('<span style="color: %s"><b> %s </b></span>' %
+                               (color, obj.estado_orden_compra.get_estado_orden_compra_display()))
+        elif obj.estado_orden_compra.estado_orden_compra == 'PEP':
+            color = 'red'
+            return format_html('<span style="color: %s"><b> %s </b></span>' %
+                               (color, obj.estado_orden_compra.get_estado_orden_compra_display()))
+        return obj.estado_orden_compra
+    estado.short_description = 'Estado Orden de Compra'
+
     def save_model(self, request, obj, form, change):
         # if "_print" in request.POST:
         #     # ordencompra_report(request)
@@ -282,7 +299,7 @@ class OrdenCompraAdmin(admin.ModelAdmin):
         #     return resp
         # super(OrdenCompraAdmin, self).save_model(request, obj, form, change)
 
-            # http://localhost:8001/compras/orden-compra-report/
+        # http://localhost:8001/compras/orden-compra-report/
 
         if getattr(obj, 'usuario_registro_orden_compra', None) is None:
             # empleado = Empleado.objects.filter(usuario=request.user)
@@ -312,6 +329,20 @@ class OrdenCompraAdmin(admin.ModelAdmin):
                                            not in ('ENT', 'CAN')
 
         return super(OrdenCompraAdmin, self).changeform_view(request, object_id, form_url, extra_context)
+
+    def changelist_view(self, request, extra_context=None):
+        queryset = self.get_queryset(request).filter(estado_orden_compra__estado_orden_compra='EPP')
+
+        for orden_compra in queryset:
+            now = timezone.now()
+            print orden_compra.fecha_entrega_orden_compra, now
+
+            if orden_compra.fecha_entrega_orden_compra < now:
+                estado = OrdenCompraEstado.objects.get(estado_orden_compra='PEP')
+                orden_compra.estado_orden_compra = estado
+                orden_compra.save()
+
+        return super(OrdenCompraAdmin, self). changelist_view(request, extra_context=extra_context)
 
 
 # ======================================================================================================================

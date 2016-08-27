@@ -7,16 +7,6 @@ from .models import LineaCreditoProveedor, LineaCreditoProveedorDetalle, PagoPro
 # from bar.models import OrdenCompraEstado
 from datetimewidget.widgets import DateWidget
 
-# def get_my_choices():
-#     # you place some logic here
-#     choices_list = (
-#         ('EPP', 'En Proceso Proveedor'),
-#         # ('ENT', 'Entregada por Proveedor'),
-#         # ('PEP', 'Pendiente Entrega Proveedor'),
-#         ('CAN', 'Cancelada'),
-#     )
-#     return choices_list
-
 ATTR_NUMERICO = {'style': 'text-align:right', 'class': 'auto', 'data-a-sep': '.', 'data-a-dec': ','}
 ATTR_NUMERICO_RO = ATTR_NUMERICO.copy()
 
@@ -64,32 +54,35 @@ class OrdenCompraForm(forms.ModelForm):
     # prueba2 = forms.CharField(max_length=100)
     # prueba2 = Cliente.objects.filter(pk=4)
 
+    total_orden_compra = forms.CharField(widget=forms.TextInput(attrs=ATTR_NUMERICO), label='Total Orden Compra2',
+                                         required=False)
+
     class Meta:
         model = OrdenCompra
         fields = '__all__'
-        localized_fields = ['total_orden_compra']
+        # localized_fields = ['total_orden_compra']
+        #
         # widgets = {
         #     # 'estado_orden_compra': forms.Select(),
         # }
 
-    # def __init__(self, *args, **kwargs):
-    #     super(OrdenCompraForm, self).__init__(*args, **kwargs)
-    #     self.fields['estado_orden_compra'] = forms.ChoiceField(choices=get_my_choices())
-
 
 class OrdenCompraDetalleForm(forms.ModelForm):
 
-    precio_producto_orden_compra = forms.CharField(widget=forms.TextInput,  # (attrs=ATTR_NUMERICO),
+    precio_producto_orden_compra = forms.CharField(widget=forms.TextInput(attrs=ATTR_NUMERICO),
                                                    label='Precio del Producto2', required=False)
     cantidad_producto_orden_compra = forms.CharField(widget=forms.TextInput(attrs=ATTR_NUMERICO),
                                                      label='Cantidad del Producto2', required=False)
     total_producto_orden_compra = forms.CharField(widget=forms.TextInput(attrs=ATTR_NUMERICO),
                                                   label='Total del Producto2', required=False)
 
+    class Media:
+        js = ('compras/js/autoNumeric.js', 'compras/js/change_form.js')
+
     class Meta:
         model = OrdenCompraDetalle
         fields = '__all__'
-        localized_fields = ['precio_producto_orden_compra', 'total_producto_orden_compra']
+        # localized_fields = ['precio_producto_orden_compra', 'total_producto_orden_compra']
         # widgets = {
         #     'precio_producto_orden_compra': forms.CharField(widget=forms.TextInput(attrs=ATTR_NUMERICO),
         #                                                     label='Precio del Producto2', required=False),

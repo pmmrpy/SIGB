@@ -1,3 +1,4 @@
+import datetime
 from django.db import models
 from django.utils import timezone
 from django.db.models import Q
@@ -40,8 +41,8 @@ class Producto(models.Model):
                                       help_text='Seleccione el Tipo de Producto.')
     categoria = models.ForeignKey('bar.CategoriaProducto', help_text='Seleccione la Categoria del Producto.')
     subcategoria = models.ForeignKey('bar.SubCategoriaProducto', help_text='Seleccione la SubCategoria del Producto.')
-    unidad_medida_contenido = models.ForeignKey('bar.UnidadMedidaProducto', related_name='un_med_contenido',
-                                                verbose_name='Unidad de Medida Contenido')  # default=1,
+    # unidad_medida_contenido = models.ForeignKey('bar.UnidadMedidaProducto', related_name='un_med_contenido',
+    #                                             verbose_name='Unidad de Medida Contenido')  # default=1,
     contenido = models.DecimalField(max_digits=10, decimal_places=3,  # default=0,
                                     verbose_name='Cantidad del Contenido',
                                     help_text='Ingrese el Contenido del producto de acuerdo a su Unidad de Medida.')
@@ -52,13 +53,29 @@ class Producto(models.Model):
                                                    verbose_name='Cantidad Existente',
                                                    help_text='Corresponde a la cantidad existente del Producto '
                                                              'registrada en la tabla Stock.')
-    # Analizar si precio_venta debe ser un atributo del Producto
-    # Debe ser el ultimo definido en PrecioVentaProducto.
-    # Cuando el Tipo de Producto es Insumo se debe poner en read-only este campo y dejar su valor en 0.
-    porcentaje_ganancia = models.DecimalField(max_digits=18, decimal_places=2, default=30,
+    porcentaje_ganancia = models.DecimalField(max_digits=3, decimal_places=0, default=30,
                                               verbose_name='Porcentaje de Ganancia',
                                               help_text='Ingrese el Margen de Utilidad o Porcentaje de Ganancia que '
                                                         'desea obtener de la venta del Producto.')
+    # Analizar si precio_venta debe ser un atributo del Producto
+    # Debe ser el ultimo definido en PrecioVentaProducto.
+    # Cuando el Tipo de Producto es Insumo se debe poner en read-only este campo y dejar su valor en 0.
+    precio_venta_sugerido = models.DecimalField(max_digits=18, decimal_places=0, default=0,
+                                                verbose_name='Precio Venta Sugerido',
+                                                help_text='Precio de Venta sugerido calculado a partir del promedio '
+                                                          'del Costo de Compra del producto en el ultimo mes por el '
+                                                          'Porcentaje de Ganancia.')
+    perecedero = models.BooleanField(verbose_name='Es perecedero?', default=False,
+                                     help_text='Marque la casilla si el Producto a registrar es Perecedero.')
+    # fecha_elaboracion = models.DateField(verbose_name='Fecha de Elaboracion', default=datetime.date.today(),
+    #                                      help_text='Ingrese la fecha de elaboracion del Producto.')
+    # fecha_vencimiento = models.DateField(default=(datetime.date.today() + datetime.timedelta(days=30)),
+    #                                      verbose_name='Fecha de Vencimiento',
+    #                                      help_text='Ingrese la fecha de vencimiento del Producto.')
+    costo_elaboracion = models.DecimalField(max_digits=18, decimal_places=0, default=0,
+                                            verbose_name='Costo de Elaboracion del Producto',
+                                            help_text='Suma de los Totales de Costo del detalle del Producto '
+                                                      'Compuesto.')
 
     class Meta:
         # ordering =
@@ -76,6 +93,7 @@ class Producto(models.Model):
 
     def __init__(self, *args, **kwargs):
         self._meta.get_field('compuesto').default = False
+        self._meta.get_field('costo_elaboracion').default = 0
         super(Producto, self).__init__(*args, **kwargs)
 
     def __unicode__(self):
@@ -146,15 +164,20 @@ class ProductoCompuesto(Producto):
         self.marca = "N/A"
         self.unidad_medida_compra = UnidadMedidaProducto.objects.get(unidad_medida_producto="UN")
         self.tipo_producto = TipoProducto.objects.get(tipo_producto="VE")
-        self.unidad_medida_contenido = UnidadMedidaProducto.objects.get(unidad_medida_producto="UN")
+        # self.unidad_medida_contenido = UnidadMedidaProducto.objects.get(unidad_medida_producto="UN")
         self.contenido = 1
         self.compuesto = True
+        self.perecedero = True
+        # self.fecha_elaboracion = datetime.date.today()
+        # self.fecha_vencimiento = datetime.date.today() + datetime.timedelta(days=3)
+        self._meta.get_field('precio_venta_sugerido').help_text = 'Precio de Venta sugerido calculado a partir del ' \
+                                                                  'Costo de Elaboracion por el Porcentaje de Ganancia.'
 
     def clean(self):
-        # Valida que el precio_venta no sea 0.
-        if self.precio_venta == 0:
-            raise ValidationError({'precio_venta': _('El Precio de Venta del Producto Compuesto o Elaborado no puede '
-                                                     'ser 0.')})
+        # Valida que el porcentaje_ganancia no sea 0.
+        if self.porcentaje_ganancia == 0:
+            raise ValidationError({'precio_venta': _('El Porcentaje de Ganancia del Producto Compuesto o Elaborado '
+                                                     'no puede ser 0.')})
 
     def __unicode__(self):
         return "ID Prod: %s - Prod: %s" % (self.id, self.producto)
@@ -171,6 +194,14 @@ class ProductoCompuestoDetalle(models.Model):
     cantidad_producto = models.DecimalField(max_digits=10, decimal_places=3,
                                             verbose_name='Cantidad Producto',
                                             help_text='Ingrese la cantidad del producto.')
+    costo_unidad_medida = models.DecimalField(max_digits=18, decimal_places=0, default=0,
+                                              verbose_name='Costo por Unidad de Medida',
+                                              help_text='Corresponde al costo de 1 unidad del Producto de acuerdo '
+                                                        'a su Unidad de Medida del Contenido.')
+    total_costo = models.DecimalField(max_digits=18, decimal_places=0, default=0,
+                                      verbose_name='Total Costo',
+                                      help_text='Valor calculado entre la Cantidad del Producto por el Costo por '
+                                                'Unidad de Medida del Producto.')
 
     class Meta:
         verbose_name = 'Producto - Detalle de Compuesto o Elaborado (Receta)'
@@ -234,6 +265,79 @@ class ProductoCompuestoDetalle(models.Model):
 #
 #     def __unicode__(self):
 #         return "%s" % self.producto_compuesto
+# ======================================================================================================================
+
+
+# class Stock2(models.Model):
+#     """
+#     21/06/2016: Registrar inventario y ajustes de inventario.
+#     * Registro de los Movimientos de Inventario.
+#
+#     * Listar los Productos y/o Stock disponible.
+#     """
+#     producto_stock = models.OneToOneField('Producto', related_name='producto_stock',
+#                                           verbose_name='Producto',
+#                                           help_text='Seleccione el Producto a registrar en el Stock.')
+#     # Manejo de stock minimo. Alertar cuando llega a este minimo.
+#     stock_minimo = models.DecimalField(max_digits=10, decimal_places=3, verbose_name='Stock Minimo',
+#                                        help_text='Cantidad minima del producto a mantener en Stock.')
+#     cantidad_existente = models.DecimalField(max_digits=10, decimal_places=3, verbose_name='Cantidad Existente',
+#                                              help_text='Cantidad existente en Stock.')
+#     tipo_movimiento = models.ForeignKey('bar.TipoMovimientoStock', default=1,
+#                                         verbose_name='Tipo de Movimiento',
+#                                         help_text='Seleccione el identificador del Tipo de Movimiento de Stock.')
+#     id_movimiento = models.PositiveIntegerField(verbose_name='ID Movimiento',  # default=1,
+#                                                 help_text='Identificador del movimiento en el Stock.')
+#     ubicacion_origen = models.ForeignKey('bar.Deposito', related_name='ubicacion_origen',  # default=6,
+#                                          verbose_name='Ubicacion Origen',
+#                                          help_text='Ubicacion desde donde se origina el movimiento de Stock.')
+#     ubicacion_destino = models.ForeignKey('bar.Deposito', related_name='ubicacion_destino',  # default=1,
+#                                           verbose_name='Ubicacion Destino',
+#                                           help_text='Ubicacion a donde se dirige el movimiento de Stock.')
+#     cantidad_entrante = models.DecimalField(max_digits=10, decimal_places=3,
+#                                             verbose_name='Cantidad Entrante',
+#                                             help_text='Cantidad entrante al Stock del producto.')
+#     cantidad_saliente = models.DecimalField(max_digits=10, decimal_places=3,
+#                                             verbose_name='Cantidad Saliente',
+#                                             help_text='Cantidad saliente del Stock del producto.')
+#     fecha_hora_registro_stock = models.DateTimeField(auto_now_add=True,  # default=timezone.now()
+#                                                      verbose_name='Fecha/hora registro movimiento',
+#                                                      help_text='La fecha y hora se asignan al momento de guardar los '
+#                                                                'datos del Detalle del Stock. No se requiere el ingreso '
+#                                                                'de este dato.')
+#
+#     class Meta:
+#         # En la tabla solo puede existir un registro para cada Producto en cada Deposito
+#         # Consultar si es correcto aplicar esta restriccion de esta manera
+#         # 08/08/2016: Finalmente traslade el campo "ubicacion" a StockDetalle
+#         # unique_together = ("producto_stock", "ubicacion")
+#         verbose_name = 'Inventario de Producto'
+#         verbose_name_plural = 'Productos - Inventarios'
+#
+#     # VALIDACIONES/FUNCIONALIDADES
+#     # 1) Controlar que la cantidad_existente no sea menor que el stock_minimo y alertar en caso de ser menor.
+#     # 2) Validar que la cantidad_existente no sea negativa.
+#     # 3) Realizar el calculo de la cantidad_existente (suma total de cantidad_entrante - cantidad_saliente)
+#     # 4) Idear una vista HTML que presente la Cantidad Total Existente del Producto.
+#
+#     def clean(self):
+#         # 2) Valida que la cantidad_existente no sea negativa.
+#         if self.cantidad_existente < 0:
+#             raise ValidationError({'cantidad_existente': _('La cantidad existente del Producto no puede ser menor a '
+#                                                            'cero o negativa.')})
+#
+#     @staticmethod
+#     def verifica_estado_stock():
+#         """
+#         Maneja 3 estados:
+#             Stock suficiente: Se asigna este estado en color Verde cuando la cantidad_existente supera al stock_minimo
+#             Menor a stock minimo: Se asigna este estado en color Amarillo cuando la cantidad_existente es mayor a cero
+#             e igual o menor al stock_minimo.
+#             Sin stock: Se asigna este estado en color Rojo cuando la cantidad_existente es igual a cero.
+#         """
+#
+#     def __unicode__(self):
+#         return "Prod: %s - Cant. Exist: %s" % (self.producto_stock, self.cantidad_existente)
 # ======================================================================================================================
 
 

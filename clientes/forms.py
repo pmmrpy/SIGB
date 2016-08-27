@@ -34,13 +34,13 @@ from dal import autocomplete
 
 class ClienteForm(forms.ModelForm):
 
-    # Intento de implementacion del widget de Fecha de Django Suit
     class Meta:
         model = Cliente
         # fields = ('nombres', 'apellidos', 'fecha_nacimiento', 'sexo', 'direccion', 'pais', 'ciudad', 'email',
         # 'documentos')
         fields = '__all__'
         widgets = {
+            # Intento de implementacion del widget de Fecha de Django Suit
             # 'fecha_nacimiento': SuitDateWidget,
             # 'fecha_nacimiento': (attrs={'class': 'datepicker', 'changeMonth': 'true', 'changeYear': 'true'}),
             # 'fecha_nacimiento': SelectDateWidget(years=BIRTH_YEAR_CHOICES,
@@ -52,8 +52,9 @@ class ClienteForm(forms.ModelForm):
             # 'fecha_nacimiento': AdminDateWidget(attrs={'changeMonth': True, 'changeYear': True}),
             # 'fecha_nacimiento': CalendarWidget,
             'fecha_nacimiento': DateWidget,
-            'ciudad': autocomplete.ModelSelect2(url='/bar/ciudad-autocomplete/'),
-            # 'ciudad': autocomplete.ModelSelect2(url='bar:ciudad-autocomplete'),  # , forward=['pais']
+            'pais': autocomplete.ModelSelect2(url='bar:pais-autocomplete'),
+            # 'ciudad': autocomplete.ModelSelect2(url='/bar/ciudad-autocomplete/'),
+            'ciudad': autocomplete.ModelSelect2(url='bar:ciudad-autocomplete', forward=['pais']),
         }
 
     # def clean_telefono(self):

@@ -361,6 +361,11 @@ class OrdenCompra(models.Model):
 
     21/06/2016: Registrar pedidos.
     """
+    # La recomendacion de JuanBer90 es definir las choices en el propio modelo sin utilizar una tabla auxiliar de
+    # parametrizaciones
+    # ESTADOS_ORDENES_COMPRAS = {'PEP': 'adsfasdfasdf '}
+    # ESTADOS_ORDENES_COMPRAS['PEP']
+
     # id = models.AutoField(primary_key=True)
     numero_orden_compra = models.AutoField(primary_key=True,
                                            verbose_name='Numero Orden de Compra',

@@ -339,6 +339,7 @@ class CategoriaProducto(models.Model):
 
     def __unicode__(self):
         return "%s - %s" % (self.categoria, self.descripcion)
+        # return "%s" % self.get_categoria_producto_display()
 
 
 class SubCategoriaProducto(models.Model):
