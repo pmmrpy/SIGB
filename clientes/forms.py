@@ -2,7 +2,7 @@
 __author__ = 'pmmr'
 
 from django import forms
-from clientes.models import Cliente, Reserva  # ClienteDocumento
+from clientes.models import Cliente, Reserva, ClienteTelefono  # ClienteDocumento
 # from dal import autocomplete
 # from ajax_select.fields import AutoCompleteSelectField, AutoCompleteSelectMultipleField
 # from suit.widgets import SuitDateWidget
@@ -15,6 +15,12 @@ from clientes.models import Cliente, Reserva  # ClienteDocumento
 from datetimewidget.widgets import DateWidget
 from dal import autocomplete
 
+ATTR_NUMERICO = {'style': 'text-align:right;', 'class': 'auto', 'data-a-sep': '.', 'data-a-dec': ',',
+                 'type': 'number'}
+ATTR_NUMERICO_RO = {'style': 'text-align:right;', 'class': 'auto', 'data-a-sep': '.', 'data-a-dec': ',',
+                    'type': 'number', 'readonly': 'readonly'}
+ATTR_NUMERICO_RO_RESALTADO = ATTR_NUMERICO_RO.copy()
+ATTR_NUMERICO_RO_RESALTADO['style'] += 'font-size: 20px; height: 25px; font-weight: bold; color: indianred;'
 
 # DateInput = partial(forms.DateInput, {'class': 'datepicker'})
 
@@ -63,6 +69,17 @@ class ClienteForm(forms.ModelForm):
     #         return dato
     #     else:
     #         raise forms.ValidationError("Numero de telefono incorrecto. Debe empezar por 595")
+
+
+class ClienteTelefonoForm(forms.ModelForm):
+    class Meta:
+        model = ClienteTelefono
+        fields = '__all__'
+        widgets = {
+            'codigo_pais_telefono': autocomplete.ModelSelect2(url='bar:codigo_pais_telefono-autocomplete'),
+            'codigo_operadora_telefono': autocomplete.ModelSelect2(url='bar:codigo_operadora_telefono-autocomplete',
+                                                                   forward=['codigo_pais_telefono']),
+        }
 
 
 # class ClienteDocumentoForm(forms.ModelForm):

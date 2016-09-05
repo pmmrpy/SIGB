@@ -7,6 +7,7 @@ from personal.models import Empleado, EmpleadoTelefono
 # from django.forms.widgets import TextInput
 # from django.contrib import humanize
 from datetimewidget.widgets import DateWidget
+from dal import autocomplete
 
 
 class EmpleadoForm(forms.ModelForm):
@@ -21,6 +22,8 @@ class EmpleadoForm(forms.ModelForm):
             # 'salario': NumberInput,  #(attrs={'localize': 'True'}),  # (attrs={'class': 'input-mini'}), # 'min': '1', 'max': '5'
             # 'salario': HTML5Input(input_type='number')
             'fecha_nacimiento': DateWidget,
+            'pais': autocomplete.ModelSelect2(url='bar:pais-autocomplete'),
+            'ciudad': autocomplete.ModelSelect2(url='bar:ciudad-autocomplete', forward=['pais']),
         }
 
 

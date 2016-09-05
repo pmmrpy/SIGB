@@ -28,6 +28,8 @@ from tastypie.api import Api
 # admin.autodiscover()
 # admin.site.site_header = 'Prueba de Cabecera del Sitio'
 # admin.site.site_title = 'Hola Mundo2!'
+from stock.ajax import get_producto_detalle
+
 admin.site.index_title = 'Sistema Informatico de Gestion para Bar'
 
 # cliente_resource = ClienteResource()
@@ -39,7 +41,8 @@ v1_api.register(PaisResource())
 urlpatterns = [
     # url(r'^ajax_select/', include(ajax_selects_urls)),
     url(r'^$', include('clientes.urls')),
-    url(r'^compras/', include('compras.urls')),
+    # url(r'^$', include(admin.site.urls)),
+    url(r'^compras/', include('compras.urls', namespace='compras')),
     url(r'^clientes/', include('clientes.urls')),
     # url(r'^grappelli/', include('grappelli.urls')),
     url(r'^bar/', include('bar.urls', namespace='bar')),
@@ -47,6 +50,8 @@ urlpatterns = [
     url(r'^api/', include(v1_api.urls)),
     # url(r'^admin/dashboard/', include(controlcenter.urls)),
     url(r'^sigb/', include(admin.site.urls)),
+    url(r'^get_producto_detalle/$', get_producto_detalle, name='get_producto_detalle'),
+    url(r'^calendar/', include('calendarium.urls')),
 
     # url(r'^myadmin/', include(admin.site.urls)),
     # url(r'', include(frontend_urls)),

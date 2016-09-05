@@ -2,6 +2,7 @@ import datetime
 # import uuid
 # import string
 # import random
+from django.core.validators import RegexValidator
 from django.db import models
 from django.db.models import Q
 # from polymorphic.models import PolymorphicModel
@@ -12,6 +13,8 @@ from django.utils.safestring import mark_safe
 from bar.models import CompraEstado, OrdenCompraEstado
 
 # Create your models here.
+
+numeric = RegexValidator(r'^[0-9]*$', 'Solo se permiten caracteres numericos.')
 
 
 class SerialField(models.Field):
@@ -30,7 +33,8 @@ class Proveedor(models.Model):
     proveedor = models.CharField(max_length=100, verbose_name='Razon Social o Nombre',
                                  help_text='Ingrese la Razon Social o el Nombre del Proveedor. (Hasta 100 caracteres)')
     # El RUC debe ser del tipo PositiveInteger, solo se deben poder ingresar numeros positivos.
-    ruc = models.CharField(max_length=10, unique=True, verbose_name='RUC',  # default=1,
+    ruc = models.CharField(max_length=10, unique=True, validators=[numeric],
+                           verbose_name='RUC',  # default=1,
                            help_text='Ingrese el RUC del Proveedor.')
     persona_proveedor = models.ForeignKey('bar.Persona', default=1, verbose_name='Persona',
                                           help_text='Indique si el Proveedor tiene personeria Fisica o Juridica.')
@@ -60,9 +64,9 @@ class Proveedor(models.Model):
     # Agregados el 18/05/2016
     direccion = models.CharField(max_length=200, null=True, help_text='Ingrese la Direccion del Proveedor. '
                                                                       '(Hasta 200 caracteres)')
-    pais_proveedor = models.ForeignKey('bar.Pais', verbose_name='Pais', help_text='Seleccione el Pais del Proveedor.')
-    ciudad_proveedor = models.ForeignKey('bar.Ciudad', verbose_name='Ciudad',
-                                         help_text='Seleccione la Ciudad del Proveedor.')
+    pais = models.ForeignKey('bar.Pais', verbose_name='Pais', help_text='Seleccione el Pais del Proveedor.')
+    ciudad = models.ForeignKey('bar.Ciudad', verbose_name='Ciudad',
+                               help_text='Seleccione la Ciudad del Proveedor.')
     pagina_web = models.URLField(null=True, blank=True)
 
     # Agregado el 24/05/2016
@@ -70,6 +74,8 @@ class Proveedor(models.Model):
                                                 verbose_name='Fecha de Alta',
                                                 help_text='La Fecha de Alta se asigna al momento de guardar los datos '
                                                           'del Proveedor. No se requiere el ingreso de este dato.')
+    empresa_administrada = models.BooleanField(default=False, help_text='Diferencia las empresas administradas de las '
+                                                                        'proveedoras.')
 
     class Meta:
         verbose_name = 'Proveedor'
@@ -78,6 +84,10 @@ class Proveedor(models.Model):
     # VALIDACIONES/FUNCIONALIDADES
     # ============================
     # 1) Implementar el calculo del Digito Verificador del RUC tomando la funcion publicada por la SET. OK!
+
+    def __init__(self, *args, **kwargs):
+        self._meta.get_field('empresa_administrada').default = False
+        super(Proveedor, self).__init__(*args, **kwargs)
 
     def __unicode__(self):
         return "%s" % self.proveedor
@@ -92,6 +102,12 @@ class LineaCreditoProveedor(models.Model):
 
     21/06/2016: Registrar creditos con proveedores.
     """
+    ESTADOS_LINEA_CREDITO = (
+        ('DEL', 'Dentro de la Linea de Credito'),
+        ('LIM', 'En el Limite'),
+        ('SOB', 'Sobregirada'),
+    )
+
     # id = models.AutoField(primary_key=True)
     proveedor = models.OneToOneField('Proveedor')
     linea_credito_proveedor = models.DecimalField(max_digits=18, decimal_places=0, default=0,
@@ -118,11 +134,15 @@ class LineaCreditoProveedor(models.Model):
                                                       help_text='Este valor se calcula automaticamente como la '
                                                                 'diferencia entre el Monto Total de las Facturas '
                                                                 'contra el Monto Total de los Pagos.')
-    estado_linea_credito_proveedor = models.CharField(max_length=3, default='DEL',  # unique=True,
-                                                      choices=(
-                                                          ('DEL', 'Dentro de la Linea de Credito'),
-                                                          ('SOB', 'Sobregirada'),
-                                                      ), verbose_name='Estado Linea de Credito',
+    disponible_linea_credito_proveedor = models.DecimalField(max_digits=18, decimal_places=0, default=0,
+                                                             verbose_name='Monto Disponible Linea de Credito',
+                                                             help_text='Este valor se calcula automaticamente como la '
+                                                                       'diferencia entre el Monto de la Linea de '
+                                                                       'Credito y el Monto Utilizado de la Linea de '
+                                                                       'Credito.')
+    estado_linea_credito_proveedor = models.CharField(max_length=3, choices=ESTADOS_LINEA_CREDITO,
+                                                      null=True, blank=True,  # default='DEL', # unique=True,
+                                                      verbose_name='Estado Linea de Credito',
                                                       help_text='Se asigna automaticamente de acuerdo a la utilizacion '
                                                                 'de la Linea de Credito.')
     # help_text='Solo una Linea de Credito puede estar activa. '
@@ -137,6 +157,64 @@ class LineaCreditoProveedor(models.Model):
     # ============================
     # 1) Solo una Linea de Credito puede estar vigente a la vez. Se debe controlar el estado de las Lineas de Credito.
     # 2) Con este parametro se debe controlar que las Compras a credito realizadas no superen la Linea de Credito.
+
+    def get_monto_total_facturas_proveedor(self):
+        detalle_linea_credito = LineaCreditoProveedorDetalle.objects.filter(linea_credito_proveedor_id=self.id,
+                                                                            tipo_movimiento='FAC')
+        total_facturas = 0
+        for detalle in detalle_linea_credito:
+            total_facturas += detalle.monto_movimiento
+            print 'Detalle: %s - monto_movimiento: %s - total_facturas: %s' % \
+                  (detalle, detalle.monto_movimiento, total_facturas)
+        # self.monto_total_facturas_proveedor = total_facturas
+        # self.save()
+        return total_facturas
+
+    def get_monto_total_pagos_proveedor(self):
+        detalle_linea_credito = LineaCreditoProveedorDetalle.objects.filter(linea_credito_proveedor_id=self.id,
+                                                                            tipo_movimiento='PAG')
+        total_pagos = 0
+        for detalle in detalle_linea_credito:
+            total_pagos += detalle.monto_movimiento
+            print 'Detalle: %s - monto_movimiento: %s - total_pagos: %s' % \
+                  (detalle, detalle.monto_movimiento, total_pagos)
+        return total_pagos
+
+    def get_uso_linea_credito_proveedor(self):
+        # uso_linea_credito = 0
+        total_facturas = self.get_monto_total_facturas_proveedor()
+        total_pagos = self.get_monto_total_pagos_proveedor()
+        uso_linea_credito = total_facturas - total_pagos
+        print 'Uso Linea Credito: %s' % uso_linea_credito
+        return uso_linea_credito
+
+    def get_disponible_linea_credito_proveedor(self):
+        disponible_linea_credito = self.linea_credito_proveedor - self.get_uso_linea_credito_proveedor()
+        print 'Disponible Linea Credito: %s' % disponible_linea_credito
+        return disponible_linea_credito
+
+    def get_estado_linea_credito_proveedor(self):
+        estado_linea_credito_proveedor = "DEL"
+        if self.get_uso_linea_credito_proveedor() < self.linea_credito_proveedor and \
+                self.get_disponible_linea_credito_proveedor() > 0:
+            estado_linea_credito_proveedor = "DEL"
+        elif self.get_uso_linea_credito_proveedor() == self.linea_credito_proveedor and \
+                self.get_disponible_linea_credito_proveedor() == 0:
+            estado_linea_credito_proveedor = "LIM"
+        elif self.get_uso_linea_credito_proveedor() > self.linea_credito_proveedor and \
+                self.get_disponible_linea_credito_proveedor() < 0:
+            estado_linea_credito_proveedor = "SOB"
+        return estado_linea_credito_proveedor
+
+    # def __init__(self, *args, **kwargs):
+    #     super(LineaCreditoProveedor, self).__init__(*args, **kwargs)
+    #     self._meta.get_field('monto_total_facturas_proveedor') = self.get_monto_total_facturas_proveedor()
+    #     self.monto_total_facturas_proveedor = self.get_monto_total_facturas_proveedor()
+    #     self.initial['monto_total_facturas_proveedor'] = self.get_monto_total_facturas_proveedor()
+    #     self.initial['monto_total_pagos_proveedor'] = self.instance.get_monto_total_pagos_proveedor()
+    #     self.initial['uso_linea_credito_proveedor'] = self.instance.get_uso_linea_credito_proveedor()
+    #     self.initial['disponible_linea_credito_proveedor'] = self.instance.get_disponible_linea_credito_proveedor()
+    #     self.initial['estado_linea_credito_proveedor'] = self.instance.get_estado_linea_credito_proveedor()
 
     def __unicode__(self):
         return "%s - %s - %s" % (self.proveedor, self.linea_credito_proveedor, self.fecha_linea_credito_proveedor)
@@ -154,14 +232,15 @@ class LineaCreditoProveedorDetalle(models.Model):
     linea_credito_proveedor = models.ForeignKey('LineaCreditoProveedor')
     tipo_movimiento = models.CharField(max_length=3, choices=TIPOS_MOVIMIENTO,
                                        verbose_name='Tipo de Movimiento',
-                                       help_text='Seleccione el Tipo de Movimiento.')
+                                       help_text='Registra el Tipo de Movimiento.')
     monto_movimiento = models.DecimalField(max_digits=18, decimal_places=0, default=0,
                                            verbose_name='Monto del Movimiento',
-                                           help_text='Ingrese el Monto del Movimiento.')
+                                           help_text='Registra el Monto del Movimiento.')
     numero_comprobante = models.IntegerField(verbose_name='Numero Comprobante Movimiento',
-                                             help_text='Ingrese el Numero de Comprobante del Movimiento.')
-    fecha_movimiento = models.DateField(default=timezone.now(), verbose_name='Fecha Registro Movimiento',
-                                        help_text='Ingrese la fecha del Movimiento.')
+                                             help_text='Corresponde al Numero de Factura o Numero de Comprobante '
+                                                       'de Pago del movimiento.')
+    fecha_movimiento = models.DateField(default=timezone.now, verbose_name='Fecha Registro Movimiento',
+                                        help_text='Registra la fecha del movimiento.')
 
     class Meta:
         verbose_name = 'Detalle Linea de Credito con Proveedor'
@@ -207,15 +286,19 @@ class PagoProveedor(models.Model):
     monto_pago_proveedor = models.DecimalField(max_digits=18, decimal_places=0, default=0,
                                                verbose_name='Monto de Pago al Proveedor',
                                                help_text='Ingrese el monto abonado al Proveedor.')
-    fecha_pago_proveedor = models.DateField(default=timezone.now(), verbose_name='Fecha Pago Proveedor',
+    fecha_pago_proveedor = models.DateField(default=timezone.now, verbose_name='Fecha Pago Proveedor',
                                             # default=timezone.now(), auto_now_add=True,
                                             help_text='Ingrese la fecha del Pago al Proveedor.')
     numero_comprobante_pago = models.IntegerField(verbose_name='Numero de Comprobante de Pago', default=0,
-                                                  help_text='Ingrese el Numero del Comprobante de Pago.')
-    numero_nota_credito = models.IntegerField(verbose_name='Numero Nota de Credito', default=0,
-                                              help_text='Ingrese el Numero de la Nota de Credito que anula o cancela '
-                                                        'la factura de la Compra en caso de que la misma se haya '
-                                                        'devuelto o cancelado.')
+                                                  help_text='Ingrese el Numero del Comprobante de Pago. El '
+                                                            'comprobante puede ser una Nota de Credito que anula o '
+                                                            'cancela la factura de la Compra en caso de que la misma '
+                                                            'se haya devuelto o cancelado.')
+    # numero_nota_credito = models.IntegerField(verbose_name='Numero Nota de Credito', default=0,
+    #                                           help_text='Ingrese el Numero de la Nota de Credito que anula o cancela '
+    #                                                     'la factura de la Compra en caso de que la misma se haya '
+    #                                                     'devuelto o cancelado.')
+    procesado = models.BooleanField(default=False)
 
     class Meta:
         verbose_name = 'Pago a Proveedores'
@@ -238,7 +321,9 @@ class FacturaProveedor(models.Model):
     Registrar facturas pendienes de pago.
     """
     ESTADOS_FACTURA_COMPRA = (
-        ('PEN', 'Pendiente'),
+        # ('PEN', 'Pendiente'),
+        ('EPP', 'En Plazo de Pago'),
+        ('FPP', 'Fuera del Plazo de Pago'),
         ('PAG', 'Pagada'),
         ('CAN', 'Cancelada'),
     )
@@ -252,7 +337,7 @@ class FacturaProveedor(models.Model):
                                   help_text='Seleccione el Proveedor.')
     numero_factura_compra = models.IntegerField(verbose_name='Numero de Factura Compra',  # default=1,
                                                 help_text='Ingrese el Numero de Factura que acompana la Compra.')
-    fecha_factura_compra = models.DateField(default=datetime.date.today(),
+    fecha_factura_compra = models.DateField(default=datetime.date.today,
                                             verbose_name='Fecha de la Factura Compra',
                                             help_text='Ingrese la fecha de la Factura.')
     tipo_factura_compra = models.ForeignKey('bar.TipoFacturaCompra', verbose_name='Tipo de Factura Compra',
@@ -270,12 +355,14 @@ class FacturaProveedor(models.Model):
                                              verbose_name='Total Pagado de la Factura Compra',
                                              help_text='Este valor se calcula automaticamente en funcion a los pagos '
                                                        'registrados para la Factura.')
-    estado_factura_compra = models.CharField(max_length=3, choices=ESTADOS_FACTURA_COMPRA, default="PEN",
+    estado_factura_compra = models.CharField(max_length=3, choices=ESTADOS_FACTURA_COMPRA, default="EPP",
                                              verbose_name='Estado de la Factura Compra',
                                              help_text='Indique el Estado de la Factura de la Compra de acuerdo a los '
                                                        'pagos aplicados para la misma.')
 
     class Meta:
+        # No deben existir dos Facturas con el mismo numero para un mismo Proveedor en la tabla.
+        unique_together = ['proveedor', 'numero_factura_compra']
         verbose_name = 'Factura/Pago Proveedor'
         verbose_name_plural = 'Proveedores - Facturas/Pagos'
 
@@ -317,7 +404,7 @@ class Empresa(Proveedor):
     Prueba de Multi-table Model inheritance.
     """
     # timbrado = models.ForeignKey('bar.Timbrado')
-    logo_empresa = models.ImageField(upload_to='compras/empresa/', verbose_name='Archivo de Logo', default=1,
+    logo_empresa = models.ImageField(upload_to='compras/empresa/', verbose_name='Archivo de Logo',
                                      help_text='Seleccione el archivo con el logo de la Empresa.')
     fecha_apertura = models.DateField(verbose_name='Fecha de Apertura',
                                       help_text='Indique la Fecha de Apertura de la Empresa.')
@@ -344,6 +431,17 @@ class Empresa(Proveedor):
         else:
             return u'Logo no disponible.'
     thumb.short_description = 'Vista de Logo'
+
+    def clean(self):
+        # Valida que la fecha_apertura NO sea mayor a la fecha actual
+        if self.fecha_apertura > datetime.date.today():
+            raise ValidationError({'fecha_apertura': _('La Fecha de Apertura de la Empresa no puede ser mayor que la '
+                                                       'fecha actual.')})
+
+    def __init__(self, *args, **kwargs):
+        super(Empresa, self).__init__(*args, **kwargs)
+        # self._meta.get_field('empresa_administrada').default = True
+        self.empresa_administrada = True
 
     def __unicode__(self):
         return "%s" % self.proveedor
@@ -395,6 +493,9 @@ class OrdenCompra(models.Model):
                                                       help_text='Indique la fecha y hora en la que el proveedor debe '
                                                                 'entregar la Orden de Compra.')
     proveedor_orden_compra = models.ForeignKey('Proveedor', verbose_name='Proveedor', on_delete=models.PROTECT,
+                                               # limit_choices_to=LineaCreditoProveedor.objects.filter(estado_linea_credito_proveedor='DEL'),
+                                               # limit_choices_to=Q(estado_orden_compra__estado_orden_compra="EPP") |
+                                               #                  Q(estado_orden_compra__estado_orden_compra="PEP"),
                                                help_text='Seleccione el Proveedor al cual se le realizara la Orden de '
                                                          'Compra.')
     forma_pago_orden_compra = models.ForeignKey('bar.FormaPagoCompra', verbose_name='Forma de Pago',
@@ -403,7 +504,7 @@ class OrdenCompra(models.Model):
     # Se debe definir un metodo o funcion que compare OrdenCompra.fecha_entrega_orden_compra contra la fecha actual y
     # modificar si corresponde el ESTADO de la Orden de Compra.
     estado_orden_compra = models.ForeignKey('bar.OrdenCompraEstado', default=1,
-                                            verbose_name='Estado Orden de Compra',
+                                            verbose_name='Estado',
                                             help_text='El estado de la Orden de Compra se establece automaticamente de '
                                                       'acuerdo a la Fecha de Entrega ingresada.')
     usuario_registro_orden_compra = models.ForeignKey('personal.Empleado', default=1,
@@ -416,7 +517,7 @@ class OrdenCompra(models.Model):
     # Calcular la suma de todos los totales de compra de cada producto
     # Debe ir en la cabecera y no en el detalle
     total_orden_compra = models.DecimalField(max_digits=18, decimal_places=0, default=0,
-                                             verbose_name='Total Orden de Compra')  # blank=False (Defau is False)
+                                             verbose_name='Total')  # blank=False (Default is False)
 
     class Meta:
         verbose_name = 'Orden de Compra'
@@ -449,6 +550,13 @@ class OrdenCompra(models.Model):
     #         # self.estado_orden_compra.save()
     #     super(OrdenCompra, self).__init__(*args, **kwargs)
 
+    def get_linea_credito(self):
+        proveedor = Proveedor.objects.get(id=self.proveedor_orden_compra_id)
+        # proveedor = Proveedor.objects.get(pk=self.proveedor_orden_compra)
+        disponible_linea_credito = proveedor.lineacreditoproveedor.disponible_linea_credito_proveedor
+        print 'proveedor: %s - linea_credito: %s' % (proveedor, disponible_linea_credito)
+        return disponible_linea_credito
+
     def clean(self):
         # Valida que la fecha_entrega_orden_compra sea mayor o igual a la fecha_orden_compra
         # Esta condicion no se va dar si se valida que la fecha_entrega_orden_compra sea mayor que la fecha/hora actual
@@ -467,7 +575,8 @@ class OrdenCompra(models.Model):
             raise ValidationError({'total_orden_compra': _('El Total de la Orden de Compra no puede ser 0.')})
 
     def __unicode__(self):
-        return "%d - %s" % (self.numero_orden_compra, self.proveedor_orden_compra.proveedor)
+        # return "%d - %s" % (self.numero_orden_compra, self.proveedor_orden_compra.proveedor)
+        return "%s" % self.numero_orden_compra
 
     # ===============================================================================================================
     # Se puede agregar una funcion para asignar el Numero Orden de Compra
@@ -517,18 +626,18 @@ class OrdenCompraDetalle(models.Model):
                                                        verbose_name='Precio del Producto',
                                                        help_text='Ingrese el precio de compra del producto definido '
                                                                  'por el proveedor.')
-    cantidad_producto_orden_compra = models.DecimalField(max_digits=10, decimal_places=3,
-                                                         verbose_name='Cantidad del Producto',
-                                                         help_text='Ingrese la cantidad a adquirir del producto.')
 
     # La Unidad de Medida del Producto ya esta definida en la clase Producto en la app de Stock.
     # Visualmente seria conveniente que el usuario vea la Unidad de Medida de Compra del Producto
     # en el detalle de la Orden de Compra.
-    # unidad_medida_orden_compra = models.ForeignKey('bar.UnidadMedidaProducto', default=1,  # to_field='unidad_medida',
-    #                                                verbose_name='Unidad de Medida del Producto',
-    #                                                help_text='Debe ser la definida en los datos del Producto, no '
-    #                                                          'debe ser seleccionada por el usuario.')
+    unidad_medida_orden_compra = models.ForeignKey('bar.UnidadMedidaProducto',  # default=1, # to_field='unidad_medida',
+                                                   verbose_name='Unidad de Medida del Producto',
+                                                   help_text='Debe ser la definida en los datos del Producto, no '
+                                                             'debe ser seleccionada por el usuario.')
 
+    cantidad_producto_orden_compra = models.DecimalField(max_digits=10, decimal_places=3,
+                                                         verbose_name='Cantidad del Producto',
+                                                         help_text='Ingrese la cantidad a adquirir del producto.')
     # Calcular "cantidad_producto_orden_compra" x "precio_producto_orden_compra"
     total_producto_orden_compra = models.DecimalField(max_digits=18, decimal_places=0, default=0,
                                                       verbose_name='Total del Producto',
@@ -577,18 +686,18 @@ class Compra(models.Model):
     numero_orden_compra = models.OneToOneField('OrdenCompra',
                                                limit_choices_to=Q(estado_orden_compra__estado_orden_compra="EPP") |
                                                                 Q(estado_orden_compra__estado_orden_compra="PEP"),
-                                               verbose_name='Numero de Orden de Compra',
+                                               verbose_name='Numero Orden de Compra',
                                                help_text='Seleccione el Numero de Orden de Compra para la cual se '
                                                          'confirmara la Compra.')
     proveedor = models.ForeignKey('Proveedor', default=9)
     numero_factura_compra = models.DecimalField(max_digits=7, decimal_places=0, default=1,
-                                                verbose_name='Numero de Factura de la Compra',
+                                                verbose_name='Numero de Factura Compra',
                                                 help_text='Ingrese el Numero de Factura que acompana la Compra.')
     tipo_factura_compra = models.ForeignKey('bar.TipoFacturaCompra', default=1,
                                             verbose_name='Tipo de Factura',
                                             help_text='Seleccione el Tipo de Factura para la Compra.')
-    fecha_factura_compra = models.DateField(default=datetime.date.today(),
-                                            verbose_name='Fecha de la Factura de la Compra',
+    fecha_factura_compra = models.DateField(default=datetime.date.today,
+                                            verbose_name='Fecha Factura Compra',
                                             help_text='Ingrese la fecha de la factura.')
 
     # No corresponde, la Nota de Credito nos entrega un proveedor cuando se realiza una devolucion y anula la factura
@@ -599,11 +708,11 @@ class Compra(models.Model):
     #                                                            'misma sea a Credito.')
 
     fecha_compra = models.DateTimeField(auto_now=True,  # editable=True, default=timezone.now(),
-                                        verbose_name='Fecha y hora de la Compra',
+                                        verbose_name='Fecha y hora Compra',
                                         help_text='La fecha y hora se asignan al momento de guardar los datos de la '
                                                   'Compra. No se requiere el ingreso de este dato.')
     estado_compra = models.ForeignKey('bar.CompraEstado', default=1,
-                                      verbose_name='Estado de la Compra',
+                                      verbose_name='Estado Compra',
                                       help_text='La Compra puede tener 3 estados: PENDIENTE, CONFIRMADA o CANCELADA. '
                                                 'El estado se asigna de forma automatica de acuerdo a la accion '
                                                 'realizada.')
@@ -614,7 +723,7 @@ class Compra(models.Model):
                                                 verbose_name='Confirmado por?',
                                                 help_text='Usuario que registro la Compra.')
     total_compra = models.DecimalField(max_digits=18, decimal_places=0, default=0,
-                                       verbose_name='Total de la Compra',
+                                       verbose_name='Total Compra',
                                        help_text='Este campo se calcula en funcion al detalle de la Compra.')
 
     class Meta:

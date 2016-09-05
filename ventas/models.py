@@ -85,7 +85,7 @@ class Pedido(models.Model):
             raise ValidationError({'total_pedido': _('El Total del Pedido no puede ser 0.')})
 
     def __unicode__(self):
-        return "Nro. Ped: %s - Fec. Ped: %s" % (self.id, datetime.datetime.strftime(self.fecha_pedido, '%d/%m/%Y'))
+        return "Nro. Ped: %s - Fec. Ped: %s" % (self.id, datetime.datetime.strftime(timezone.localtime(self.fecha_pedido), '%d/%m/%Y'))
 
 
 class PedidoDetalle(models.Model):
@@ -153,7 +153,8 @@ class Venta(models.Model):
     * Listar las ventas mensuales, ventas al contado. Ranking de ventas por cliente, por productos, por marcas.
     """
     empresa = models.ForeignKey('compras.Empresa', default=1)
-    numero_factura_venta = models.ForeignKey('bar.FacturaVenta', default=1,  # to_field='numero_factura_actual', unique=True,
+    numero_factura_venta = models.ForeignKey('bar.FacturaVenta', default=1,
+                                             # to_field='numero_factura_actual', unique=True,
                                              verbose_name='Numero de Factura de la Venta',
                                              help_text='')
     fecha_venta = models.DateTimeField(auto_now_add=True,  # default=timezone.now()

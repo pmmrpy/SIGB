@@ -5,7 +5,9 @@ from django.db.models import Q
 from django.core.exceptions import ValidationError
 from django.utils.translation import ugettext_lazy as _
 from django.utils.safestring import mark_safe
-from bar.models import TipoProducto, UnidadMedidaProducto, TransferenciaStockEstado
+from django.views.generic.dates import timezone_today
+from bar.models import TipoProducto, UnidadMedidaProducto, TransferenciaStockEstado, CompraEstado
+from compras.models import Compra, CompraDetalle
 from personal.models import Empleado
 
 # Create your models here.
@@ -19,6 +21,11 @@ class Producto(models.Model):
     Categoria:
     SubCategoria:
     """
+    TIPOS_PRODUCTO = (
+        ('VE', 'Para la Venta'),
+        ('IN', 'Insumo'),
+    )
+    # ==> Datos del Producto <==
     producto = models.CharField(max_length=100, verbose_name='Nombre del Producto',
                                 help_text='Ingrese el nombre o descripcion del Producto.')
     # Realizar alguna validacion sobre el ingreso del codigo_barra, por lo menos cantidad de caracteres
@@ -26,8 +33,6 @@ class Producto(models.Model):
                                     help_text='Ingrese el codigo de barra del Producto si posee.')
     marca = models.CharField(max_length=100, verbose_name='Marca',  # default='Marca',
                              help_text='Ingrese la marca del Producto.')
-    unidad_medida_compra = models.ForeignKey('bar.UnidadMedidaProducto', related_name='un_med_compra',  # default=1,
-                                             verbose_name='Unidad de Medida Compra')
     # stock_minimo = models.DecimalField(max_digits=10, decimal_places=3, default=1,
     #                                    verbose_name='Stock Minimo',
     #                                    help_text='Cantidad minima del producto a mantener en Stock.')
@@ -37,45 +42,70 @@ class Producto(models.Model):
                                                verbose_name='Fecha de Alta',
                                                help_text='La Fecha de Alta se asigna al momento de guardar los datos '
                                                          'del Producto. No se requiere el ingreso de este dato.')
-    tipo_producto = models.ForeignKey('bar.TipoProducto', verbose_name='Tipo de Producto',  # default="VE",
-                                      help_text='Seleccione el Tipo de Producto.')
+
+    # ==> Contenido del Producto <==
+    # tipo_producto = models.ForeignKey('bar.TipoProducto', verbose_name='Tipo de Producto',  # default="VE",
+    #                                   help_text='Seleccione el Tipo de Producto.')
+    tipo_producto = models.CharField(max_length=2, choices=TIPOS_PRODUCTO, default='VE',
+                                     verbose_name='Tipo de Producto',
+                                     help_text='Seleccione el Tipo de Producto.')
     categoria = models.ForeignKey('bar.CategoriaProducto', help_text='Seleccione la Categoria del Producto.')
     subcategoria = models.ForeignKey('bar.SubCategoriaProducto', help_text='Seleccione la SubCategoria del Producto.')
-    # unidad_medida_contenido = models.ForeignKey('bar.UnidadMedidaProducto', related_name='un_med_contenido',
-    #                                             verbose_name='Unidad de Medida Contenido')  # default=1,
-    contenido = models.DecimalField(max_digits=10, decimal_places=3,  # default=0,
-                                    verbose_name='Cantidad del Contenido',
-                                    help_text='Ingrese el Contenido del producto de acuerdo a su Unidad de Medida.')
     compuesto = models.BooleanField(verbose_name='Es compuesto?',  # default=False,
                                     help_text='La casilla se marca automicamente si el Producto a ser registrado es '
                                               'Compuesto o no.')
-    cantidad_existente_stock = models.DecimalField(max_digits=10, decimal_places=3, default=0,
-                                                   verbose_name='Cantidad Existente',
-                                                   help_text='Corresponde a la cantidad existente del Producto '
-                                                             'registrada en la tabla Stock.')
-    porcentaje_ganancia = models.DecimalField(max_digits=3, decimal_places=0, default=30,
+    perecedero = models.BooleanField(verbose_name='Es perecedero?', default=False,
+                                     help_text='Marque la casilla si el Producto a registrar es Perecedero.')
+    unidad_medida_contenido = models.ForeignKey('bar.UnidadMedidaProducto', related_name='un_med_contenido',
+                                                verbose_name='Unidad de Medida Contenido',  # default=1,
+                                                help_text='Seleccione la Unidad de Medida del Producto contenido '
+                                                          'en su presentacion (envase).')
+    contenido = models.DecimalField(max_digits=10, decimal_places=3,  # default=0,
+                                    verbose_name='Cantidad Contenido',
+                                    help_text='Ingrese la cantidad del Producto contenida en el envase de acuerdo '
+                                              'a su Unidad de Medida. Los Productos del tipo Insumo comprados a '
+                                              'granel (no envasados) siempre deben ser registrados con contenido igual '
+                                              'a una unidad. Ej: Queso - 1 kilo, Detergente - 1 litro.')
+
+    # ==> Utilidad <==
+    costo_elaboracion = models.DecimalField(max_digits=18, decimal_places=0, default=0,
+                                            verbose_name='Costo de Elaboracion del Producto',
+                                            help_text='Suma de los Totales de Costo del detalle del Producto '
+                                                      'Compuesto.')
+    porcentaje_ganancia = models.DecimalField(max_digits=3, decimal_places=0, default=0,
                                               verbose_name='Porcentaje de Ganancia',
-                                              help_text='Ingrese el Margen de Utilidad o Porcentaje de Ganancia que '
+                                              help_text='Ingrese el Porcentaje de Ganancia o Margen de Utilidad que '
                                                         'desea obtener de la venta del Producto.')
     # Analizar si precio_venta debe ser un atributo del Producto
     # Debe ser el ultimo definido en PrecioVentaProducto.
     # Cuando el Tipo de Producto es Insumo se debe poner en read-only este campo y dejar su valor en 0.
-    precio_venta_sugerido = models.DecimalField(max_digits=18, decimal_places=0, default=0,
-                                                verbose_name='Precio Venta Sugerido',
-                                                help_text='Precio de Venta sugerido calculado a partir del promedio '
-                                                          'del Costo de Compra del producto en el ultimo mes por el '
-                                                          'Porcentaje de Ganancia.')
-    perecedero = models.BooleanField(verbose_name='Es perecedero?', default=False,
-                                     help_text='Marque la casilla si el Producto a registrar es Perecedero.')
+    precio_venta = models.DecimalField(max_digits=18, decimal_places=0, default=0,
+                                       verbose_name='Precio Venta',
+                                       help_text='Corresponde al valor del Precio de Venta almacenado en la Base de '
+                                                 'Datos del Sistema. Este valor sera utilizado para operaciones a '
+                                                 'realizar con el Producto.')
+
+    # ==> Datos para la Compra <==
+    unidad_medida_compra = models.ForeignKey('bar.UnidadMedidaProducto', related_name='un_med_compra',  # default=1,
+                                             verbose_name='Unidad de Medida Compra',
+                                             help_text='Seleccione la Unidad de Medida con el cual el Producto '
+                                                       'es adquirido. Corresponde a la Unidad de Medida de la '
+                                                       'presentacion del Producto.')
+    precio_compra = models.DecimalField(max_digits=18, decimal_places=0, default=0,
+                                        verbose_name='Precio Compra',
+                                        help_text='Corresponde al valor del Precio de Compra almacenado en la Base de '
+                                                  'Datos del Sistema. Este valor sera utilizado para operaciones a '
+                                                  'realizar con el Producto.')
+
+    cantidad_existente_stock = models.DecimalField(max_digits=10, decimal_places=3, default=0,
+                                                   verbose_name='Cantidad Existente',
+                                                   help_text='Corresponde a la cantidad existente del Producto '
+                                                             'registrada en la tabla Stock.')
     # fecha_elaboracion = models.DateField(verbose_name='Fecha de Elaboracion', default=datetime.date.today(),
     #                                      help_text='Ingrese la fecha de elaboracion del Producto.')
     # fecha_vencimiento = models.DateField(default=(datetime.date.today() + datetime.timedelta(days=30)),
     #                                      verbose_name='Fecha de Vencimiento',
     #                                      help_text='Ingrese la fecha de vencimiento del Producto.')
-    costo_elaboracion = models.DecimalField(max_digits=18, decimal_places=0, default=0,
-                                            verbose_name='Costo de Elaboracion del Producto',
-                                            help_text='Suma de los Totales de Costo del detalle del Producto '
-                                                      'Compuesto.')
 
     class Meta:
         # ordering =
@@ -94,11 +124,68 @@ class Producto(models.Model):
     def __init__(self, *args, **kwargs):
         self._meta.get_field('compuesto').default = False
         self._meta.get_field('costo_elaboracion').default = 0
+
+        # if self.tipo_producto == 'VE':
+        #     self._meta.get_field('porcentaje_ganancia').
+
         super(Producto, self).__init__(*args, **kwargs)
 
+    def get_precio_venta_sugerido(self):
+        producto = Producto.objects.get(id=self.pk)
+        precio_venta_sugerido = (((self.get_precio_compra_sugerido() * producto.porcentaje_ganancia) / 100) +
+                                 self.get_precio_compra_sugerido())
+        print 'precio_compra_sugerido: %s * porcentaje_ganancia: %s - precio_venta_sugerido: %s' % \
+              (self.get_precio_compra_sugerido(), producto.porcentaje_ganancia, precio_venta_sugerido)
+        return precio_venta_sugerido
+    # precio_venta_sugerido.help_text = 'Precio de Venta sugerido calculado a partir del promedio del Costo de ' \
+    #                                   'Compra del producto en el ultimo mes por el Porcentaje de Ganancia'
+
+    def get_precio_compra_sugerido(self):
+        detalles = CompraDetalle.objects.filter(producto_compra_id=self.pk,
+                                                numero_compra__estado_compra__estado_compra='CON')
+        # hoy = timezone_today()
+        # fecha = '%s-%s-01'%(hoy.year,('0%s'%(hoy.month-1) if len(str(hoy.month-1))==1 else (hoy.month-1)))
+        fecha = datetime.date.today() - datetime.timedelta(days=30)
+        # print 'Fecha para calculo promedio: %s' % fecha
+        detalles = detalles.filter(numero_compra__fecha_compra__gte=fecha)
+        total = 0
+        cantidad = 0
+        # precio_compra_sugerido = 0
+
+        for detalle in detalles:
+            print detalle.numero_compra.estado_compra.estado_compra
+            total += detalle.precio_producto_compra
+            # cantidad += detalle.cantidad_producto_compra
+            cantidad += 1
+        print total, cantidad
+        precio_compra_sugerido = total / (cantidad if cantidad else 1)
+        print 'precio_compra_sugerido: %s' % precio_compra_sugerido
+        return precio_compra_sugerido if precio_compra_sugerido else 0  # total / (cantidad if cantidad else 1)
+    # precio_compra_sugerido.help_text = 'Este valor se calcula promediando el Costo de Compra del Producto en los ' \
+    #                                    'ultimos 30 dias.'
+
+    def clean(self):
+        # Valida que el porcentaje_ganancia no sea 0.
+        if self.tipo_producto == 'VE':
+            if self.porcentaje_ganancia == 0:
+                raise ValidationError({'porcentaje_ganancia': _('El Porcentaje de Ganancia del Producto para la '
+                                                                'venta no puede ser 0.')})
+
+            # Valida que el precio_venta_sugerido no sea 0.
+            if self.precio_venta == 0:
+                raise ValidationError({'precio_venta': _('El Precio de Venta del Producto no puede ser 0.')})
+
+        # Valida que el precio_compra no sea 0.
+        if self.precio_compra == 0:
+            raise ValidationError({'precio_compra': _('El Precio de Compra del Producto no puede ser 0.')})
+
+        # Valida que el precio_compra no sea que el precio_compra_sugerido.
+        if self.precio_compra < self.get_precio_compra_sugerido():
+            raise ValidationError({'precio_compra': _('El Precio de Compra del Producto no puede ser menor que '
+                                                      'el Precio de Compra Sugerido.')})
+
     def __unicode__(self):
-        return "ID Prod: %s - Prod: %s - Marca: %s - Un. Med. Compra: %s" % (self.id, self.producto, self.marca,
-                                                                             self.unidad_medida_compra)
+        return "ID Prod: %s - Prod: %s - Marca: %s" % (self.id, self.producto, self.marca)
 
 
 # class PrecioVentaProducto(models.Model):
@@ -162,22 +249,28 @@ class ProductoCompuesto(Producto):
         # self._meta.get_field('compuesto').default = True
         self.codigo_barra = "N/A"
         self.marca = "N/A"
-        self.unidad_medida_compra = UnidadMedidaProducto.objects.get(unidad_medida_producto="UN")
-        self.tipo_producto = TipoProducto.objects.get(tipo_producto="VE")
-        # self.unidad_medida_contenido = UnidadMedidaProducto.objects.get(unidad_medida_producto="UN")
-        self.contenido = 1
+        self.tipo_producto = "VE"  # TipoProducto.objects.get(tipo_producto="VE")
         self.compuesto = True
         self.perecedero = True
-        # self.fecha_elaboracion = datetime.date.today()
-        # self.fecha_vencimiento = datetime.date.today() + datetime.timedelta(days=3)
+        self.unidad_medida_contenido = UnidadMedidaProducto.objects.get(unidad_medida_producto="UN")
+        self.contenido = 1
         self._meta.get_field('precio_venta_sugerido').help_text = 'Precio de Venta sugerido calculado a partir del ' \
                                                                   'Costo de Elaboracion por el Porcentaje de Ganancia.'
+        self.unidad_medida_compra = UnidadMedidaProducto.objects.get(unidad_medida_producto="UN")
+        self.precio_compra_sugerido = 0
+        # self.fecha_elaboracion = datetime.date.today()
+        # self.fecha_vencimiento = datetime.date.today() + datetime.timedelta(days=3)
 
     def clean(self):
         # Valida que el porcentaje_ganancia no sea 0.
         if self.porcentaje_ganancia == 0:
-            raise ValidationError({'precio_venta': _('El Porcentaje de Ganancia del Producto Compuesto o Elaborado '
-                                                     'no puede ser 0.')})
+            raise ValidationError({'porcentaje_ganancia': _('El Porcentaje de Ganancia del Producto Compuesto o '
+                                                            'Elaborado no puede ser 0.')})
+
+        # Valida que el precio_venta_sugerido no sea 0.
+        if self.precio_venta == 0:
+            raise ValidationError({'precio_venta_sugerido': _('El Precio de Venta sugerido del Producto Compuesto o '
+                                                              'Elaborado no puede ser 0.')})
 
     def __unicode__(self):
         return "ID Prod: %s - Prod: %s" % (self.id, self.producto)
@@ -188,7 +281,7 @@ class ProductoCompuestoDetalle(models.Model):
 
     # Limitar los Productos que pueden ser seleccionados a los que poseen TipoProducto igual a Insumos.
     producto = models.ForeignKey('Producto', related_name="producto_detalle", null=True,
-                                 limit_choices_to={'tipo_producto__tipo_producto': "IN"},
+                                 limit_choices_to={'tipo_producto': "IN"},
                                  verbose_name='Nombre del Producto',
                                  help_text='Seleccione el o los Productos que componen este Producto Compuesto.')
     cantidad_producto = models.DecimalField(max_digits=10, decimal_places=3,

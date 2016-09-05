@@ -56,6 +56,11 @@ INSTALLED_APPS = (
     'stock',
     'ventas',
     'geraldo',
+    # Prueba de calendarium
+    'filer',
+    'mptt',
+    'easy_thumbnails',
+    'calendarium',
 )
 
 MIDDLEWARE_CLASSES = (
@@ -177,7 +182,8 @@ DATABASES = {
 
 LANGUAGE_CODE = 'es-PY'
 
-TIME_ZONE = 'UTC'
+# TIME_ZONE = 'UTC'
+TIME_ZONE = 'America/Asuncion'
 
 USE_I18N = True
 
@@ -209,6 +215,8 @@ STATICFILES_DIRS = (
 MEDIA_URL = '/media/'
 
 MEDIA_ROOT = os.path.join(BASE_DIR, "static")
+
+STATIC_ROOT = os.path.join(BASE_DIR, "static_root")
 
 # TEMPLATE_DIRS = (
 #     os.path.join(BASE_DIR, 'templates'),

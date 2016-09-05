@@ -21,16 +21,19 @@ class ProductoAdmin(admin.ModelAdmin):
 
     class Media:
         js = [
-            'stock/js/producto.js'
+            'stock/js/producto.js',
+            'stock/js/change_form.js'
         ]
 
     readonly_fields = ['fecha_alta_producto', 'thumb']  # 'compuesto',
 
     fieldsets = [
-        ('Datos del Producto', {'fields': ['producto', 'codigo_barra', 'marca', 'unidad_medida_compra', 'contenido',
-                                           'imagen', 'thumb', 'fecha_alta_producto']}),  # 'compuesto'
-        ('Contenido del Producto', {'fields': ['tipo_producto', 'categoria', 'subcategoria', 'perecedero']}),  # 'unidad_medida_contenido',
-        ('Utilidad', {'fields': ['porcentaje_ganancia', 'precio_venta_sugerido']}),
+        ('Datos del Producto', {'fields': ['producto', 'codigo_barra', 'marca', 'imagen', 'thumb',
+                                           'fecha_alta_producto']}),  # 'compuesto'
+        ('Contenido del Producto', {'fields': ['tipo_producto', 'categoria', 'subcategoria', 'perecedero',
+                                               'unidad_medida_contenido', 'contenido']}),
+        ('Datos para la Compra', {'fields': ['unidad_medida_compra', 'precio_compra_sugerido', 'precio_compra']}),
+        ('Utilidad', {'fields': ['porcentaje_ganancia', 'precio_venta_sugerido', 'precio_venta']}),
     ]
 
     # PrecioProducto debe estar disponible como Inline solo para los Productos que tienen Tipo de Producto
@@ -39,17 +42,24 @@ class ProductoAdmin(admin.ModelAdmin):
     # inlines = [PrecioVentaProductoInline]
 
     # list_select_related = True
-    list_display = ('id', 'producto', 'marca', 'fecha_alta_producto', 'unidad_medida_compra', 'contenido',
-                    'tipo_producto', 'categoria', 'subcategoria', 'perecedero', 'porcentaje_ganancia', 'thumb')  # 'compuesto', 'unidad_medida_contenido',
+    list_display = ('id', 'producto', 'marca', 'fecha_alta_producto', 'tipo_producto', 'categoria', 'subcategoria',
+                    'perecedero', 'unidad_medida_contenido', 'contenido', 'unidad_medida_compra',
+                    'precio_compra', 'porcentaje_ganancia', 'precio_venta', 'thumb')  # 'compuesto'
     list_display_links = ['producto']
     list_filter = ['id', 'producto', 'marca', 'fecha_alta_producto', 'tipo_producto', 'categoria', 'subcategoria',
-                   'perecedero']
-    search_fields = ['id', 'producto', 'marca', 'fecha_alta_producto', 'tipo_producto__tipo_producto',
-                     'categoria__categoria', 'subcategoria__subcategoria', 'perecedero']
+                   'perecedero', 'precio_compra', 'porcentaje_ganancia', 'precio_venta']
+    search_fields = ['id', 'producto', 'marca', 'fecha_alta_producto', 'tipo_producto', 'categoria__categoria',
+                     'subcategoria__subcategoria', 'perecedero', 'precio_compra', 'porcentaje_ganancia', 'precio_venta']
 
     def get_queryset(self, request):
         queryset = Producto.objects.filter(compuesto=False)
         return queryset
+
+    # def get_readonly_fields(self, request, obj=None):
+    #     if obj and obj.tipo_producto == 'IN':
+    #         return ['fecha_alta_producto', 'thumb', 'porcentaje_ganancia', 'precio_venta_sugerido']
+    #     else:
+    #         return ['fecha_alta_producto', 'thumb']
 
 
 class ProductoCompuestoDetalleInline(admin.TabularInline):
@@ -68,7 +78,8 @@ class ProductoCompuestoAdmin(admin.ModelAdmin):
 
     class Media:
         js = [
-            'stock/js/producto_compuesto.js'
+            'stock/js/producto_compuesto.js',
+            'stock/js/change_form.js'
         ]
 
     readonly_fields = ['compuesto', 'perecedero', 'tipo_producto', 'fecha_alta_producto', 'thumb']  # 'unidad_medida_contenido', 'contenido'
@@ -80,16 +91,18 @@ class ProductoCompuestoAdmin(admin.ModelAdmin):
         # ('Contenido del Producto', {'fields': ['unidad_medida_contenido', 'contenido']}),
         # ('Contenido del Producto', {'fields': ['perecedero', 'fecha_elaboracion', 'fecha_vencimiento']}),
         ('Elaboracion', {'fields': ['costo_elaboracion']}),
-        ('Utilidad', {'fields': ['porcentaje_ganancia', 'precio_venta_sugerido']}),
+        ('Utilidad', {'fields': ['porcentaje_ganancia', 'precio_venta_sugerido', 'precio_venta']}),
     ]
 
     inlines = [ProductoCompuestoDetalleInline]
 
     list_display = ('id', 'producto', 'compuesto', 'perecedero', 'fecha_alta_producto', 'tipo_producto', 'categoria',
-                    'subcategoria', 'porcentaje_ganancia', 'thumb')  # 'unidad_medida_contenido', 'contenido',
+                    'subcategoria', 'costo_elaboracion', 'porcentaje_ganancia', 'precio_venta', 'thumb')
     list_display_links = ['producto']
-    list_filter = ['id', 'producto', 'categoria', 'subcategoria', 'porcentaje_ganancia', 'fecha_alta_producto']
-    search_fields = ['id', 'producto', 'categoria', 'subcategoria', 'porcentaje_ganancia', 'fecha_alta_producto']
+    list_filter = ['id', 'producto', 'fecha_alta_producto', 'categoria', 'subcategoria', 'costo_elaboracion',
+                   'porcentaje_ganancia', 'precio_venta']
+    search_fields = ['id', 'producto', 'fecha_alta_producto', 'categoria', 'subcategoria', 'costo_elaboracion',
+                     'porcentaje_ganancia', 'precio_venta']
 
     # def save_model(self, request, obj, form, change):
     #     if not change:
@@ -123,10 +136,14 @@ class StockDetalleInline(admin.TabularInline):
     extra = 0
     readonly_fields = ['tipo_movimiento', 'id_movimiento', 'ubicacion_origen', 'ubicacion_destino', 'cantidad_entrante',
                        'cantidad_saliente', 'fecha_hora_registro_stock']
+    can_delete = False
     # form =
     # raw_id_fields =
     # verbose_name = ''
     # verbose_name_plural = ''
+
+    def has_add_permission(self, request):
+        return False
 
 
 class StockAdmin(admin.ModelAdmin):

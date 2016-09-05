@@ -28,6 +28,11 @@ class EmpleadoTelefonoInline(admin.TabularInline):
 
 class EmpleadoAdmin(admin.ModelAdmin):
 
+    class Media:
+        js = [
+            'personal/js/change_form.js'
+        ]
+
     form = EmpleadoForm
 
     readonly_fields = ['_codigo_venta']

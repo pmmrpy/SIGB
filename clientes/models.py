@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from django.core.validators import RegexValidator
 
 from django.db import models
 # from ventas.models import Mesa
@@ -7,9 +8,12 @@ import datetime
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 from django.utils.translation import ugettext_lazy as _
+import re
 from personal.models import Empleado
 
 # Create your models here.
+
+# numeric = RegexValidator(r'^[0-9]*$', 'Solo se permiten caracteres numericos.')
 
 
 def calcular_dv(numero, base=11):
@@ -91,9 +95,21 @@ class ClienteDocumento(models.Model):
     @property
     def digito_verificador(self):
         if self.tipo_documento.documento == 'RUC':
+            # numero_documento = self.numero_documento
+            # if not re.match(r'^[0-9]*$', self.numero_documento):
+            #     # raise ValidationError({'self.numero_documento': _('Solo se permiten caracteres numericos.')})
+            #     raise ValidationError(_('Solo se permiten caracteres numericos.'))
+            # else:
             return calcular_dv(self.numero_documento, 11)
         else:
             return u'N/A'
+
+    def clean(self):
+        if self.tipo_documento.documento == 'RUC':
+            # numero_documento = self.numero_documento
+            if not re.match(r'^[0-9]*$', self.numero_documento):
+                raise ValidationError({'numero_documento': _('Solo se permiten caracteres numericos para el Tipo de '
+                                                             'Documento RUC.')})
 
     def __unicode__(self):
         return "%s - %s" % (self.tipo_documento, self.numero_documento)
@@ -130,7 +146,7 @@ class Reserva(models.Model):
                                    help_text='Puede ingresar alguna descripcion que identifique a la Reserva.')
     cliente = models.ForeignKey('Cliente', help_text='Seleccione los datos del Cliente si ya se encuentra registrado, '
                                                      'de lo contrario realice el alta del Cliente.')
-    fecha_hora_reserva = models.DateTimeField(default=timezone.now(), verbose_name='Fecha y hora para la Reserva.',
+    fecha_hora_reserva = models.DateTimeField(default=timezone.now, verbose_name='Fecha y hora para la Reserva.',
                                               help_text='Ingrese la fecha y hora de la Reserva.')
     cantidad_personas = models.PositiveIntegerField(default=0, verbose_name='Cantidad de Personas',
                                                     help_text='Ingrese la cantidad de personas que utilizaran la '

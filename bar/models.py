@@ -385,6 +385,8 @@ class TipoProducto(models.Model):
     Definir mejor la utilidad de los Tipos de Producto.
     La intencion es poder identificar los Productos que estan disponibles para la venta.
     Asi tambien diferenciar los Productos Compuestos de los Insumos.
+
+    28/08/2016: Se definio no utilizar un ForeignKey a esta tabla en Stock.producto.tipo_producto
     """
     TIPOS_PRODUCTO = (
         ('VE', 'Para la venta'),
@@ -527,8 +529,7 @@ class CodigoOperadoraTelefono(models.Model):
         verbose_name_plural = 'Telefonos - Codigos por operadora'
 
     def __unicode__(self):
-        return "%s - %s - %s" % (self.codigo_operadora_telefono, self.get_tipo_operadora_display(),
-                                 self.codigo_pais_telefono)
+        return "%s - %s" % (self.codigo_operadora_telefono, self.get_tipo_operadora_display())
 
 
 class Pais(models.Model):
@@ -558,8 +559,10 @@ class Ciudad(models.Model):
         verbose_name_plural = 'Ciudades'
 
     def __unicode__(self):
-        return "%s - %s" % (self.ciudad, self.pais)
         # return str(self.ciudad)
+        # return "%s - %s" % (self.ciudad, self.pais)
+        return "%s" % self.ciudad
+
 
 
 class CompraEstado(models.Model):
@@ -688,7 +691,7 @@ class Timbrado(models.Model):
                                    help_text='Ingrese el numero de Timbrado.')
     descripcion_timbrado = models.CharField(max_length=200, verbose_name='Descripcion del Timbrado',
                                             help_text='Ingrese la descripcion del Timbrado. (Hasta 200 caracteres)')
-    fecha_autorizacion_timbrado = models.DateField(default=timezone.datetime.today(),
+    fecha_autorizacion_timbrado = models.DateField(default=timezone.datetime.today,
                                                    verbose_name='Fecha de Autorizacion del Timbrado',
                                                    help_text='Ingrese la Fecha de Autorizacion del Timbrado')
     fecha_limite_vigencia_timbrado = models.DateField(default=(timezone.datetime.today() +

@@ -7,6 +7,7 @@ from django.utils import timezone
 from django.core.exceptions import ValidationError
 from django.utils.translation import ugettext_lazy as _
 # from random import randint
+import re
 from compras.models import Empresa
 
 # Create your models here.
@@ -123,6 +124,13 @@ class EmpleadoDocumento(models.Model):
         else:
             return u'N/A'
 
+    def clean(self):
+        if self.tipo_documento.documento == 'RUC':
+            # numero_documento = self.numero_documento
+            if not re.match(r'^[0-9]*$', self.numero_documento):
+                raise ValidationError({'numero_documento': _('Solo se permiten caracteres numericos para el Tipo de '
+                                                             'Documento RUC.')})
+
     def __unicode__(self):
         return "%s - %s - %s" % (self.empleado, self.tipo_documento, self.numero_documento)
 
@@ -177,9 +185,9 @@ class Horario(models.Model):
     )
     horario = models.CharField(max_length=30, verbose_name='Horario',
                                help_text='Ingrese el nombre o descripcion de la jornada laboral.')
-    horario_inicio = models.TimeField(default=timezone.now(), verbose_name='Hora de Inicio Jornada',
+    horario_inicio = models.TimeField(default=timezone.now, verbose_name='Hora de Inicio Jornada',
                                       help_text='Ingrese la hora de inicio de la jornada de trabajo.')
-    horario_fin = models.TimeField(default=timezone.now(), verbose_name='Hora de Finalizacion Jornada',
+    horario_fin = models.TimeField(default=timezone.now, verbose_name='Hora de Finalizacion Jornada',
                                    help_text='Ingrese la hora de finalizacion de la jornada de trabajo.')
 
     def __unicode__(self):
