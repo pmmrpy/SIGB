@@ -2,7 +2,7 @@ from django.contrib import admin
 # from django.db import models
 
 # Register your models here.
-from personal.forms import EmpleadoForm  # EmpleadoTelefonoForm
+from personal.forms import EmpleadoForm, EmpleadoTelefonoForm
 from .models import Empleado, EmpleadoTelefono, Cargo, Horario, EmpleadoDocumento
 # from .widgets import RichTextEditorWidget
 from random import randint
@@ -19,7 +19,7 @@ class EmpleadoDocumentoInline(admin.TabularInline):
 
 class EmpleadoTelefonoInline(admin.TabularInline):
     model = EmpleadoTelefono
-    # form = EmpleadoTelefonoForm
+    form = EmpleadoTelefonoForm
     extra = 0
     min_num = 1
     verbose_name = 'Telefono del Empleado'
@@ -30,7 +30,7 @@ class EmpleadoAdmin(admin.ModelAdmin):
 
     class Media:
         js = [
-            'personal/js/change_form.js'
+            'personal/js/empleado.js'
         ]
 
     form = EmpleadoForm
@@ -53,7 +53,8 @@ class EmpleadoAdmin(admin.ModelAdmin):
                     'cargo', 'horario', 'usuario', 'email']  # 'nombres', 'apellidos',
     list_display_links = ['upper_case_name']
     list_filter = ['id', 'nombres', 'apellidos', 'direccion', 'cargo', 'horario', 'usuario', 'email']
-    search_fields = ['id', 'nombres', 'apellidos', 'direccion', 'cargo', 'horario', 'usuario', 'email']
+    search_fields = ['id', 'nombres', 'apellidos', 'direccion', 'cargo__cargo', 'horario__horario',
+                     'usuario__username', 'email']
 
     def upper_case_name(self, obj):
         return ("%s %s" % (obj.nombres, obj.apellidos)).upper()

@@ -45,6 +45,12 @@ django.jQuery(document).ready(function(){
             set_precio_venta_sugerido();
         }
     });
+
+    $('#id_categoria').change(function(){
+        $('#id_subcategoria').val('');
+        $('#select2-id_subcategoria-container').html('');
+    });
+
 });
 
 function set_precio_venta_sugerido(){

@@ -25,7 +25,7 @@ class Producto(models.Model):
         ('VE', 'Para la Venta'),
         ('IN', 'Insumo'),
     )
-    # ==> Datos del Producto <==
+# ==> Datos del Producto <==
     producto = models.CharField(max_length=100, verbose_name='Nombre del Producto',
                                 help_text='Ingrese el nombre o descripcion del Producto.')
     # Realizar alguna validacion sobre el ingreso del codigo_barra, por lo menos cantidad de caracteres
@@ -43,7 +43,7 @@ class Producto(models.Model):
                                                help_text='La Fecha de Alta se asigna al momento de guardar los datos '
                                                          'del Producto. No se requiere el ingreso de este dato.')
 
-    # ==> Contenido del Producto <==
+# ==> Contenido del Producto <==
     # tipo_producto = models.ForeignKey('bar.TipoProducto', verbose_name='Tipo de Producto',  # default="VE",
     #                                   help_text='Seleccione el Tipo de Producto.')
     tipo_producto = models.CharField(max_length=2, choices=TIPOS_PRODUCTO, default='VE',
@@ -67,7 +67,7 @@ class Producto(models.Model):
                                               'granel (no envasados) siempre deben ser registrados con contenido igual '
                                               'a una unidad. Ej: Queso - 1 kilo, Detergente - 1 litro.')
 
-    # ==> Utilidad <==
+# ==> Utilidad <==
     costo_elaboracion = models.DecimalField(max_digits=18, decimal_places=0, default=0,
                                             verbose_name='Costo de Elaboracion del Producto',
                                             help_text='Suma de los Totales de Costo del detalle del Producto '
@@ -85,7 +85,7 @@ class Producto(models.Model):
                                                  'Datos del Sistema. Este valor sera utilizado para operaciones a '
                                                  'realizar con el Producto.')
 
-    # ==> Datos para la Compra <==
+# ==> Datos para la Compra <==
     unidad_medida_compra = models.ForeignKey('bar.UnidadMedidaProducto', related_name='un_med_compra',  # default=1,
                                              verbose_name='Unidad de Medida Compra',
                                              help_text='Seleccione la Unidad de Medida con el cual el Producto '
@@ -142,7 +142,7 @@ class Producto(models.Model):
 
     def get_precio_compra_sugerido(self):
         detalles = CompraDetalle.objects.filter(producto_compra_id=self.pk,
-                                                numero_compra__estado_compra__estado_compra='CON')
+                                                numero_compra__estado_compra__estado_orden_compra='CON')
         # hoy = timezone_today()
         # fecha = '%s-%s-01'%(hoy.year,('0%s'%(hoy.month-1) if len(str(hoy.month-1))==1 else (hoy.month-1)))
         fecha = datetime.date.today() - datetime.timedelta(days=30)
@@ -245,19 +245,25 @@ class ProductoCompuesto(Producto):
     # Intento de asignacion de los valores por defecto para los campos tipo_producto = "VE" y compuesto = True
     def __init__(self, *args, **kwargs):
         super(ProductoCompuesto, self).__init__(*args, **kwargs)
+    # ==> Datos del Producto <==
         # self._meta.get_field('tipo_producto').default = TipoProducto.objects.get(tipo_producto="VE")
         # self._meta.get_field('compuesto').default = True
         self.codigo_barra = "N/A"
         self.marca = "N/A"
+    # ==> Contenido del Producto <==
         self.tipo_producto = "VE"  # TipoProducto.objects.get(tipo_producto="VE")
         self.compuesto = True
         self.perecedero = True
         self.unidad_medida_contenido = UnidadMedidaProducto.objects.get(unidad_medida_producto="UN")
         self.contenido = 1
-        self._meta.get_field('precio_venta_sugerido').help_text = 'Precio de Venta sugerido calculado a partir del ' \
-                                                                  'Costo de Elaboracion por el Porcentaje de Ganancia.'
+    # ==> Utilidad <==
+        # self._meta.get_field('precio_venta_sugerido').help_text = 'Precio de Venta sugerido calculado a partir ' \
+        #                                                           'del Costo de Elaboracion por el Porcentaje de ' \
+        #                                                           'Ganancia.'
+    # ==> Datos para la Compra <==
         self.unidad_medida_compra = UnidadMedidaProducto.objects.get(unidad_medida_producto="UN")
-        self.precio_compra_sugerido = 0
+        self.precio_compra = 0
+        # self.precio_compra_sugerido = 0
         # self.fecha_elaboracion = datetime.date.today()
         # self.fecha_vencimiento = datetime.date.today() + datetime.timedelta(days=3)
 
@@ -269,8 +275,8 @@ class ProductoCompuesto(Producto):
 
         # Valida que el precio_venta_sugerido no sea 0.
         if self.precio_venta == 0:
-            raise ValidationError({'precio_venta_sugerido': _('El Precio de Venta sugerido del Producto Compuesto o '
-                                                              'Elaborado no puede ser 0.')})
+            raise ValidationError({'precio_venta': _('El Precio de Venta del Producto Compuesto o Elaborado no '
+                                                     'puede ser 0.')})
 
     def __unicode__(self):
         return "ID Prod: %s - Prod: %s" % (self.id, self.producto)

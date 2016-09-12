@@ -1,15 +1,19 @@
 # -*- coding: utf-8 -*-
-
 __author__ = 'pmmr'
-
+# from input_mask.widgets import InputMask
+# from input_mask.contrib.localflavor.us.widgets import USDecimalInput
+import datetime
+from django.utils import timezone
 from decimal import Decimal
 from dal import autocomplete
 from django.core.exceptions import ValidationError
+from django.utils.translation import ugettext_lazy as _
 from django.utils.safestring import mark_safe
 from django import forms
 # from django.utils import timezone
 from .models import Proveedor, LineaCreditoProveedor, LineaCreditoProveedorDetalle, PagoProveedor, FacturaProveedor, \
     Empresa, OrdenCompra, OrdenCompraDetalle, Compra, CompraDetalle, ProveedorTelefono
+from stock.models import Producto
 # from bar.models import OrdenCompraEstado
 from datetimewidget.widgets import DateWidget
 
@@ -19,6 +23,13 @@ ATTR_NUMERICO_RO = {'style': 'text-align:right;', 'class': 'auto', 'data-a-sep':
                     'type': 'number', 'readonly': 'readonly'}
 ATTR_NUMERICO_RO_RESALTADO = ATTR_NUMERICO_RO.copy()
 ATTR_NUMERICO_RO_RESALTADO['style'] += 'font-size: 20px; height: 25px; font-weight: bold; color: indianred;'
+ATTR_NUMERICO_RO_RESALTADO_2 = ATTR_NUMERICO_RO.copy()
+ATTR_NUMERICO_RO_RESALTADO_2['style'] += 'font-size: 14px; height: 20px; font-weight: bold; color: darkorange;'
+
+# class NumeroFacturaInput(InputMask):
+#     mask = {
+#         'mask': '999-999-9999999'
+#     }
 
 
 class ProveedorForm(forms.ModelForm):
@@ -40,6 +51,19 @@ class ProveedorTelefonoForm(forms.ModelForm):
             'codigo_operadora_telefono': autocomplete.ModelSelect2(url='bar:codigo_operadora_telefono-autocomplete',
                                                                    forward=['codigo_pais_telefono']),
         }
+
+    def __init__(self, *args, **kwargs):
+        super(ProveedorTelefonoForm, self).__init__(*args, **kwargs)
+
+        self.fields['codigo_pais_telefono'].widget.attrs.update({'style': 'font-size: 15px; height: 30px; width: 300px; font-weight: bold; color: yellowgreen;'})
+
+
+class LineaCreditoProveedorInlineForm(forms.ModelForm):
+    class Meta:
+        model = LineaCreditoProveedor
+        fields = '__all__'
+        # localized_fields = ['linea_credito_proveedor', 'monto_total_facturas_proveedor', 'monto_total_pagos_proveedor',
+        #                     'uso_linea_credito_proveedor']
 
 
 class LineaCreditoProveedorForm(forms.ModelForm):
@@ -114,12 +138,86 @@ class PagoProveedorForm(forms.ModelForm):
         model = PagoProveedor
         fields = '__all__'
         # localized_fields = ['monto_pago_proveedor']
+        # widgets = {
+        #     'monto_pago_proveedor': USDecimalInput,
+        # }
 
     def __init__(self, *args, **kwargs):
         super(PagoProveedorForm, self).__init__(*args, **kwargs)
-        if self.instance and self.instance.pk:
+
+        pago = self.instance
+        if pago and pago.pk:
             for field in self.fields:
-                self.fields[field].widget.attrs['readonly'] = True
+                if pago.procesado is True:
+                    self.fields['monto_pago_proveedor'].widget = forms.TextInput(attrs=ATTR_NUMERICO_RO)
+                    self.fields['fecha_pago_proveedor'].widget = forms.DateInput(format=('%d/%m/%Y'),
+                                                                                 attrs={'style': 'text-align:right;',
+                                                                                        'readonly': 'readonly'})
+                    self.fields['numero_comprobante_pago'].widget = forms.TextInput(attrs=ATTR_NUMERICO_RO)
+                    # self.fields['numero_comprobante_pago'].widget = forms.BooleanField()
+                    # self.fields[field].widget.attrs['readonly'] = True
+                    # self.fields[field].widget.attrs['disabled'] = True
+
+
+class FacturaProveedorForm(forms.ModelForm):
+
+    total_pago_factura = forms.CharField(widget=forms.TextInput(attrs=ATTR_NUMERICO_RO), label='Total Pago Factura')
+    total_factura_compra = forms.CharField(widget=forms.TextInput(attrs=ATTR_NUMERICO_RO), label='Total Factura Compra')
+
+    class Meta:
+        model = FacturaProveedor
+        fields = '__all__'
+        # localized_fields = ['total_pago_factura']
+        # widgets = {
+        #     'total_factura_compra': USDecimalInput,
+        # }
+
+    def __init__(self, *args, **kwargs):
+        super(FacturaProveedorForm, self).__init__(*args, **kwargs)
+        # print self.fields['total_orden_compra'].id_for_label,' pobaasdf'
+
+        factura = self.instance
+        print 'Factura: %s' % factura
+
+        # if self.instance and self.instance.pk:
+        if factura and factura.pk:
+            # print linea_credito.instance.get_monto_total_facturas_proveedor()
+            # self.initial['monto_total_facturas_proveedor'] = linea_credito.get_monto_total_facturas_proveedor()
+
+            # self.instance.save()
+            print 'factura.total_pago_factura before save: %s' % factura.total_pago_factura
+            print 'factura.estado_factura_compra before save: %s' % factura.estado_factura_compra
+            factura.total_pago_factura = factura.get_total_pago_factura()
+            factura.estado_factura_compra = factura.get_estado_factura_compra()
+            self.initial['estado_factura_compra'] = factura.estado_factura_compra
+            factura.save()
+            print 'factura.total_pago_factura after save: %s' % factura.total_pago_factura
+            print 'factura.estado_factura_compra after save: %s' % factura.estado_factura_compra
+
+            # for field in self.fields:
+            #     self.fields[field].widget.attrs['readonly'] = True
+            #     self.fields['linea_credito_proveedor'].widget.attrs['readonly'] = False
+
+            # self.fields['estado_linea_credito_proveedor'].widget.attrs['readonly'] = False
+            if factura.estado_factura_compra == 'PAG':
+                self.fields['estado_factura_compra'].widget.attrs.update({'style': 'font-size: 15px; height: 30px; width: 300px; font-weight: bold; color: green;'})
+            elif factura.estado_factura_compra == 'FPP':
+                self.fields['estado_factura_compra'].widget.attrs.update({'style': 'font-size: 15px; height: 30px; width: 300px; font-weight: bold; color: red;'})
+            elif factura.estado_factura_compra == 'CAN':
+                self.fields['estado_factura_compra'].widget.attrs.update({'style': 'font-size: 15px; height: 30px; width: 300px; font-weight: bold; color: orange;'})
+            elif factura.estado_factura_compra == 'EPP':
+                self.fields['estado_factura_compra'].widget.attrs.update({'style': 'font-size: 15px; height: 30px; width: 300px; font-weight: bold; color: yellowgreen;'})
+            self.fields['estado_factura_compra'].widget.attrs['readonly'] = True
+            self.fields['estado_factura_compra'].widget.attrs['disabled'] = True
+            # self.fields['estado_linea_credito_proveedor'].widget.attrs['required'] = False
+
+    def clean(self):
+        super(FacturaProveedorForm, self).clean()
+        total_factura_compra = self.data.get('total_factura_compra', '') or 0
+        total_pago_factura = self.data.get('total_pago_factura', '') or 0
+
+        if Decimal(total_factura_compra) < Decimal(total_pago_factura):
+            raise ValidationError('El Monto Total del Pago no debe exceder al Total de la Factura.')
 
 
 class EmpresaForm(forms.ModelForm):
@@ -133,32 +231,11 @@ class EmpresaForm(forms.ModelForm):
         }
 
 
-class FacturaProveedorForm(forms.ModelForm):
-
-    total_pago_factura = forms.CharField(widget=forms.TextInput(attrs=ATTR_NUMERICO_RO), label='Total Pago Factura')
-    total_factura_compra = forms.CharField(widget=forms.TextInput(attrs=ATTR_NUMERICO_RO), label='Total Factura Compra')
-
-    class Media:
-        js = ('compras/js/autoNumeric.js', 'compras/js/factura_proveedor.js')
-
-    class Meta:
-        model = FacturaProveedor
-        fields = '__all__'
-        # localized_fields = ['total_pago_factura']
-
-    def clean(self):
-        super(FacturaProveedorForm, self).clean()
-        total_factura_compra = self.data.get('total_factura_compra', '') or 0
-        total_pago_factura = self.data.get('total_pago_factura', '') or 0
-
-        if Decimal(total_factura_compra) < Decimal(total_pago_factura):
-            raise ValidationError('El total del pago no debe exceder el monto de la factura ')
-
-
 class OrdenCompraForm(forms.ModelForm):
 
-    linea_credito = forms.CharField(widget=forms.TextInput(attrs=ATTR_NUMERICO_RO),
-                                    label='Disponible Linea de Crédito', required=False)
+    linea_credito = forms.CharField(widget=forms.TextInput(attrs=ATTR_NUMERICO_RO_RESALTADO_2),
+                                    label=mark_safe('<strong style="font-size: 14px;">Disponible Linea de Credito</strong>'),
+                                    required=False)  # initial=0
     total_orden_compra = forms.CharField(widget=forms.TextInput(attrs=ATTR_NUMERICO_RO_RESALTADO),
                                          label=mark_safe('<strong style="font-size: 20px;">Total</strong>'),
                                          required=False)
@@ -176,7 +253,7 @@ class OrdenCompraForm(forms.ModelForm):
         # print self.fields['total_orden_compra'].id_for_label,' pobaasdf'
 
         if self.instance and self.instance.pk:
-            self.initial['linea_credito'] = self.instance.get_linea_credito()
+            self.initial['linea_credito'] = self.instance.get_linea_credito() or 0
 
     def clean(self):
         super(OrdenCompraForm, self).clean()
@@ -194,16 +271,13 @@ class OrdenCompraForm(forms.ModelForm):
 class OrdenCompraDetalleForm(forms.ModelForm):
 
     precio_producto_orden_compra = forms.CharField(widget=forms.TextInput(attrs=ATTR_NUMERICO),
-                                                   label='Precio del Producto', required=False)
+                                                   label='Precio Compra del Producto', required=False)
     # unidad_medida_orden_compra = forms.CharField(widget=forms.TextInput(attrs=ATTR_NUMERICO_RO),
     #                                                      label='Un. Med. Compra2', required=False)
     cantidad_producto_orden_compra = forms.CharField(widget=forms.TextInput(attrs=ATTR_NUMERICO),
                                                      label='Cantidad del Producto', required=False)
-    total_producto_orden_compra = forms.CharField(widget=forms.TextInput(attrs=ATTR_NUMERICO_RO),
+    total_producto_orden_compra = forms.CharField(widget=forms.TextInput(attrs=ATTR_NUMERICO_RO), initial=0,
                                                   label='Total del Producto', required=False)
-
-    class Media:
-        js = ('compras/js/autoNumeric.js', 'compras/js/orden_compra.js')
 
     class Meta:
         model = OrdenCompraDetalle
@@ -220,13 +294,70 @@ class OrdenCompraDetalleForm(forms.ModelForm):
 
 
 class CompraForm(forms.ModelForm):
+
+    nro_orden_compra = forms.ModelChoiceField(queryset=OrdenCompra.objects.all(),
+                                              widget=autocomplete.ModelSelect2(url='compras:ordencompra-compra-autocomplete'),
+                                              # widget=forms.TextInput(attrs=ATTR_NUMERICO),
+                                              label='Ordenes de Compra disponibles',
+                                              required=False, initial=0,
+                                              help_text='Seleccione el Numero de Orden de Compra para la cual se '
+                                                        'confirmara la Compra.')
+    disponible_linea_credito_proveedor = forms.CharField(widget=forms.TextInput(attrs=ATTR_NUMERICO_RO_RESALTADO_2),
+                                                         label=mark_safe('<strong style="font-size: 14px;">Disponible Linea de Credito</strong>'),
+                                                         required=False, initial=0)
+    total_compra = forms.CharField(widget=forms.TextInput(attrs=ATTR_NUMERICO_RO_RESALTADO),
+                                   label=mark_safe('<strong style="font-size: 20px;">Total</strong>'),
+                                   required=False, initial=0)
+
     class Meta:
         model = Compra
         fields = '__all__'
         # localized_fields = ['total_compra']
+        # widgets = {
+        #     # 'proveedor': autocomplete.ModelSelect2(url='compras:proveedor-orden-compra-autocomplete'),
+        #     # 'numero_factura_compra': NumeroFacturaInput,
+        #     # 'nro_orden_compra': autocomplete.ModelSelect2(url='compras:ordencompra-compra-autocomplete'),
+        # }
+
+    # def __init__(self, *args, **kwargs):
+    #     super(CompraForm, self).__init__(*args, **kwargs)
+    #     # print self.fields['total_orden_compra'].id_for_label,' pobaasdf'
+    #
+    #     # import pdb
+    #     # pdb.set_trace()
+    #
+    #     # if self.instance and self.instance.pk:
+    #     #     self.initial['numero_orden_compra'] = self.instance.numero_orden_compra_id or 0
+    #
+    #     # if self.instance.estado_compra.estado_orden_compra in ('ENT', 'CAN'):
+    #     #     if 'nro_orden_compra' in self.fields: del self.fields['nro_orden_compra']
+
+    def clean(self):
+        super(CompraForm, self).clean()
+
+        linea_credito = self.data.get('disponible_linea_credito_proveedor', '')
+        if not linea_credito:
+            raise ValidationError('Debe existir una Linea de Credito para el Proveedor.')
+
+        total_compra = self.data.get('total_compra', '')
+        if not total_compra:
+            raise ValidationError('El Total de la Compra no puede ser 0.')
+        if Decimal(linea_credito) < Decimal(total_compra):
+            raise ValidationError('El Total de la Compra no debe superar el monto de la Linea de Credito. '
+                                  'Linea de Credito Disponible: %s Gs.' % linea_credito)
 
 
 class CompraDetalleForm(forms.ModelForm):
+
+    # precio_producto_compra = forms.CharField(widget=forms.TextInput(attrs=ATTR_NUMERICO),
+    #                                          label='Precio del Producto', required=False)
+    # # unidad_medida_compra = forms.CharField(widget=forms.TextInput(attrs=ATTR_NUMERICO_RO),
+    # #                                        label='Un. Med. Compra2', required=False)
+    # cantidad_producto_compra = forms.CharField(widget=forms.TextInput(attrs=ATTR_NUMERICO),
+    #                                            label='Cantidad del Producto', required=False)
+    # total_producto_compra = forms.CharField(widget=forms.TextInput(attrs=ATTR_NUMERICO_RO),
+    #                                         label='Total del Producto', required=False)
+
     class Meta:
         model = CompraDetalle
         fields = '__all__'

@@ -33,4 +33,7 @@ class EmpleadoTelefonoForm(forms.ModelForm):
         fields = '__all__'
         widgets = {
             # 'telefono': HTML5Input(input_type='tel')
+            'codigo_pais_telefono': autocomplete.ModelSelect2(url='bar:codigo_pais_telefono-autocomplete'),
+            'codigo_operadora_telefono': autocomplete.ModelSelect2(url='bar:codigo_operadora_telefono-autocomplete',
+                                                                   forward=['codigo_pais_telefono']),
         }

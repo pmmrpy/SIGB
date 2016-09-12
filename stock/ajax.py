@@ -7,7 +7,7 @@ __author__ = 'pmmr'
 
 def get_producto_detalle(request):
     if request.method == 'GET':
-        id_producto = request.GET.get('id_producto',False)
+        id_producto = request.GET.get('id_producto', False)
         response_data = {}
         if id_producto:
             producto = Producto.objects.get(pk=id_producto)

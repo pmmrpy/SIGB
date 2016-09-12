@@ -60,10 +60,11 @@ class Cliente(models.Model):
                               help_text='Ingrese la direccion de email del Cliente.')
     documentos = models.ManyToManyField('bar.Documento', through='ClienteDocumento')
 
-    # def _get_full_name(self):
-    #     "Returns the person's full name."
-    #     return '%s %s' % (self.nombres, self.apellidos)
-    # full_name = property(_get_full_name)
+    @property
+    def nombre_completo(self):
+        """Returns the person's full name."""
+        return '%s %s' % (self.nombres, self.apellidos)
+    # nombre_completo = property(get_nombre_completo)
 
     def clean(self):
         # Validar si el Cliente es mayor de edad.

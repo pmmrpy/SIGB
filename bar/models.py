@@ -564,7 +564,6 @@ class Ciudad(models.Model):
         return "%s" % self.ciudad
 
 
-
 class CompraEstado(models.Model):
     """
     Estos son los diversos ESTADOS que puede tener una Compra.
@@ -612,6 +611,8 @@ class OrdenCompraEstado(models.Model):
         ('ENT', 'Entregada por el Proveedor'),
         ('PEP', 'Pendiente de Entrega por el Proveedor'),
         ('CAN', 'Cancelada'),
+        ('PEN', 'Pendiente Confirmacion'),
+        # ('BOR', 'Borrador'),
     )
     # id = models.AutoField(primary_key=True)
     estado_orden_compra = models.CharField(max_length=3, verbose_name='Estado de la Orden de Compra',

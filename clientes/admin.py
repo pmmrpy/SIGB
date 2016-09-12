@@ -83,7 +83,8 @@ class ReservaAdmin(admin.ModelAdmin):
                     'colorea_estado_reserva', 'pago', 'usuario_registro', 'fecha_hora_registro_reserva')
     list_display_links = ['descripcion_reserva']
     list_filter = ['cliente', 'fecha_hora_reserva', 'estado', 'usuario_registro']
-    search_fields = ['cliente', 'fecha_hora_reserva', 'estado', 'usuario_registro']
+    search_fields = ['cliente__nombres', 'cliente__apellidos', 'fecha_hora_reserva', 'estado__reserva_estado',
+                     'usuario_registro__usuario__username']
 
     def descripcion_reserva(self, obj):
         # fecha_hora_reserva = (obj.fecha_hora_reserva).astimezone(timezone.utc)
@@ -120,7 +121,24 @@ class ReservaAdmin(admin.ModelAdmin):
 
         # 2) Validar que las Mesas seleccionadas ya no se encuentran Reservadas para la fecha/hora indicada.
         # if obj.
-        
+
+    def get_readonly_fields(self, request, obj=None):
+        if obj is not None and obj.estado.reserva_estado in ('CAD', 'UTI', 'CAN'):
+            return [i.name for i in self.model._meta.fields] + \
+                   [i.name for i in self.model._meta.many_to_many]
+        else:
+            return super(ReservaAdmin, self).get_readonly_fields(request, obj)
+
+    def changeform_view(self, request, object_id=None, form_url='', extra_context=None):
+        extra_context = extra_context or {}
+
+        extra_context['show_button'] = True
+        if object_id is not None:
+            reserva_actual = Reserva.objects.get(pk=object_id)
+            extra_context['show_button'] = reserva_actual.estado.reserva_estado not in ('CAD', 'UTI', 'CAN')
+
+        return super(ReservaAdmin, self).changeform_view(request, object_id, form_url, extra_context)
+
     def changelist_view(self, request, extra_context=None):
         queryset = self.get_queryset(request).filter(estado__reserva_estado='VIG')
 

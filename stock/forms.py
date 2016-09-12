@@ -26,8 +26,8 @@ class ProductoForm(forms.ModelForm):
                                             label='Precio Venta Sugerido', required=False,
                                             help_text='Precio de Venta sugerido calculado a partir del Precio Compra '
                                                       'Sugerido por el Porcentaje de Ganancia. Cuando el Producto es '
-                                                      'registrado se calcula el Precio de Compra por el Porcentaje '
-                                                      'de Ganancia ingresados.')
+                                                      'registrado por primera vez se calcula el Precio de Compra por '
+                                                      'el Porcentaje de Ganancia ingresados.')
 
     class Meta:
         model = Producto
@@ -56,6 +56,11 @@ class ProductoForm(forms.ModelForm):
 
 
 class ProductoCompuestoForm(forms.ModelForm):
+
+    precio_venta_sugerido = forms.CharField(widget=forms.TextInput(attrs=ATTR_NUMERICO_RO),
+                                            label='Precio Venta Sugerido', required=False,
+                                            help_text='Precio de Venta sugerido calculado a partir del Costo de '
+                                                      'Elaboracion por el Porcentaje de Ganancia.')
 
     class Meta:
         model = ProductoCompuesto

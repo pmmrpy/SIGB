@@ -22,7 +22,7 @@ class ProductoAdmin(admin.ModelAdmin):
     class Media:
         js = [
             'stock/js/producto.js',
-            'stock/js/change_form.js'
+            # 'stock/js/change_form.js'
         ]
 
     readonly_fields = ['fecha_alta_producto', 'thumb']  # 'compuesto',

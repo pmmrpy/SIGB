@@ -67,7 +67,7 @@ function dismissRelatedLookupPopup(win, chosenId) {
 
 function set_producto_detalle(id_producto,name) {
     $.ajax({
-        url : "/get_producto_detalle/", // the endpoint
+        url : "/stock/get_producto_detalle/", // the endpoint
         type : "GET", // http method
         data : { id_producto : id_producto }, // data sent with the post request
 
@@ -75,6 +75,7 @@ function set_producto_detalle(id_producto,name) {
         success : function(json) {
             var indice = name.split('-')[1];
             //alert(JSON.stringify(json));
+
             $('#id_ordencompradetalle_set-'+indice+'-precio_producto_orden_compra').val(json.precio_compra);
             //$(".field-unidad_medida_orden_compra select").attr("disabled", false);
             $('#id_ordencompradetalle_set-'+indice+'-unidad_medida_orden_compra').val(json.unidad_medida_producto_id);

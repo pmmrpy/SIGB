@@ -4,15 +4,21 @@ import pdb
 from django.contrib import admin
 
 # from polymorphic.admin import PolymorphicParentModelAdmin, PolymorphicChildModelAdmin, PolymorphicChildModelFilter
+from django.contrib.admin.options import IS_POPUP_VAR, TO_FIELD_VAR
+from django.contrib.admin.templatetags.admin_urls import add_preserved_filters
+from django.contrib.messages.context_processors import messages
 from django.forms.models import BaseInlineFormSet
+from django.http.response import HttpResponseRedirect
+from django.template.response import SimpleTemplateResponse
 from django.utils import timezone
 from django.core.exceptions import ValidationError
-from django.utils.html import format_html
+from django.utils.encoding import force_text
+from django.utils.html import format_html, escape, escapejs
 from django.utils.translation import ugettext_lazy as _
 from django.views.generic.dates import timezone_today
 from .forms import ProveedorForm, LineaCreditoProveedorForm, LineaCreditoProveedorDetalleForm, PagoProveedorForm, \
     FacturaProveedorForm, EmpresaForm, OrdenCompraForm, OrdenCompraDetalleForm, CompraForm, CompraDetalleForm, \
-    ProveedorTelefonoForm
+    ProveedorTelefonoForm, LineaCreditoProveedorInlineForm
 from .models import ProveedorTelefono, LineaCreditoProveedor, LineaCreditoProveedorDetalle, Proveedor, PagoProveedor, \
     FacturaProveedor, ProductoProveedor, Empresa, OrdenCompra, OrdenCompraDetalle, Compra, CompraDetalle \
     # , ModelA, ModelB, ModelC
@@ -55,7 +61,7 @@ class LineaCreditoProveedorInline(admin.TabularInline):
     readonly_fields = ['monto_total_facturas_proveedor', 'monto_total_pagos_proveedor', 'uso_linea_credito_proveedor',
                        'disponible_linea_credito_proveedor', 'estado_linea_credito_proveedor']
     # fields = ['tipo_movimiento', 'monto_movimiento', 'numero_comprobante', 'fecha_movimiento']
-    form = LineaCreditoProveedorForm
+    form = LineaCreditoProveedorInlineForm
     verbose_name = 'Linea de Credito'
     verbose_name_plural = 'Linea de Credito'
 
@@ -113,6 +119,48 @@ class ProveedorAdmin(admin.ModelAdmin):
                     linea_credito.disponible_linea_credito_proveedor = linea_credito.linea_credito_proveedor
                     linea_credito.save()
         # obj.save()
+
+        if change:
+            for inline in formset:
+                if isinstance(inline.instance, LineaCreditoProveedor):
+                    linea_credito = inline.instance
+                    print 'Linea de Credito: %s' % linea_credito
+                    # if linea_credito and linea_credito.pk:
+                    print 'linea_credito.monto_total_facturas_proveedor before save: %s' % linea_credito.monto_total_facturas_proveedor
+                    print 'linea_credito.monto_total_pagos_proveedor before save: %s' % linea_credito.monto_total_pagos_proveedor
+                    print 'linea_credito.uso_linea_credito_proveedor before save: %s' % linea_credito.uso_linea_credito_proveedor
+                    print 'linea_credito.disponible_linea_credito_proveedor before save: %s' % linea_credito.disponible_linea_credito_proveedor
+                    print 'linea_credito.estado_linea_credito_proveedor before save: %s' % linea_credito.estado_linea_credito_proveedor
+                    linea_credito.monto_total_facturas_proveedor = linea_credito.get_monto_total_facturas_proveedor()
+                    linea_credito.monto_total_pagos_proveedor = linea_credito.get_monto_total_pagos_proveedor()
+                    linea_credito.uso_linea_credito_proveedor = linea_credito.get_uso_linea_credito_proveedor()
+                    linea_credito.disponible_linea_credito_proveedor = linea_credito.get_disponible_linea_credito_proveedor()
+                    linea_credito.estado_linea_credito_proveedor = linea_credito.get_estado_linea_credito_proveedor()
+                    # self.initial['estado_linea_credito_proveedor'] = linea_credito.estado_linea_credito_proveedor
+                    linea_credito.save()
+                    print 'linea_credito.monto_total_facturas_proveedor after save: %s' % linea_credito.monto_total_facturas_proveedor
+                    print 'linea_credito.monto_total_pagos_proveedor after save: %s' % linea_credito.monto_total_pagos_proveedor
+                    print 'linea_credito.uso_linea_credito_proveedor after save: %s' % linea_credito.uso_linea_credito_proveedor
+                    print 'linea_credito.disponible_linea_credito_proveedor after save: %s' % linea_credito.disponible_linea_credito_proveedor
+                    print 'linea_credito.estado_linea_credito_proveedor after save: %s' % linea_credito.estado_linea_credito_proveedor
+
+                    # Se intento asignar atributos HTML al campo "estado_linea_credito_proveedor" pero no se como
+                    # capturar la propiedad ya que en este punto no esta disponible "self"
+                    # if linea_credito.estado_linea_credito_proveedor == 'DEL':
+                    #     self.inline.fields['estado_linea_credito_proveedor'].widget.attrs.update({'style': 'font-size: 15px; height: 30px; width: 300px; font-weight: bold; color: green;'})
+                    #     # color = 'green'
+                    #     # return format_html('<span style="color: %s"><b> %s </b></span>' %
+                    #     #                    (color, obj.get_estado_linea_credito_proveedor_display()))
+                    # elif linea_credito.estado_linea_credito_proveedor == 'LIM':
+                    #     self.inline.fields['estado_linea_credito_proveedor'].widget.attrs.update({'style': 'font-size: 15px; height: 30px; width: 300px; font-weight: bold; color: orange;'})
+                    #     # color = 'red'
+                    #     # return format_html('<span style="color: %s"><b> %s </b></span>' %
+                    #     #                    (color, obj.get_estado_linea_credito_proveedor_display()))
+                    # elif linea_credito.estado_linea_credito_proveedor == 'SOB':
+                    #     self.inline.fields['estado_linea_credito_proveedor'].widget.attrs.update({'style': 'font-size: 15px; height: 30px; width: 300px; font-weight: bold; color: red;'})
+                    # self.inline.fields['estado_linea_credito_proveedor'].widget.attrs['readonly'] = True
+                    # # self.fields['estado_linea_credito_proveedor'].widget.attrs['disabled'] = True
+
         super(ProveedorAdmin, self).save_formset(request, form, formset, change)
 
 
@@ -157,9 +205,10 @@ class LineaCreditoProveedorAdmin(admin.ModelAdmin):
 
     inlines = [LineaCreditoProveedorDetalleInline]
 
-    list_display = ['proveedor', 'linea_credito_proveedor', 'fecha_linea_credito_proveedor',
+    list_display = ['id', 'proveedor', 'linea_credito_proveedor', 'fecha_linea_credito_proveedor',
                     'monto_total_facturas_proveedor', 'monto_total_pagos_proveedor', 'uso_linea_credito_proveedor',
                     'disponible_linea_credito_proveedor', 'colorea_estado_linea_credito_proveedor']
+    list_display_links = ['proveedor']
     list_filter = ['proveedor', 'linea_credito_proveedor', 'fecha_linea_credito_proveedor',
                    'estado_linea_credito_proveedor']
     search_fields = ['proveedor', 'linea_credito_proveedor', 'fecha_linea_credito_proveedor',
@@ -188,14 +237,52 @@ class LineaCreditoProveedorAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
+    def has_delete_permission(self, request, obj=None):
+        return False
+
 
 class PagoProveedorInline(admin.TabularInline):
     model = PagoProveedor
     extra = 0
     can_delete = False
+    readonly_fields = ['procesado']
     form = PagoProveedorForm
     # verbose_name = 'Pago a Proveedores'
     # verbose_name_plural = 'Pagos a Proveedores'
+
+    def get_readonly_fields(self, request, obj=None):
+        # print 'Entra a get_readonly_fields: %s - %s - %s' % (self, request, obj)
+        # print 'obj.estado_factura_compra: %s' % (obj.estado_factura_compra)
+        #
+        # # queryset = self.get_queryset(request).filter(estado_factura_compra='EPP')
+        # # for factura in queryset:
+        #
+        # pagos = PagoProveedor.objects.filter(factura_proveedor_id=obj.id)
+        # print 'Pagos: %s' % pagos
+        #
+        # for pago in pagos:
+        #     if obj is not None and pago.procesado is True:  # and obj.estado_factura_compra in ('PAG', 'CAN')
+        #         return [i.name for i in self.model._meta.fields]
+        #     else:
+        #         return None
+        #         # return super(PagoProveedorInline, self).get_readonly_fields(request, obj)
+        if obj is not None and obj.estado_factura_compra in ('PAG', 'CAN'):
+            return [i.name for i in self.model._meta.fields]
+        else:
+            return super(PagoProveedorInline, self).get_readonly_fields(request, obj)
+
+    def has_add_permission(self, request):
+        object_id = request.path.split("/")[-2]
+        if object_id != "add":
+            factura_actual = FacturaProveedor.objects.get(pk=object_id)
+            return factura_actual.estado_factura_compra not in ('PAG', 'CAN')
+        else:
+            return super(PagoProveedorInline, self).has_add_permission(request)
+
+    def has_delete_permission(self, request, obj=None):
+        if obj is not None and obj.estado_factura_compra in ('PAG', 'CAN'):
+            return False
+        return super(PagoProveedorInline, self).has_delete_permission(request, obj)
 
 
 class FacturaProveedorAdmin(admin.ModelAdmin):
@@ -204,12 +291,12 @@ class FacturaProveedorAdmin(admin.ModelAdmin):
 
     class Media:
         js = [
-            ''
+            'compras/js/autoNumeric.js', 'compras/js/factura_proveedor.js'
         ]
 
     readonly_fields = ['proveedor', 'compra', 'numero_factura_compra', 'fecha_factura_compra', 'tipo_factura_compra',
-                       'forma_pago_compra', 'plazo_factura_compra',
-                       'estado_factura_compra']
+                       'forma_pago_compra', 'plazo_factura_compra']
+                       # 'estado_factura_compra']
 
     # readonly_fields = ['__all__']
 
@@ -280,6 +367,17 @@ class FacturaProveedorAdmin(admin.ModelAdmin):
                     factura.save()
         return super(FacturaProveedorAdmin, self).changelist_view(request, extra_context=extra_context)
 
+    def changeform_view(self, request, object_id=None, form_url='', extra_context=None):
+        extra_context = extra_context or {}
+
+        extra_context['show_button'] = True
+        if object_id is not None:
+            factura_actual = FacturaProveedor.objects.get(pk=object_id)
+            print 'factura_actual: %s' % factura_actual
+            extra_context['show_button'] = factura_actual.estado_factura_compra not in ('PAG', 'CAN')
+
+        return super(FacturaProveedorAdmin, self).changeform_view(request, object_id, form_url, extra_context)
+
     def save_formset(self, request, form, formset, change):
         obj = form.instance
         obj.save()
@@ -298,11 +396,15 @@ class FacturaProveedorAdmin(admin.ModelAdmin):
                 linea_credito_detalle.save()
                 pago.procesado = True
                 pago.save()
-        pdb.set_trace()
+        # pdb.set_trace()
         if Decimal(total) == Decimal(obj.total_factura_compra):
             obj.estado_factura_compra = 'PAG'
             obj.save()
-
+        elif Decimal(total) > Decimal(obj.total_factura_compra):
+            raise ValidationError({'total_pago_factura': _('El Monto Total de los Pagos no puede exceder al Total '
+                                                           'de la Factura.')})
+            # raise ValidationError({'total_pago_factura': _('La suma de los pagos no debe superar el monto de la '
+            #                                                'factura.')})
 
 # class ProductoProveedorAdmin(admin.ModelAdmin):
 #     raw_id_fields = ['producto']
@@ -417,10 +519,10 @@ class OrdenCompraAdmin(admin.ModelAdmin):
     #         )
     #     return super(OrdenCompraAdmin, self).formfield_for_dbfield(db_field, **kwargs)
 
-    # class Media:
-    #     js = [
-    #         'compras/js/autoNumeric.js', 'compras/js/orden_compra.js'  # 'compras/js/change_form.js',
-    #     ]
+    class Media:
+        js = [
+            'compras/js/autoNumeric.js', 'compras/js/orden_compra.js'  # 'compras/js/change_form.js',
+        ]
 
     # readonly_fields = ('numero_orden_compra', 'fecha_orden_compra', 'estado_orden_compra')
 
@@ -444,9 +546,10 @@ class OrdenCompraAdmin(admin.ModelAdmin):
     list_filter = ['numero_orden_compra', ('proveedor_orden_compra', admin.RelatedOnlyFieldListFilter),
                    'fecha_orden_compra', 'fecha_ultima_modificacion_orden_compra', 'fecha_entrega_orden_compra',
                    'forma_pago_orden_compra', 'estado_orden_compra', 'usuario_registro_orden_compra']
-    search_fields = ['numero_orden_compra', 'proveedor_orden_compra', 'fecha_orden_compra',
-                     'fecha_ultima_modificacion_orden_compra', 'fecha_entrega_orden_compra', 'forma_pago_orden_compra',
-                     'estado_orden_compra', 'usuario_registro_orden_compra']
+    search_fields = ['numero_orden_compra', 'proveedor_orden_compra__proveedor', 'fecha_orden_compra',
+                     'fecha_ultima_modificacion_orden_compra', 'fecha_entrega_orden_compra',
+                     'forma_pago_orden_compra__forma_pago_compra', 'estado_orden_compra__estado_orden_compra',
+                     'usuario_registro_orden_compra__usuario__username']
 
     # def get_readonly_fields(self, request, obj=None):
     #     if obj:  # This is the case when obj is already created i.e. it's an edit
@@ -473,6 +576,10 @@ class OrdenCompraAdmin(admin.ModelAdmin):
             color = 'yellowgreen'
             return format_html('<span style="color: %s"><b> %s </b></span>' %
                                (color, obj.estado_orden_compra.get_estado_orden_compra_display()))
+        elif obj.estado_orden_compra.estado_orden_compra == 'PEN':
+            color = 'indianred'
+            return format_html('<span style="color: %s"><b> %s </b></span>' %
+                               (color, obj.estado_orden_compra.get_estado_orden_compra_display()))
         return obj.estado_orden_compra
     colorea_estado_orden_compra.short_description = 'Estado Orden de Compra'
 
@@ -491,18 +598,20 @@ class OrdenCompraAdmin(admin.ModelAdmin):
         if getattr(obj, 'usuario_registro_orden_compra', None) is None:
             # empleado = Empleado.objects.filter(usuario=request.user)
             obj.usuario_registro_orden_compra = Empleado.objects.get(usuario_id=request.user)
+            print 'obj.usuario_registro_orden_compra: ', obj.usuario_registro_orden_compra
+
         super(OrdenCompraAdmin, self).save_model(request, obj, form, change)
 
     def get_readonly_fields(self, request, obj=None):
-        if obj is not None and obj.estado_orden_compra.estado_orden_compra in ('EPP', 'PEP'):
+        if obj is not None and obj.estado_orden_compra.estado_orden_compra in ('EPP', 'PEP', 'PEN'):
             return ['numero_orden_compra', 'fecha_orden_compra', 'fecha_ultima_modificacion_orden_compra',
-                    'estado_orden_compra', 'proveedor_orden_compra']
+                    'estado_orden_compra', 'proveedor_orden_compra', 'usuario_registro_orden_compra']
         elif obj is not None and obj.estado_orden_compra.estado_orden_compra in ('ENT', 'CAN'):
             return [i.name for i in self.model._meta.fields] + \
                    [i.name for i in self.model._meta.many_to_many]
         elif obj is None:
             return ['numero_orden_compra', 'fecha_orden_compra', 'fecha_ultima_modificacion_orden_compra',
-                    'estado_orden_compra']
+                    'estado_orden_compra', 'usuario_registro_orden_compra']
         else:
             return super(OrdenCompraAdmin, self).get_readonly_fields(request, obj)
 
@@ -537,48 +646,64 @@ class OrdenCompraAdmin(admin.ModelAdmin):
 class CompraDetalleInline(admin.TabularInline):
     model = CompraDetalle
     extra = 0
+    can_delete = False
+    # read_only_fields = ['producto_compra', 'precio_producto_compra', 'unidad_medida_compra',
+    #                     'cantidad_producto_compra', 'total_producto_compra']
+    fields = ['producto_compra', 'precio_producto_compra', 'unidad_medida_compra', 'cantidad_producto_compra',
+              'total_producto_compra']
     form = CompraDetalleForm
-    raw_id_fields = ['producto_compra']
+    # raw_id_fields = ['producto_compra']
     verbose_name = 'Detalle de Productos de la Compra'
     verbose_name_plural = 'Detalles de Productos de las Compras'
 
     def get_readonly_fields(self, request, obj=None):
-        if obj is not None and obj.estado_compra.estado_compra in ('CON', 'CAN'):
+        # if obj is not None and obj.estado_compra.estado_orden_compra in ('ENT', 'CAN'):
+        if obj is not None:
             return [i.name for i in self.model._meta.fields]
         else:
             return super(CompraDetalleInline, self).get_readonly_fields(request, obj)
 
+    # def has_add_permission(self, request):
+    #     object_id = request.path.split("/")[-2]
+    #     if object_id != "add":
+    #         compra_actual = Compra.objects.get(pk=object_id)
+    #         return compra_actual.estado_compra.estado_orden_compra not in ('ENT', 'CAN')
+    #     else:
+    #         return super(CompraDetalleInline, self).has_add_permission(request)
+    #
+    # def has_delete_permission(self, request, obj=None):
+    #     if obj is not None and obj.estado_compra.estado_orden_compra in ('ENT', 'CAN'):
+    #         return False
+    #     return super(CompraDetalleInline, self).has_delete_permission(request, obj)
+
     def has_add_permission(self, request):
-        object_id = request.path.split("/")[-2]
-        if object_id != "add":
-            compra_actual = Compra.objects.get(pk=object_id)
-            return compra_actual.estado_compra.estado_compra not in ('CON', 'CAN')
-        else:
-            return super(CompraDetalleInline, self).has_add_permission(request)
+        return False
 
     def has_delete_permission(self, request, obj=None):
-        if obj is not None and obj.estado_compra.estado_compra in ('CON', 'CAN'):
-            return False
-        return super(CompraDetalleInline, self).has_delete_permission(request, obj)
+        return False
 
 
 class CompraAdmin(admin.ModelAdmin):
 
     form = CompraForm
 
+    # exclude = ['nro_orden_compra']
+
     class Media:
         js = [
-            'compras/js/compra.js'
+            'compras/js/compra.js', 'compras/js/jquery.maskedinput.js'
         ]
 
-    readonly_fields = ['numero_compra', 'proveedor', 'tipo_factura_compra', 'fecha_compra', 'estado_compra',
-                       'total_compra']
+    readonly_fields = ['numero_compra', 'numero_orden_compra', 'proveedor', 'tipo_factura_compra', 'fecha_compra',
+                       'estado_compra']
+                       # 'disponible_linea_credito_proveedor', 'total_compra']
 
     # raw_id_fields = ['numero_orden_compra']
 
     fieldsets = [
         ('Compra ID', {'fields': ['numero_compra']}),
-        ('Numero Orden de Compra', {'fields': ['numero_orden_compra', 'proveedor']}),
+        ('Numero Orden de Compra', {'fields': ['nro_orden_compra', 'numero_orden_compra', 'proveedor',
+                                               'disponible_linea_credito_proveedor']}),
         # ('Datos de la Orden de Compra', {'fields': ['orden_compra__proveedor_orden_compra',
         #                                             'orden_compra__forma_pago_orden_compra',
         #                                             ('orden_compra__fecha_orden_compra',
@@ -593,60 +718,140 @@ class CompraAdmin(admin.ModelAdmin):
     # raw_id_fields = ("numero_orden_compra",)
 
     list_display = ('numero_compra', 'proveedor', 'numero_orden_compra', 'fecha_compra', 'numero_factura_compra',
-                    'tipo_factura_compra', 'fecha_factura_compra', 'estado_compra', 'total_compra',
+                    'tipo_factura_compra', 'fecha_factura_compra', 'colorea_estado_compra', 'total_compra',
                     'usuario_registro_compra')
-    list_filter = ['numero_compra', 'proveedor', ('numero_orden_compra', admin.RelatedOnlyFieldListFilter),
+    list_filter = ['numero_compra', ('proveedor', admin.RelatedOnlyFieldListFilter),
+                   ('numero_orden_compra', admin.RelatedOnlyFieldListFilter),
                    'fecha_compra', 'numero_factura_compra', 'tipo_factura_compra', 'fecha_factura_compra',
-                   'estado_compra', 'total_compra', 'usuario_registro_compra']
+                   'estado_compra__estado_orden_compra', 'total_compra',
+                   ('usuario_registro_compra', admin.RelatedOnlyFieldListFilter)]
     search_fields = ['numero_compra', 'proveedor__proveedor', 'numero_orden_compra__numero_orden_compra',
                      'fecha_compra', 'numero_factura_compra', 'tipo_factura_compra__tipo_factura_compra',
-                     'fecha_factura_compra', 'estado_compra__estado_compra', 'total_compra', 'usuario_registro_compra']
+                     'fecha_factura_compra', 'estado_compra__estado_orden_compra', 'total_compra',
+                     'usuario_registro_compra__usuario__username']
+
+    def colorea_estado_compra(self, obj):
+        # color = 'black'
+        if obj.estado_compra.estado_orden_compra == 'ENT':
+            color = 'green'
+            # print 'Entra en colorea_estado_compra:', obj.estado_compra.estado_compra, color
+            return format_html('<span style="color: %s"><b> %s </b></span>' %
+                               (color, obj.estado_compra.get_estado_orden_compra_display()))
+        elif obj.estado_compra.estado_orden_compra == 'PEP':
+            color = 'red'
+            return format_html('<span style="color: %s"><b> %s </b></span>' %
+                               (color, obj.estado_compra.get_estado_orden_compra_display()))
+        elif obj.estado_compra.estado_orden_compra == 'CAN':
+            color = 'orange'
+            return format_html('<span style="color: %s"><b> %s </b></span>' %
+                               (color, obj.estado_compra.get_estado_orden_compra_display()))
+        elif obj.estado_compra.estado_orden_compra == 'EPP':
+            color = 'yellowgreen'
+            return format_html('<span style="color: %s"><b> %s </b></span>' %
+                               (color, obj.estado_compra.get_estado_orden_compra_display()))
+        elif obj.estado_compra.estado_orden_compra == 'PEN':
+            color = 'orangered'
+            return format_html('<span style="color: %s"><b> %s </b></span>' %
+                               (color, obj.estado_compra.get_estado_orden_compra_display()))
+        return obj.estado_compra
+    colorea_estado_compra.short_description = 'Estado Compra'
 
     def save_model(self, request, obj, form, change):
+
+        import pdb
+        pdb.set_trace()
+
         compra_actual = obj
         compra_anterior = None
-        tot_compra = 0
+        nro_orden_compra_form = form.cleaned_data['nro_orden_compra']
+        # tot_compra = 0
+
+        print 'obj: %s - compra_actual: %s - compra_anterior: %s - nro_orden_compra_form: %s' % \
+              (obj, compra_actual, compra_anterior, nro_orden_compra_form)
+
         # Recupera la compra_anterior
         if obj.numero_compra is not None:
             compra_anterior = Compra.objects.get(pk=obj.numero_compra)
+            if nro_orden_compra_form is not None:
+                compra_actual.numero_orden_compra = nro_orden_compra_form
         else:
+            obj.numero_orden_compra = nro_orden_compra_form
+            obj.proveedor = Proveedor.objects.get(pk=9)
+            obj.numero_factura_compra = 1
+            obj.estado_compra = OrdenCompraEstado.objects.get(estado_orden_compra='PEN')
             super(CompraAdmin, self).save_model(request, obj, form, change)
 
-        if "_continue" in request.POST and compra_actual.estado_compra.estado_compra == 'PEN':
+        if "_continue" in request.POST and compra_actual.estado_compra.estado_orden_compra == 'PEN':
             if compra_anterior is None \
                     or compra_anterior.numero_orden_compra_id != compra_actual.numero_orden_compra_id:
+
+                # compra_actual.numero_orden_compra = nro_orden_compra_form
                 compra_actual.proveedor = compra_actual.numero_orden_compra.proveedor_orden_compra
+
+                print 'compra_actual.numero_compra: %s - compra_detalle_a_eliminar: %s' % \
+                      (compra_actual.numero_compra, CompraDetalle.objects.filter(numero_compra_id=compra_actual.numero_compra))
                 CompraDetalle.objects.filter(numero_compra_id=compra_actual.numero_compra).delete()
+                print 'compra_detalle_a_eliminar: ', CompraDetalle.objects.filter(numero_compra_id=compra_actual.numero_compra)
+
                 for detalle in OrdenCompraDetalle.objects.filter(numero_orden_compra_id=compra_actual.numero_orden_compra_id):
                     compra_detalle = CompraDetalle(numero_compra_id=compra_actual.numero_compra,
                                                    producto_compra_id=detalle.producto_orden_compra_id,
                                                    precio_producto_compra=detalle.precio_producto_orden_compra,
                                                    cantidad_producto_compra=detalle.cantidad_producto_orden_compra,
-                                                   # unidad_medida_compra=detalle.unidad_medida_orden_compra,
+                                                   unidad_medida_compra=detalle.unidad_medida_orden_compra,
                                                    total_producto_compra=detalle.total_producto_orden_compra)
-                    tot_compra = tot_compra + detalle.total_producto_orden_compra
+                    # tot_compra = tot_compra + detalle.total_producto_orden_compra
                     compra_detalle.save()
+
                 orden = compra_actual.numero_orden_compra
                 if orden.forma_pago_orden_compra.forma_pago_compra == 'CO':
                     compra_actual.tipo_factura_compra = TipoFacturaCompra.objects.get(tipo_factura_compra='CON')
                 else:
                     compra_actual.tipo_factura_compra = TipoFacturaCompra.objects.get(tipo_factura_compra='CRE')
-            compra_actual.total_compra = tot_compra
-            compra_actual.estado_compra = CompraEstado.objects.get(estado_compra='PEN')
+
+                # import pdb
+                # pdb.set_trace()
+
+                # compra_actual.total_compra = tot_compra
+                compra_actual.disponible_linea_credito_proveedor = compra_actual.numero_orden_compra.proveedor_orden_compra.lineacreditoproveedor.disponible_linea_credito_proveedor
+                compra_actual.estado_compra = OrdenCompraEstado.objects.get(estado_orden_compra='PEN')
+                orden.estado_orden_compra = OrdenCompraEstado.objects.get(estado_orden_compra='PEN')
+                compra_actual.total_compra = compra_actual.numero_orden_compra.total_orden_compra
+                orden.save()
+
+            if compra_anterior is not None:
+                orden_anterior = compra_anterior.numero_orden_compra
+                now = timezone.now()
+
+                print 'orden_anterior.fecha_entrega_orden_compra: %s - now: %s' % \
+                      (orden_anterior.fecha_entrega_orden_compra, now)
+
+                if orden_anterior.fecha_entrega_orden_compra < now:
+                # if timezone.localtime(orden_compra.fecha_entrega_orden_compra) < now:
+                    orden_anterior.estado_orden_compra = OrdenCompraEstado.objects.get(estado_orden_compra='PEP')
+                elif orden_anterior.fecha_entrega_orden_compra > now:
+                    orden_anterior.estado_orden_compra = OrdenCompraEstado.objects.get(estado_orden_compra='EPP')
+                orden_anterior.save()
+
+            # ==> Descomentar por si se desee permitir la edicion del detalle de la Compra
+            # else:
+            #     compra_actual.estado_compra = OrdenCompraEstado.objects.get(estado_orden_compra='BOR')
+
             super(CompraAdmin, self).save_model(request, obj, form, change)
 
         # Si se cancela la Compra se asigna el estado "CAN" a la Compra
         elif "_cancel" in request.POST:
-            compra_actual.estado_compra = CompraEstado.objects.get(estado_compra='CAN')
+            compra_actual.estado_compra = OrdenCompraEstado.objects.get(estado_orden_compra='CAN')
             orden = compra_actual.numero_orden_compra
             orden.estado_orden_compra = OrdenCompraEstado.objects.get(estado_orden_compra='CAN')
+            orden.save()
             super(CompraAdmin, self).save_model(request, obj, form, change)
 
         # Si se confirma la Compra se asigna el estado "ENT" a la Orden de Compra
         # Capturar el evento de clic en el boton "Confirmar Compra" para asignar el estado de CON a la Compra y el
         # estado de ENT a la Orden de Compra
         elif "_save" in request.POST:  # and compra_actual.estado_compra.estado_compra == 'CON':
-            compra_actual.estado_compra = CompraEstado.objects.get(estado_compra='CON')
+            compra_actual.estado_compra = OrdenCompraEstado.objects.get(estado_orden_compra='ENT')
             orden = compra_actual.numero_orden_compra
             orden.estado_orden_compra = OrdenCompraEstado.objects.get(estado_orden_compra='ENT')
         # 3) Al confirmar la Compra se debe generar un registro en FacturaProveedor con los datos de la factura a pagar.
@@ -683,12 +888,15 @@ class CompraAdmin(admin.ModelAdmin):
                 linea_credito_proveedor_detalle.save()
             else:
                 # Asignar el valor de estado_linea_credito_proveedor evaluando una condicion
+                print 'Imprime =====>', linea_credito_proveedor_actual
+                print 'Imprime =====>', proveedor
+                print 'Imprime =====>', linea_credito_proveedor_actual.first().linea_credito_proveedor
                 estado_linea_credito_proveedor = "DEL"
-                if linea_credito_proveedor_actual.uso_linea_credito_proveedor + compra_actual.total_compra > linea_credito_proveedor_actual.linea_credito_proveedor:
+                if linea_credito_proveedor_actual.first().uso_linea_credito_proveedor + compra_actual.total_compra > linea_credito_proveedor_actual.first().linea_credito_proveedor:
                     estado_linea_credito_proveedor = "SOB"
-                elif linea_credito_proveedor_actual.uso_linea_credito_proveedor + compra_actual.total_compra == linea_credito_proveedor_actual.linea_credito_proveedor:
+                elif linea_credito_proveedor_actual.first().uso_linea_credito_proveedor + compra_actual.total_compra == linea_credito_proveedor_actual.first().linea_credito_proveedor:
                     estado_linea_credito_proveedor = "LIM"
-                elif linea_credito_proveedor_actual.uso_linea_credito_proveedor + compra_actual.total_compra < linea_credito_proveedor_actual.linea_credito_proveedor:
+                elif linea_credito_proveedor_actual.first().uso_linea_credito_proveedor + compra_actual.total_compra < linea_credito_proveedor_actual.first().linea_credito_proveedor:
                     estado_linea_credito_proveedor = "DEL"
                 linea_credito_proveedor_cabecera = LineaCreditoProveedor(id=linea_credito_proveedor_actual.first().id,
                                                                          proveedor_id=compra_actual.numero_orden_compra.proveedor_orden_compra_id,
@@ -713,24 +921,76 @@ class CompraAdmin(admin.ModelAdmin):
             factura_proveedor.save()
             linea_credito_proveedor_detalle.save()
 
-        if getattr(obj, 'usuario_registro_compra', None) is None:
+        # import pdb
+
+        # pdb.set_trace()
+        # print 'Usuarios: ', request.user, obj, obj.usuario_registro_compra
+
+        # Tratar la condicion "is not None"
+        if getattr(obj, 'usuario_registro_compra', None):
             # empleado = Empleado.objects.filter(usuario=request.user)
             obj.usuario_registro_compra = Empleado.objects.get(usuario_id=request.user)
+            print 'Usuarios: ', request.user, obj.usuario_registro_compra
         super(CompraAdmin, self).save_model(request, obj, form, change)
 
+    # Alternativa programada con JuanBer para el caso de que no se borraban los registros de CompraDetalle en la DB,
+    # el problema se daba con los formfields definidos en el Form, al parecer el framework valida los datos cargdos
+    # en los formfields y como son los mismos registrados en la DB no los elimina.
+    # Con esta alternativa se realiza el borrado de los registros una vez que finaliza la ejecucion del save_model
+    # def response_change(self, request, obj):
+    #     """
+    #     Determines the HttpResponse for the change_view stage.
+    #     """
+    #     if "_continue" in request.POST:
+    #         boton = request.POST.get('_continue','')
+    #         numero_orden_compra = request.POST.get('numero_orden_compra','')
+    #
+    #         if numero_orden_compra:
+    #             obj.numero_orden_compra_id = numero_orden_compra
+    #             obj.save()
+    #
+    #         if boton == 'cambio_nro_orden':
+    #             detalles = CompraDetalle.objects.filter(numero_compra_id=obj.pk)
+    #             detalles.delete()
+    #             for detalle in OrdenCompraDetalle.objects.filter(numero_orden_compra_id=obj.numero_orden_compra_id):
+    #                 compra_detalle = CompraDetalle(numero_compra_id=obj.numero_compra,
+    #                                                producto_compra_id=detalle.producto_orden_compra_id,
+    #                                                precio_producto_compra=detalle.precio_producto_orden_compra,
+    #                                                cantidad_producto_compra=detalle.cantidad_producto_orden_compra,
+    #                                                unidad_medida_compra=detalle.unidad_medida_orden_compra,
+    #                                                total_producto_compra=detalle.total_producto_orden_compra)
+    #                 compra_detalle.save()
+    #             return HttpResponseRedirect('/admin/compras/compra/%s/'%obj.pk)
+    #     return super(CompraAdmin, self).response_change(request, obj)
+
     def save_formset(self, request, form, formset, change):
+
+        # import pdb
+        # pdb.set_trace()
+
         # si orden cambio entonces no hacer nada
         compra_actual = form.instance
         super(CompraAdmin, self).save_formset(request, form, formset, change)
 
+        # ==> Descomentar por si se desee permitir la edicion del detalle de la Compra
+        # if "_continue" in request.POST and compra_actual.estado_compra.estado_orden_compra == 'PEN':
+        #     formset.save(commit=False)
+        #     for form in formset:
+        #         form.instance.delete()
+        # elif "_continue" in request.POST and compra_actual.estado_compra.estado_orden_compra == 'BOR':
+        #     formset.save(commit=False)
+        #     for form in formset:
+        #         form.instance.save()
+        #     compra_actual.estado_compra = OrdenCompraEstado.objects.get(estado_orden_compra='PEN')
+        #     compra_actual.save()
+
+
         # Si la Compra se confirma se suman los Productos al Stock.
-        if compra_actual.estado_compra.estado_compra == 'CON':
+        if compra_actual.estado_compra.estado_orden_compra == 'ENT':
             for form in formset:
                 detalle = form.instance
                 # Validar que exista un registro de Stock para el Producto, si no existe entonces se debe crear el
                 # registro cabecera en la tabla Stock y luego el detalle en Stock_Detalle
-                # import pdb;
-                # pdb.set_trace()
                 # stock_actual = Stock.objects.get(producto_stock_id=detalle.producto_compra_id)
                 stock_actual = Stock.objects.filter(producto_stock_id=detalle.producto_compra_id)
                 if not stock_actual.exists():
@@ -764,9 +1024,16 @@ class CompraAdmin(admin.ModelAdmin):
                     stock_detalle.save()
 
     def get_readonly_fields(self, request, obj=None):
-        if obj is not None and obj.estado_compra.estado_compra in ('CON', 'CAN'):
+        if obj is not None and obj.estado_compra.estado_orden_compra in ('PEN', 'EPP', 'PEP'):
+            return ['numero_compra', 'numero_orden_compra', 'proveedor', 'tipo_factura_compra', 'fecha_compra',
+                    'estado_compra']
+                    # 'total_compra']
+        elif obj is not None and obj.estado_compra.estado_orden_compra in ('ENT', 'CAN'):
             return [i.name for i in self.model._meta.fields] + \
                    [i.name for i in self.model._meta.many_to_many]
+        # elif obj is None:
+        #     return ['numero_compra', 'proveedor', 'tipo_factura_compra', 'fecha_compra', 'estado_compra']
+        #             # 'total_compra']
         else:
             return super(CompraAdmin, self).get_readonly_fields(request, obj)
 
@@ -776,9 +1043,27 @@ class CompraAdmin(admin.ModelAdmin):
         extra_context['show_button'] = True
         if object_id is not None:
             compra_actual = Compra.objects.get(pk=object_id)
-            extra_context['show_button'] = compra_actual.estado_compra.estado_compra not in ('CON', 'CAN')
+            extra_context['show_button'] = compra_actual.estado_compra.estado_orden_compra not in ('ENT', 'CAN')
 
         return super(CompraAdmin, self).changeform_view(request, object_id, form_url, extra_context)
+
+    # def get_form(self, request, obj=None, **kwargs):
+    #
+    #     import pdb
+    #     pdb.set_trace()
+    #
+    #     compra = obj
+    #     if compra.estado_compra.estado_orden_compra in ('ENT', 'CAN'):
+    #         self.exclude = ("nro_orden_compra", )
+    #         # kwargs['exclude'] = ['fecha_compra', 'nro_orden_compra']
+    #     form = super(CompraAdmin, self).get_form(request, obj, **kwargs)
+    #     return form
+
+    # def has_add_permission(self, request):
+    #     return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 # ======================================================================================================================

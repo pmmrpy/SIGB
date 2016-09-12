@@ -7,7 +7,7 @@ django.jQuery(document).ready(function(){
        var total_pago =  get_total_pago();
           var total_factura = $('#id_total_factura_compra').val();
           if (parseFloat(total_pago) > parseFloat(total_factura)){
-              alert('El monto total de los pagos no puede exceder al total de la factura')
+              alert('El Monto Total de los Pagos no puede exceder al Total de la Factura.')
               this.value = parseFloat(total_factura) -(total_pago - parseFloat(this.value))
                $('#id_total_pago_factura').val(total_factura);
           }
@@ -24,5 +24,4 @@ function get_total_pago(){
     });
     $('#id_total_pago_factura').val(total);
     return total
-
 }
