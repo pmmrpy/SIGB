@@ -1,0 +1,2 @@
+$('input[type=checkbox]').on('change', function(e) {
+$('input[type=checkbox]').each(function (key, value) { if (value.parentElement.children[1].innerHTML == 'Marcar Todos'){ $(value).prop("checked", false); // para quitar la marca }else{ a = $(value).is(':checked'); if (a) { check_selected.push(value.parentElement.children[1].innerHTML); } } }); }
