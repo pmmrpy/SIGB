@@ -612,7 +612,7 @@ class OrdenCompraEstado(models.Model):
         ('PEP', 'Pendiente de Entrega por el Proveedor'),
         ('CAN', 'Cancelada'),
         ('PEN', 'Pendiente Confirmacion'),
-        # ('BOR', 'Borrador'),
+        # ('BOR', 'Borrador'),  # El estado BOR es necesario para poder guardar un borrador del detalle de la Compra.
     )
     # id = models.AutoField(primary_key=True)
     estado_orden_compra = models.CharField(max_length=3, verbose_name='Estado de la Orden de Compra',

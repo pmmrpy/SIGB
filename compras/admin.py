@@ -2,11 +2,10 @@ import datetime
 from decimal import Decimal
 import pdb
 from django.contrib import admin
-
-# from polymorphic.admin import PolymorphicParentModelAdmin, PolymorphicChildModelAdmin, PolymorphicChildModelFilter
 from django.contrib.admin.options import IS_POPUP_VAR, TO_FIELD_VAR
 from django.contrib.admin.templatetags.admin_urls import add_preserved_filters
 from django.contrib.messages.context_processors import messages
+from django.db.models.query_utils import Q
 from django.forms.models import BaseInlineFormSet
 from django.http.response import HttpResponseRedirect
 from django.template.response import SimpleTemplateResponse
@@ -16,19 +15,20 @@ from django.utils.encoding import force_text
 from django.utils.html import format_html, escape, escapejs
 from django.utils.translation import ugettext_lazy as _
 from django.views.generic.dates import timezone_today
-from .forms import ProveedorForm, LineaCreditoProveedorForm, LineaCreditoProveedorDetalleForm, PagoProveedorForm, \
+from psycopg2._psycopg import IntegrityError
+from compras.forms import ProveedorForm, LineaCreditoProveedorForm, LineaCreditoProveedorDetalleForm, PagoProveedorForm, \
     FacturaProveedorForm, EmpresaForm, OrdenCompraForm, OrdenCompraDetalleForm, CompraForm, CompraDetalleForm, \
-    ProveedorTelefonoForm, LineaCreditoProveedorInlineForm
-from .models import ProveedorTelefono, LineaCreditoProveedor, LineaCreditoProveedorDetalle, Proveedor, PagoProveedor, \
-    FacturaProveedor, ProductoProveedor, Empresa, OrdenCompra, OrdenCompraDetalle, Compra, CompraDetalle \
-    # , ModelA, ModelB, ModelC
+    ProveedorTelefonoForm, LineaCreditoProveedorInlineForm, OrdenPagoDetalleForm, OrdenPagoForm
+from compras.models import ProveedorTelefono, LineaCreditoProveedor, LineaCreditoProveedorDetalle, Proveedor, PagoProveedor, \
+    FacturaProveedor, ProductoProveedor, Empresa, OrdenCompra, OrdenCompraDetalle, Compra, CompraDetalle, \
+    OrdenPago, OrdenPagoDetalle  # , ModelA, ModelB, ModelC
 from bar.models import CompraEstado, OrdenCompraEstado, TipoMovimientoStock, Deposito, TipoFacturaCompra
 from stock.models import Stock, StockDetalle
 from personal.models import Empleado
-
 from django.http import HttpResponse
 from reports import ReportOrdenCompra, GraphicsReport, MasterReport
 from geraldo.generators import PDFGenerator
+from polymorphic.admin import PolymorphicParentModelAdmin, PolymorphicChildModelAdmin, PolymorphicChildModelFilter
 
 # Register your models here.
 
@@ -406,6 +406,248 @@ class FacturaProveedorAdmin(admin.ModelAdmin):
             # raise ValidationError({'total_pago_factura': _('La suma de los pagos no debe superar el monto de la '
             #                                                'factura.')})
 
+
+class OrdenPagoDetalleInline(admin.TabularInline):
+    model = OrdenPagoDetalle
+    extra = 0
+    can_delete = False
+    # readonly_fields = ['procesado']
+    fields = ['compra', 'proveedor', 'numero_factura_compra', 'fecha_factura_compra',
+              'tipo_factura_compra', 'forma_pago_compra', 'plazo_factura_compra', 'total_factura_compra',
+              'estado_factura_compra', 'procesado']
+    form = OrdenPagoDetalleForm
+    # verbose_name = 'Pago a Proveedores'
+    # verbose_name_plural = 'Pagos a Proveedores'
+
+    def get_readonly_fields(self, request, obj=None):
+        if obj is not None and obj.estado_orden_pago == 'PEN':
+            return ['compra', 'proveedor', 'numero_factura_compra', 'fecha_factura_compra', 'tipo_factura_compra',
+                    'forma_pago_compra', 'plazo_factura_compra', 'estado_factura_compra']  # 'total_factura_compra',
+        elif obj is not None and obj.estado_orden_pago in ('CON', 'ANU'):
+            return [i.name for i in self.model._meta.fields]
+        else:
+            return super(OrdenPagoDetalleInline, self).get_readonly_fields(request, obj)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    # def get_queryset(self, request):
+    #     # empresa = self.get_queryset(request).get(pk=)
+    #     queryset = FacturaProveedor.objects.filter(proveedor_id=2)
+    #     print queryset
+    #     return queryset
+
+
+class OrdenPagoAdmin(admin.ModelAdmin):
+
+    form = OrdenPagoForm
+
+    class Media:
+        js = [
+            'compras/js/orden_pago.js'
+        ]
+
+    # readonly_fields = ['numero_orden_pago', 'fecha_hora_orden_pago', 'usuario_registro_orden_pago',
+    #                    'estado_orden_pago']  # 'total_orden_pago'
+
+    fieldsets = [
+        ('Numero Orden de Pago', {'fields': ['numero_orden_pago']}),
+        ('Datos del Proveedor', {'fields': ['proveedor_orden_pago']}),
+        # ('Fechas', {'fields': ['fecha_hora_orden_pago']}),
+        ('Otros datos de la Orden de Pago', {'fields': ['fecha_hora_orden_pago', 'usuario_registro_orden_pago',
+                                                        'estado_orden_pago', 'total_orden_pago']}),
+    ]
+
+    inlines = [OrdenPagoDetalleInline]
+
+    list_display = ['numero_orden_pago', 'proveedor_orden_pago', 'fecha_hora_orden_pago',
+                    'usuario_registro_orden_pago', 'estado_orden_pago', 'total_orden_pago']
+    # list_display_links = []
+    list_filter = ['numero_orden_pago', 'proveedor_orden_pago', 'fecha_hora_orden_pago',
+                    'usuario_registro_orden_pago', 'estado_orden_pago', 'total_orden_pago']
+    search_fields = ['numero_orden_pago', 'proveedor_orden_pago__proveedor', 'fecha_hora_orden_pago',
+                    'usuario_registro_orden_pago__usuario__username', 'estado_orden_pago', 'total_orden_pago']
+
+    # def get_inline_formsets(self, request, formsets, inline_instances, obj=None):
+    #     queryset = FacturaProveedor.objects.filter(proveedor_id=2)
+    #     print queryset
+    #     return queryset
+
+    def save_model(self, request, obj, form, change):
+
+        import pdb
+        pdb.set_trace()
+
+        orden_pago_actual = obj
+
+        # Si la orden_pago es generada por primera vez se debe guardar el objeto para asignarle un ID y el estado PEN.
+        if obj.numero_orden_pago is None:
+            obj.usuario_registro_orden_pago = Empleado.objects.get(usuario_id=request.user)
+            obj.estado_orden_pago = 'PEN'
+            obj.total_orden_pago = 1
+            super(OrdenPagoAdmin, self).save_model(request, obj, form, change)
+
+        if "_continue" in request.POST and orden_pago_actual.estado_orden_pago == 'PEN':
+            orden_pago_actual.estado_orden_pago = 'PEN'
+            orden_pago_actual.total_orden_pago = 0
+            super(OrdenPagoAdmin, self).save_model(request, obj, form, change)
+
+        # Si se ANULA la Orden de Pago se asigna el estado "ANU" a la Orden de Pago y se debe asignar el estado "EPP"
+        # o "FPP" a las facturas en el formset
+        elif "_cancel" in request.POST:
+            orden_pago_actual.estado_orden_pago = 'ANU'
+            super(OrdenPagoAdmin, self).save_model(request, obj, form, change)
+
+        # Si se confirma la Orden de Pago se asigna el estado "CON" a la Orden de Pago, el estado "PAG" a las
+        # facturas en el formset y se deben generar registros de pagos en PagoProveedor para las facturas afectadas
+        elif "_save" in request.POST:  # and compra_actual.estado_compra.estado_compra == 'CON':
+            orden_pago_actual.estado_orden_pago = 'CON'
+            super(OrdenPagoAdmin, self).save_model(request, obj, form, change)
+
+        if getattr(obj, 'usuario_registro_orden_pago', None) is not None:
+            # empleado = Empleado.objects.filter(usuario=request.user)
+            obj.usuario_registro_orden_pago = Empleado.objects.get(usuario_id=request.user)
+            print 'obj.usuario_registro_orden_pago: ', obj.usuario_registro_orden_pago
+        super(OrdenPagoAdmin, self).save_model(request, obj, form, change)
+
+    def save_formset(self, request, form, formset, change):
+
+        import pdb
+        pdb.set_trace()
+
+        orden_pago_actual = form.instance
+        super(OrdenPagoAdmin, self).save_formset(request, form, formset, change)
+
+        print 'obj: %s - orden_pago_actual: %s' % (form.instance, orden_pago_actual)
+
+        if "_continue" in request.POST and orden_pago_actual.estado_orden_pago == 'PEN':
+            print 'orden_pago_actual.numero_orden_pago: %s - orden_pago_detalle_a_eliminar: %s' % \
+                  (orden_pago_actual.numero_orden_pago, OrdenPagoDetalle.objects.filter(numero_orden_pago_id=orden_pago_actual.numero_orden_pago))
+
+            # if 'procesado' in form.changed_data:
+            #     print 'El campo Procesado SI ha cambiado.'
+            #     formset.save()
+            # else:
+            #     print 'El campo Procesado NO ha cambiado.'
+
+            # formset.save()
+            OrdenPagoDetalle.objects.filter(numero_orden_pago_id=orden_pago_actual.numero_orden_pago).delete()
+            print 'orden_pago_detalle_a_eliminar: ', OrdenPagoDetalle.objects.filter(numero_orden_pago_id=orden_pago_actual.numero_orden_pago)
+
+            # suma_facturas = 0
+            for detalle in FacturaProveedor.objects.filter(Q(proveedor_id=orden_pago_actual.proveedor_orden_pago), Q(estado_factura_compra='EPP') | Q(estado_factura_compra='FPP')):
+                orden_pago_detalle = OrdenPagoDetalle(numero_orden_pago_id=orden_pago_actual.numero_orden_pago,
+                                                      compra_id=detalle.compra_id,
+                                                      proveedor_id=detalle.proveedor_id,
+                                                      numero_factura_compra=detalle.numero_factura_compra,
+                                                      fecha_factura_compra=detalle.fecha_factura_compra,
+                                                      tipo_factura_compra=detalle.tipo_factura_compra,
+                                                      forma_pago_compra=detalle.forma_pago_compra,
+                                                      plazo_factura_compra=detalle.plazo_factura_compra,
+                                                      total_factura_compra=detalle.total_factura_compra,
+                                                      estado_factura_compra=detalle.estado_factura_compra,
+                                                      procesado=False)
+                # suma_facturas = suma_facturas + detalle.total_factura_compra
+                orden_pago_detalle.save()
+
+        # Si se ANULA la Orden de Pago se asigna el estado "ANU" a la Orden de Pago y se debe asignar el estado "EPP"
+        # o "FPP" a las facturas en el formset
+        elif "_cancel" in request.POST:
+            for form in formset:
+                factura = form.instance
+                today = datetime.date.today()
+                # print factura.estado_factura_compra, today
+
+                if factura.tipo_factura_compra.tipo_factura_compra == 'CRE':
+                    # print ('factura.fecha_factura_compra: %s - factura.plazo_factura_compra: %s') % (factura.fecha_factura_compra, factura.plazo_factura_compra)
+                    calculo = (factura.fecha_factura_compra + datetime.timedelta(days=factura.plazo_factura_compra))
+                    # print 'calculo: %s' % calculo
+                    if calculo < today:
+                        # estado = OrdenCompraEstado.objects.get(estado_orden_compra='PEP')
+                        factura.estado_factura_compra = 'FPP'
+                    else:
+                        factura.estado_factura_compra = 'EPP'
+                    factura.save()
+                elif factura.tipo_factura_compra.tipo_factura_compra == 'CON':
+                    if factura.fecha_factura_compra < today:
+                        factura.estado_factura_compra = 'FPP'
+                    else:
+                        factura.estado_factura_compra = 'EPP'
+                    factura.save()
+            super(OrdenPagoAdmin, self).save_formset(request, form, formset, change)
+
+        # Si se confirma la Orden de Pago se asigna el estado "CON" a la Orden de Pago, el estado "PAG" a las
+        # facturas en el formset y se deben generar registros de pagos en PagoProveedor para las facturas afectadas.
+        # Generar tambien el registro correspondiente en la Linea de Credito.
+        # Solo se debe guardar en el detalle de la Orden de Pago la Factura que fue checkeada en la casilla "Procesar"
+        elif "_save" in request.POST:  # and compra_actual.estado_compra.estado_compra == 'CON':
+            formset.save(commit=False)
+            linea_credito = form.instance.proveedor_orden_pago.lineacreditoproveedor
+            for form in formset:
+                factura = form.instance
+                if factura.procesado is True:
+                    factura.estado_factura_compra = 'PAG'
+                    factura.save()
+                    pago_proveedor = PagoProveedor(factura_proveedor_id=FacturaProveedor.objects.get(compra_id=factura.compra, proveedor_id=factura.proveedor_id, numero_factura_compra=factura.numero_factura_compra).pk,
+                                                   monto_pago_proveedor=factura.total_factura_compra,
+                                                   fecha_pago_proveedor=timezone_today(),
+                                                   numero_comprobante_pago=orden_pago_actual.numero_orden_pago,
+                                                   procesado=True)
+
+                    linea_credito_detalle = LineaCreditoProveedorDetalle(linea_credito_proveedor_id=linea_credito.pk,
+                                                                         monto_movimiento=factura.total_factura_compra,
+                                                                         tipo_movimiento='PAG',
+                                                                         numero_comprobante=orden_pago_actual.numero_orden_pago,
+                                                                         fecha_movimiento=timezone_today())
+                    linea_credito_detalle.save()
+                    pago_proveedor.save()
+                elif factura.procesado is not True:
+                    factura.delete()
+            super(OrdenPagoAdmin, self).save_formset(request, form, formset, change)
+
+    def get_readonly_fields(self, request, obj=None):
+        if obj is not None and obj.estado_orden_pago in 'PEN':
+            return ['numero_orden_pago', 'fecha_hora_orden_pago', 'usuario_registro_orden_pago',
+                    'estado_orden_pago']
+        elif obj is not None and obj.estado_orden_pago in ('CON', 'ANU'):
+            return [i.name for i in self.model._meta.fields] + \
+                   [i.name for i in self.model._meta.many_to_many]
+        elif obj is None:
+            return ['numero_orden_pago', 'fecha_hora_orden_pago', 'usuario_registro_orden_pago',
+                    'estado_orden_pago']
+        else:
+            return super(OrdenPagoAdmin, self).get_readonly_fields(request, obj)
+
+    def changeform_view(self, request, object_id=None, form_url='', extra_context=None):
+        extra_context = extra_context or {}
+
+        extra_context['show_button'] = True
+        if object_id is not None:
+            orden_pago_actual = OrdenPago.objects.get(pk=object_id)
+            if orden_pago_actual.estado_orden_pago == 'ANU':
+                # extra_context['show_button'] = False
+                extra_context['show_save_button'] = False
+                extra_context['show_continue_button'] = False
+                extra_context['show_cancel_button'] = False
+                extra_context['show_imprimir_button'] = True
+            elif orden_pago_actual.estado_orden_pago == 'CON':
+                extra_context['show_save_button'] = False
+                extra_context['show_continue_button'] = False
+                extra_context['show_cancel_button'] = True
+                extra_context['show_imprimir_button'] = True
+            elif orden_pago_actual.estado_orden_pago == 'PEN':
+                extra_context['show_save_button'] = True
+                extra_context['show_continue_button'] = True
+                extra_context['show_cancel_button'] = True
+                extra_context['show_imprimir_button'] = False
+            # extra_context['show_imprimir_button'] = True
+
+        return super(OrdenPagoAdmin, self).changeform_view(request, object_id, form_url, extra_context)
+
+
 # class ProductoProveedorAdmin(admin.ModelAdmin):
 #     raw_id_fields = ['producto']
 #     list_display = ('id', 'proveedor', 'producto')
@@ -521,7 +763,7 @@ class OrdenCompraAdmin(admin.ModelAdmin):
 
     class Media:
         js = [
-            'compras/js/autoNumeric.js', 'compras/js/orden_compra.js'  # 'compras/js/change_form.js',
+            'compras/js/autoNumeric.js', 'compras/js/orden_compra.js', 'compras/js/jquery.mask.js'  # 'compras/js/change_form.js',
         ]
 
     # readonly_fields = ('numero_orden_compra', 'fecha_orden_compra', 'estado_orden_compra')
@@ -691,12 +933,11 @@ class CompraAdmin(admin.ModelAdmin):
 
     class Media:
         js = [
-            'compras/js/compra.js', 'compras/js/jquery.maskedinput.js'
+            'compras/js/compra.js', 'compras/js/jquery.mask.js'
         ]
 
-    readonly_fields = ['numero_compra', 'numero_orden_compra', 'proveedor', 'tipo_factura_compra', 'fecha_compra',
-                       'estado_compra']
-                       # 'disponible_linea_credito_proveedor', 'total_compra']
+    readonly_fields = ['numero_compra', 'proveedor', 'tipo_factura_compra', 'fecha_compra', 'estado_compra']
+                       # 'numero_orden_compra', 'disponible_linea_credito_proveedor', 'total_compra']
 
     # raw_id_fields = ['numero_orden_compra']
 
@@ -777,7 +1018,7 @@ class CompraAdmin(admin.ModelAdmin):
         else:
             obj.numero_orden_compra = nro_orden_compra_form
             obj.proveedor = Proveedor.objects.get(pk=9)
-            obj.numero_factura_compra = 1
+            # obj.numero_factura_compra = 1
             obj.estado_compra = OrdenCompraEstado.objects.get(estado_orden_compra='PEN')
             super(CompraAdmin, self).save_model(request, obj, form, change)
 
@@ -857,6 +1098,7 @@ class CompraAdmin(admin.ModelAdmin):
         # 3) Al confirmar la Compra se debe generar un registro en FacturaProveedor con los datos de la factura a pagar.
             factura_proveedor = FacturaProveedor(compra_id=compra_actual.numero_compra,
                                                  proveedor_id=compra_actual.numero_orden_compra.proveedor_orden_compra_id,
+                                                 # Incluir orden_pago
                                                  numero_factura_compra=compra_actual.numero_factura_compra,
                                                  fecha_factura_compra=compra_actual.fecha_factura_compra,
                                                  tipo_factura_compra_id=compra_actual.tipo_factura_compra_id,
@@ -918,6 +1160,24 @@ class CompraAdmin(admin.ModelAdmin):
 
             super(CompraAdmin, self).save_model(request, obj, form, change)
             orden.save()
+
+            # try:
+            #     factura_proveedor.save()
+            # except IntegrityError as ex:
+            #     message = 'Ya existe una factura con el Numero de Factura y Fecha de Factura indicados.'
+            #     self.message_user(request,message,messages.ERROR)
+            #     xx = ex
+            #     if xx.pgcode == '23505':
+            #         message = 'Ya existe una factura con el Numero de Factura y Fecha de Factura indicados.'
+            #         self.message_user(request,message,messages.ERROR)
+            #         print 'Error'
+            #         raise ValidationError({'numero_factura_compra': _ ()})
+            #     else:
+            #         raise ValidationError('El registro no puede ser guardado en la Base de Datos.')
+            # except:
+            #     raise ValidationError({'numero_factura_compra': _('El registro no puede ser guardado en la Base '
+            #                                                       'de Datos.')})
+
             factura_proveedor.save()
             linea_credito_proveedor_detalle.save()
 
@@ -1025,9 +1285,8 @@ class CompraAdmin(admin.ModelAdmin):
 
     def get_readonly_fields(self, request, obj=None):
         if obj is not None and obj.estado_compra.estado_orden_compra in ('PEN', 'EPP', 'PEP'):
-            return ['numero_compra', 'numero_orden_compra', 'proveedor', 'tipo_factura_compra', 'fecha_compra',
-                    'estado_compra']
-                    # 'total_compra']
+            return ['numero_compra', 'proveedor', 'tipo_factura_compra', 'fecha_compra', 'estado_compra']
+                    # 'numero_orden_compra', 'total_compra']
         elif obj is not None and obj.estado_compra.estado_orden_compra in ('ENT', 'CAN'):
             return [i.name for i in self.model._meta.fields] + \
                    [i.name for i in self.model._meta.many_to_many]
@@ -1043,7 +1302,18 @@ class CompraAdmin(admin.ModelAdmin):
         extra_context['show_button'] = True
         if object_id is not None:
             compra_actual = Compra.objects.get(pk=object_id)
-            extra_context['show_button'] = compra_actual.estado_compra.estado_orden_compra not in ('ENT', 'CAN')
+            # extra_context['show_button'] = compra_actual.estado_compra.estado_orden_compra not in ('ENT', 'CAN')
+
+            if compra_actual.estado_compra.estado_orden_compra in ('EPP', 'PEP', 'PEN'):
+                extra_context['show_save_button'] = True
+                extra_context['show_continue_button'] = True
+                extra_context['show_cancel_button'] = True
+                extra_context['show_imprimir_button'] = False
+            elif compra_actual.estado_compra.estado_orden_compra in ('ENT', 'CAN'):
+                extra_context['show_save_button'] = False
+                extra_context['show_continue_button'] = False
+                extra_context['show_cancel_button'] = False
+                extra_context['show_imprimir_button'] = True
 
         return super(CompraAdmin, self).changeform_view(request, object_id, form_url, extra_context)
 
@@ -1058,6 +1328,44 @@ class CompraAdmin(admin.ModelAdmin):
     #         # kwargs['exclude'] = ['fecha_compra', 'nro_orden_compra']
     #     form = super(CompraAdmin, self).get_form(request, obj, **kwargs)
     #     return form
+
+    def get_new_fieldsets(self):
+        return [
+            ('Compra ID', {'fields': ['numero_compra']}),
+            ('Numero Orden de Compra', {'fields': ['numero_orden_compra', 'proveedor',
+                                                   'disponible_linea_credito_proveedor']}),
+            ('Datos de la Factura', {'fields': ['numero_factura_compra', 'tipo_factura_compra',
+                                                'fecha_factura_compra']}),
+            ('Datos de la Compra', {'fields': ['fecha_compra', 'estado_compra', 'total_compra']}),
+        ]
+
+    def get_fieldsets(self, request, obj=None):
+        if obj is not None:
+            if obj.estado_compra.estado_orden_compra in ['ENT', 'CAN']:
+                return self.get_new_fieldsets()
+        return super(CompraAdmin, self).get_fieldsets(request, obj)
+
+    def get_form(self, request, obj=None, **kwargs):
+        # if obj is not None:
+        #     if '_save' in request.POST:  # or obj.estado_compra.estado_orden_compra in ['ENT', 'CAN']:
+        #         # self.fieldsets = self.get_new_fieldsets()
+        #         return ConfirmarCompraForm
+        # return super(CompraAdmin, self).get_form(request, obj, **kwargs)
+
+        # ModelForm = super(CompraAdmin, self).get_form(request, obj=None, **kwargs)
+        #
+        # def form_wrapper(*args, **kwargs):
+        #     a = ModelForm(*args, **kwargs)
+        #     a.request = request
+        #     return a
+        # return form_wrapper
+
+        # import pdb
+        # pdb.set_trace()
+
+        form = super(CompraAdmin, self).get_form(request, obj=obj, **kwargs)
+        form.request = request
+        return form
 
     # def has_add_permission(self, request):
     #     return False
@@ -1134,6 +1442,7 @@ class CompraAdmin(admin.ModelAdmin):
 admin.site.register(Proveedor, ProveedorAdmin)
 admin.site.register(LineaCreditoProveedor, LineaCreditoProveedorAdmin)
 admin.site.register(FacturaProveedor, FacturaProveedorAdmin)
+admin.site.register(OrdenPago, OrdenPagoAdmin)
 # admin.site.register(ProductoProveedor, ProductoProveedorAdmin)
 admin.site.register(Empresa, EmpresaAdmin)
 admin.site.register(OrdenCompra, OrdenCompraAdmin)

@@ -1,5 +1,5 @@
 /**
- * Created by pmmr on 19/06/2016.
+ * Created by pmmr on 27/08/2016.
  */
 
 django.jQuery(document).ready(function(){
@@ -11,7 +11,7 @@ django.jQuery(document).ready(function(){
     //Limpiar "Codigo de Operadora - Telefono" cuando cambia "Codigo de Pais - Telefono"
     $("select[name$=-codigo_pais_telefono]").change(function(){
         var id = this.id.split('-')[1];
-        $('#id_proveedortelefono_set-'+id+'-codigo_operadora_telefono').val('');
-        $('#select2-id_proveedortelefono_set-'+id+'-codigo_operadora_telefono-container').html('');
+        $('#id_clientetelefono_set-'+id+'-codigo_operadora_telefono').val('');
+        $('#select2-id_clientetelefono_set-'+id+'-codigo_operadora_telefono-container').html('')
     });
 });

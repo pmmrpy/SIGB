@@ -35,8 +35,11 @@ class ClienteAdmin(admin.ModelAdmin):
     class Media:
         js = [
             'clientes/js/rango.js',
-            'clientes/js/change_form.js'
+            'clientes/js/cliente.js'
         ]
+        css = {
+            'all': ('clientes/css/cliente.css',)
+        }
 
     form = ClienteForm
 

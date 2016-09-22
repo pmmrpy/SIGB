@@ -238,9 +238,11 @@ class LineaCreditoProveedorDetalle(models.Model):
     monto_movimiento = models.DecimalField(max_digits=18, decimal_places=0, default=0,
                                            verbose_name='Monto del Movimiento',
                                            help_text='Registra el Monto del Movimiento.')
-    numero_comprobante = models.IntegerField(verbose_name='Numero Comprobante Movimiento',
-                                             help_text='Corresponde al Numero de Factura o Numero de Comprobante '
-                                                       'de Pago del movimiento.')
+    # numero_comprobante = models.IntegerField(verbose_name='Numero Comprobante Movimiento',
+    numero_comprobante = models.CharField(max_length=15,  # blank=True,  # default=1,
+                                          verbose_name='Numero Comprobante Movimiento',
+                                          help_text='Corresponde al Numero de Factura o Numero de Comprobante '
+                                                    'de Pago del movimiento.')
     fecha_movimiento = models.DateField(default=timezone.now, verbose_name='Fecha Registro Movimiento',
                                         help_text='Registra la fecha del movimiento.')
 
@@ -280,16 +282,113 @@ class ProveedorTelefono(models.Model):
                                       self.telefono)
 
 
-class OrdenPagoProveedor(models.Model):
+class OrdenPago(models.Model):
     """
     11/09/2016: Registra los datos de las Ordenes de Pago de facturas de los Proveedores.
     """
-    proveedor = models.ForeignKey('Proveedor')
-
+    ESTADOS_ORDEN_PAGO = (
+        ('PEN', 'Pendiente'),
+        ('CON', 'Confirmada'),
+        ('ANU', 'Anulada'),
+    )
+    numero_orden_pago = models.AutoField(primary_key=True,
+                                         verbose_name='Numero Orden de Pago',
+                                         help_text='Este dato se genera automaticamente cada vez que se va crear '
+                                                   'una Orden de Pago.')
+    proveedor_orden_pago = models.ForeignKey('Proveedor',
+                                             verbose_name='Proveedor',
+                                             help_text='Seleccione el Proveedor para el cual se generara la Orden de '
+                                                       'Pago.')
+    fecha_hora_orden_pago = models.DateTimeField(auto_now_add=True,  # editable=True, auto_now_add=True,
+                                                 verbose_name='Fecha/hora Orden de Pago',
+                                                 help_text='La fecha y hora de la Orden de Pago se asignan al momento '
+                                                           'de guardar los datos del pago. No se requiere el ingreso '
+                                                           'de este dato.')
+    usuario_registro_orden_pago = models.ForeignKey('personal.Empleado',  # default=1,
+                                                    related_name='usuario_registro_orden_pago',
+                                                    # limit_choices_to='',
+                                                    # to_field='usuario',
+                                                    verbose_name='Preparado por?',
+                                                    help_text='Usuario que registro la Orden de Pago.')
+    total_orden_pago = models.DecimalField(max_digits=18, decimal_places=0, default=0,  # blank=True,
+                                           verbose_name='Total Orden de Pago')  # blank=False (Default is False)
+    estado_orden_pago = models.CharField(max_length=3, choices=ESTADOS_ORDEN_PAGO,  # default='PEN',
+                                         blank=True,  # unique=True,
+                                         verbose_name='Estado Orden de Pago',
+                                         help_text='Se asigna automaticamente de acuerdo a la accion que se realice'
+                                                   'con la Orden de Pago.')
 
     class Meta:
         verbose_name = 'Orden de Pago Proveedor'
         verbose_name_plural = 'Proveedores - Ordenes de Pago'
+
+    def clean(self):
+
+        import pdb
+        pdb.set_trace()
+
+        # Valida que el Total de la Orden de Pago no sea 0
+        if self.pk is not None:
+            orden_pago_inicial = OrdenPago.objects.get(pk=self.pk)
+            if self.proveedor_orden_pago == orden_pago_inicial.proveedor_orden_pago:
+                if self.total_orden_pago == 0:
+                    raise ValidationError({'total_orden_pago': _('El Total de la Orden de Pago no puede ser 0.')})
+
+    def __unicode__(self):
+        return "Nro. Orden Pago: %s - Proveedor: %s" % (self.numero_orden_pago, self.proveedor_orden_pago)
+
+
+class OrdenPagoDetalle(models.Model):
+    """
+    18/09/2016: Registra los datos del detalle de las Ordenes de Pago de facturas de los Proveedores.
+    """
+    ESTADOS_FACTURA_COMPRA = (
+        # ('PEN', 'Pendiente'),
+        ('EPP', 'En Plazo de Pago'),
+        ('FPP', 'Fuera del Plazo de Pago'),
+        ('PAG', 'Pagada'),
+        ('CAN', 'Cancelada'),
+    )
+    numero_orden_pago = models.ForeignKey('OrdenPago')
+    compra = models.ForeignKey('Compra', limit_choices_to={'estado_compra__estado_orden_compra': "ENT"},
+                               verbose_name='Compra Asociada',
+                               help_text='Seleccione la Compra cuya Factura sera registrada.')
+    # Verificar que se inserte correctamente el dato del Proveedor en esta tabla.
+    proveedor = models.ForeignKey('Proveedor',  # default=2,
+                                  verbose_name='Proveedor',
+                                  help_text='Seleccione el Proveedor.')
+    numero_factura_compra = models.CharField(max_length=15,  # blank=True,  # default=1,
+                                             # validators=[numero_factura],
+                                             verbose_name='Numero de Factura',
+                                             help_text='Ingrese el Numero de Factura que acompana la Compra.')
+    fecha_factura_compra = models.DateField(default=datetime.date.today,
+                                            verbose_name='Fecha de la Factura',
+                                            help_text='Ingrese la fecha de la Factura.')
+    tipo_factura_compra = models.ForeignKey('bar.TipoFacturaCompra', verbose_name='Tipo de Factura',
+                                            help_text='Seleccione el Tipo de Factura.')
+    forma_pago_compra = models.ForeignKey('bar.FormaPagoCompra', verbose_name='Forma de Pago',
+                                          help_text='Seleccione la Forma de Pago para esta Factura.')
+    plazo_factura_compra = models.PositiveIntegerField(verbose_name='Plazo de Pago',
+                                                       help_text='En caso de Credito establecer el plazo de tiempo en '
+                                                                 'dias para el pago.')
+    total_factura_compra = models.DecimalField(max_digits=18, decimal_places=0, default=0,
+                                               verbose_name='Monto Total de la Factura',
+                                               help_text='Este valor se calcula automaticamente en funcion al detalle '
+                                                         'de la Compra.')
+    estado_factura_compra = models.CharField(max_length=3, choices=ESTADOS_FACTURA_COMPRA,
+                                             blank=True,  # default="EPP",
+                                             verbose_name='Estado de la Factura',
+                                             help_text='Indique el Estado de la Factura de la Compra de acuerdo a los '
+                                                       'pagos aplicados para la misma.')
+    procesado = models.BooleanField(default=False, verbose_name='Procesar?',
+                                    help_text='Marque esta casilla si la factura sera incluida en la Orden de Pago.')
+
+    class Meta:
+        verbose_name = 'Detalle Orden de Pago Proveedor'
+        verbose_name_plural = 'Ordenes de Pago Proveedores - Detalles'
+
+    def __unicode__(self):
+        return "Nro. Orden Pago: %s - ID Detalle: %s" % (self.numero_orden_pago, self.id)
 
 
 class PagoProveedor(models.Model):
@@ -351,8 +450,13 @@ class FacturaProveedor(models.Model):
     proveedor = models.ForeignKey('Proveedor', default=2,
                                   verbose_name='Proveedor',
                                   help_text='Seleccione el Proveedor.')
-    numero_factura_compra = models.IntegerField(verbose_name='Numero de Factura Compra',  # default=1,
-                                                help_text='Ingrese el Numero de Factura que acompana la Compra.')
+
+    # numero_orden_pago = models.OneToOneField('OrdenPago', null=True)
+
+    numero_factura_compra = models.CharField(max_length=15,  # blank=True,  # default=1,
+                                             # validators=[numero_factura],
+                                             verbose_name='Numero de Factura Compra',
+                                             help_text='Ingrese el Numero de Factura que acompana la Compra.')
     fecha_factura_compra = models.DateField(default=datetime.date.today,
                                             verbose_name='Fecha de la Factura Compra',
                                             help_text='Ingrese la fecha de la Factura.')
@@ -379,7 +483,7 @@ class FacturaProveedor(models.Model):
 
     class Meta:
         # No deben existir dos Facturas con el mismo numero para un mismo Proveedor en la tabla.
-        unique_together = ['proveedor', 'numero_factura_compra']
+        unique_together = ['proveedor', 'numero_factura_compra', 'fecha_factura_compra']
         verbose_name = 'Factura/Pago Proveedor'
         verbose_name_plural = 'Proveedores - Facturas/Pagos'
 
@@ -732,8 +836,8 @@ class Compra(models.Model):
                                                'una Compra.')
     # Filtrar las Ordenes de Compras que tienen estado EPP y PEP.
     numero_orden_compra = models.OneToOneField('OrdenCompra', blank=True,
-                                               limit_choices_to=Q(estado_orden_compra__estado_orden_compra="EPP") |
-                                                                Q(estado_orden_compra__estado_orden_compra="PEP"),
+                                               # limit_choices_to=Q(estado_orden_compra__estado_orden_compra="EPP") |
+                                               #                  Q(estado_orden_compra__estado_orden_compra="PEP"),
                                                verbose_name='Numero Orden de Compra',
                                                help_text='Numero Orden de Compra seleccionada.')
     proveedor = models.ForeignKey('Proveedor')  # default=9
@@ -745,10 +849,12 @@ class Compra(models.Model):
                                                                        'Credito y el Monto Utilizado de la Linea de '
                                                                        'Credito.')
 
-    numero_factura_compra = models.DecimalField(max_digits=13, decimal_places=0, blank=True,  # default=1,
-                                                # validators=[numero_factura],
-                                                verbose_name='Numero de Factura Compra',
-                                                help_text='Ingrese el Numero de Factura que acompana la Compra.')
+    # numero_factura_compra = models.DecimalField(max_digits=13, decimal_places=0, blank=True,  # default=1,
+    # codigo_establecimiento = models.CharField(max_length=3, default="001",
+    numero_factura_compra = models.CharField(max_length=15, blank=True,  # default=1,
+                                             # validators=[numero_factura],
+                                             verbose_name='Numero de Factura Compra',
+                                             help_text='Ingrese el Numero de Factura que acompana la Compra.')
     tipo_factura_compra = models.ForeignKey('bar.TipoFacturaCompra', default=1,
                                             verbose_name='Tipo de Factura',
                                             help_text='Seleccione el Tipo de Factura para la Compra.')
@@ -801,12 +907,12 @@ class Compra(models.Model):
     # 3) Al confirmar la Compra se debe generar un registro en FacturaProveedor con los datos de la factura a pagar. OK!
     # 4) fecha_factura_compra no debe ser superior a la fecha actual. OK!
 
-    def get_nro_orden_compra(self, numero_compra):
-        # proveedor = Proveedor.objects.get(id=self.proveedor_orden_compra_id)
-        # # proveedor = Proveedor.objects.get(pk=self.proveedor_orden_compra)
-        # disponible_linea_credito = proveedor.lineacreditoproveedor.disponible_linea_credito_proveedor
-        print '====> numero_compra.numero_orden_compra: ', numero_compra.numero_orden_compra
-        return numero_compra.numero_orden_compra
+    # def get_nro_orden_compra(self, numero_compra):
+    #     # proveedor = Proveedor.objects.get(id=self.proveedor_orden_compra_id)
+    #     # # proveedor = Proveedor.objects.get(pk=self.proveedor_orden_compra)
+    #     # disponible_linea_credito = proveedor.lineacreditoproveedor.disponible_linea_credito_proveedor
+    #     print '====> numero_compra.numero_orden_compra: ', numero_compra.numero_orden_compra
+    #     return numero_compra.numero_orden_compra
 
     def clean(self):
         # Valida que la fecha_factura_compra no sea superior a la fecha actual
@@ -815,17 +921,11 @@ class Compra(models.Model):
             raise ValidationError({'fecha_factura_compra': _('La Fecha de la Factura no puede ser mayor que la '
                                                              'fecha actual.')})
 
-        # import pdb
-        # pdb.set_trace()
-
-        # if self is not None:
-        #     fecha = timezone.localtime(self.numero_orden_compra.fecha_orden_compra).date()
-        #     print 'fecha_factura_compra: %s - numero_orden_compra.fecha_orden_compra: %s' % \
-        #           (self.fecha_factura_compra, fecha)
-        #
-        #     if self.fecha_factura_compra < fecha:
-        #         raise ValidationError({'fecha_factura_compra': _('La Fecha de la Factura no puede ser menor que la '
-        #                                                          'Fecha de la Orden de Compra.')})
+    # def unique_error_message(self, model_class, unique_check):
+    #     if model_class == type(self) and unique_check == ('proveedor', 'numero_factura_compra'):
+    #         return 'Your custom error message.'
+    #     else:
+    #         return super(Compra, self).unique_error_message(model_class, unique_check)
 
     def __unicode__(self):
         return str(self.numero_compra)

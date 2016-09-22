@@ -9,8 +9,9 @@ django.jQuery(document).ready(function(){
     });
 
     //Limpiar "Codigo de Operadora - Telefono" cuando cambia "Codigo de Pais - Telefono"
-    $('#select2-id_empleadotelefono_set-0-codigo_pais_telefono-container').change(function(){
-        $('#id_empleadotelefono_set-0-codigo_operadora_telefono').val('');
-        $('#select2-id_empleadotelefono_set-0-codigo_operadora_telefono-container').html('');
+    $("select[name$=-codigo_pais_telefono]").change(function(){
+        var id = this.id.split('-')[1];
+        $('#id_empleadotelefono_set-'+id+'-codigo_operadora_telefono').val('');
+        $('#select2-id_empleadotelefono_set-'+id+'-codigo_operadora_telefono-container').html('');
     });
 });

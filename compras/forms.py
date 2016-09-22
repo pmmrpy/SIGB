@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+import re
+from django.contrib.admin.widgets import AdminDateWidget
+from suit.widgets import SuitDateWidget
+
 __author__ = 'pmmr'
 # from input_mask.widgets import InputMask
 # from input_mask.contrib.localflavor.us.widgets import USDecimalInput
@@ -6,17 +10,20 @@ import datetime
 from django.utils import timezone
 from decimal import Decimal
 from dal import autocomplete
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, NON_FIELD_ERRORS
 from django.utils.translation import ugettext_lazy as _
 from django.utils.safestring import mark_safe
 from django import forms
 # from django.utils import timezone
-from .models import Proveedor, LineaCreditoProveedor, LineaCreditoProveedorDetalle, PagoProveedor, FacturaProveedor, \
-    Empresa, OrdenCompra, OrdenCompraDetalle, Compra, CompraDetalle, ProveedorTelefono
+from compras.models import Proveedor, LineaCreditoProveedor, LineaCreditoProveedorDetalle, ProveedorTelefono, \
+    OrdenPago, PagoProveedor, FacturaProveedor, Empresa, OrdenCompra, OrdenCompraDetalle, Compra, \
+    CompraDetalle, OrdenPagoDetalle
 from stock.models import Producto
 # from bar.models import OrdenCompraEstado
 from datetimewidget.widgets import DateWidget
+from django.core.validators import RegexValidator
 
+numero_factura = RegexValidator(r'^999-999-9999999$', 'Ingrese el Numero de Factura en el formato "999-999-9999999".')
 ATTR_NUMERICO = {'style': 'text-align:right;', 'class': 'auto', 'data-a-sep': '.', 'data-a-dec': ',',
                  'type': 'number'}
 ATTR_NUMERICO_RO = {'style': 'text-align:right;', 'class': 'auto', 'data-a-sep': '.', 'data-a-dec': ',',
@@ -167,6 +174,11 @@ class FacturaProveedorForm(forms.ModelForm):
     class Meta:
         model = FacturaProveedor
         fields = '__all__'
+        # error_messages = {
+        #     NON_FIELD_ERRORS: {
+        #         'unique_together': "%(model_name)s's %(field_labels)s are not unique.",
+        #     }
+        # }
         # localized_fields = ['total_pago_factura']
         # widgets = {
         #     'total_factura_compra': USDecimalInput,
@@ -220,6 +232,28 @@ class FacturaProveedorForm(forms.ModelForm):
             raise ValidationError('El Monto Total del Pago no debe exceder al Total de la Factura.')
 
 
+class OrdenPagoDetalleForm(forms.ModelForm):
+
+    # procesar = forms.BooleanField(label='Procesar?2',
+    #                               required=False,
+    #                               help_text='Marque esta casilla si la factura sera incluida en la Orden de Pago.2')
+
+    class Meta:
+        model = OrdenPagoDetalle
+        fields = '__all__'
+
+
+class OrdenPagoForm(forms.ModelForm):
+
+    total_orden_pago = forms.CharField(widget=forms.TextInput(attrs=ATTR_NUMERICO_RO_RESALTADO),
+                                       label=mark_safe('<strong style="font-size: 20px;">Total</strong>'),
+                                       required=False, initial=0)
+
+    class Meta:
+        model = OrdenPago
+        fields = '__all__'
+
+
 class EmpresaForm(forms.ModelForm):
     class Meta:
         model = Empresa
@@ -238,7 +272,7 @@ class OrdenCompraForm(forms.ModelForm):
                                     required=False)  # initial=0
     total_orden_compra = forms.CharField(widget=forms.TextInput(attrs=ATTR_NUMERICO_RO_RESALTADO),
                                          label=mark_safe('<strong style="font-size: 20px;">Total</strong>'),
-                                         required=False)
+                                         required=False, initial=0)
 
     class Meta:
         model = OrdenCompra
@@ -302,6 +336,10 @@ class CompraForm(forms.ModelForm):
                                               required=False, initial=0,
                                               help_text='Seleccione el Numero de Orden de Compra para la cual se '
                                                         'confirmara la Compra.')
+    # numero_orden_compra = forms.CharField(widget=forms.TextInput,
+    #                                       label='Numero Orden de Compra2',
+    #                                       required=False, initial=0,
+    #                                       help_text='Numero Orden de Compra seleccionada2.')
     disponible_linea_credito_proveedor = forms.CharField(widget=forms.TextInput(attrs=ATTR_NUMERICO_RO_RESALTADO_2),
                                                          label=mark_safe('<strong style="font-size: 14px;">Disponible Linea de Credito</strong>'),
                                                          required=False, initial=0)
@@ -312,15 +350,19 @@ class CompraForm(forms.ModelForm):
     class Meta:
         model = Compra
         fields = '__all__'
+        # error_messages = {
+        #     NON_FIELD_ERRORS: {
+        #         'unique_together': "%(model_name)s's %(field_labels)s are not unique.",
+        #     }
+        # }
         # localized_fields = ['total_compra']
         # widgets = {
         #     # 'proveedor': autocomplete.ModelSelect2(url='compras:proveedor-orden-compra-autocomplete'),
         #     # 'numero_factura_compra': NumeroFacturaInput,
         #     # 'nro_orden_compra': autocomplete.ModelSelect2(url='compras:ordencompra-compra-autocomplete'),
         # }
+    #
 
-    # def __init__(self, *args, **kwargs):
-    #     super(CompraForm, self).__init__(*args, **kwargs)
     #     # print self.fields['total_orden_compra'].id_for_label,' pobaasdf'
     #
     #     # import pdb
@@ -335,16 +377,188 @@ class CompraForm(forms.ModelForm):
     def clean(self):
         super(CompraForm, self).clean()
 
+        import pdb
+        pdb.set_trace()
+
+        # 1) Valida que nro_ord_compra contenga un valor valido.
+        nro_ord_compra = self.data.get('nro_orden_compra')
+        if nro_ord_compra is None:
+            ord_compra = self.instance.numero_orden_compra
+        else:
+            ord_compra = OrdenCompra.objects.get(pk=nro_ord_compra)
+        # if not nro_ord_compra:
+        #     # pass
+        #     raise ValidationError({'nro_orden_compra': 'Debe seleccionar un Numero de Orden de Compra valido.'})
+
+        # 2) Valida que exista una Linea de Credito para el Proveedor.
         linea_credito = self.data.get('disponible_linea_credito_proveedor', '')
         if not linea_credito:
             raise ValidationError('Debe existir una Linea de Credito para el Proveedor.')
 
+        # 3) Valida que el Total de la Compra no sea 0.
         total_compra = self.data.get('total_compra', '')
         if not total_compra:
             raise ValidationError('El Total de la Compra no puede ser 0.')
-        if Decimal(linea_credito) < Decimal(total_compra):
-            raise ValidationError('El Total de la Compra no debe superar el monto de la Linea de Credito. '
-                                  'Linea de Credito Disponible: %s Gs.' % linea_credito)
+
+        # 4) Valida que la fecha_factura_compra no sea menor que la fecha_orden_compra
+        # if self.pk is not None:
+        #     compra_inicial = Compra.objects.get(pk=self.pk)
+
+        fecha_ord_compra = timezone.localtime(ord_compra.fecha_orden_compra).date()
+        fecha_aux = self.data.get('fecha_factura_compra', '')
+        fecha_fac_compra = datetime.datetime.strptime(fecha_aux, '%d/%m/%Y').date()
+
+        print 'fecha_fac_compra: %s - ord_compra.fecha_orden_compra: %s' % \
+              (fecha_fac_compra, fecha_ord_compra)
+
+        if fecha_fac_compra < fecha_ord_compra:
+            raise ValidationError({'fecha_factura_compra': _('La Fecha de la Factura no puede ser menor que la '
+                                                             'Fecha de la Orden de Compra. Nro. Orden Compra: %s - '
+                                                             'Fecha Orden de Compra: %s' % (ord_compra.pk, datetime.datetime.strftime(fecha_ord_compra, '%d/%m/%Y')))})
+
+        if '_save' in self.request.POST:
+            # 5) ==> Valida el formato del campo "numero_factura_compra".
+            # Mejorar la validacion con RegEx. OK!
+            nro_factura = self.data.get('numero_factura_compra', '')
+            # if not nro_factura or len(nro_factura) != 15 or '-' not in nro_factura or nro_factura[3] != '-' or nro_factura[7] != '-' :
+            if not nro_factura or not re.match(r'^[0-9]{3,}-[0-9]{3,}-[0-9]{7,}$', nro_factura):
+                raise ValidationError({'numero_factura_compra': ('Numero de Factura no valido. Ingrese el Numero de '
+                                                                 'Factura en el formato "999-999-9999999".')})
+
+            # 6) ==> Validar si ya existe ['proveedor', 'numero_factura_compra', 'fecha_factura_compra'] y emitir un mensaje
+            # informando al respecto para evitar un error de integridad al intentar insertar el registro en la DB.
+            # No deben existir dos facturas con el mismo numero para el mismo proveedor en la misma fecha.
+            proveedor = self.instance.proveedor.pk
+            # fecha = self.data.get('fecha_factura_compra', '')
+            # fecha = self.instance.fecha_factura_compra
+            # fecha_factura = timezone.localtime(fecha)
+            # fecha_aux = self.data.get('fecha_factura_compra', '')
+            # fecha_fac_compra = datetime.datetime.strptime(fecha_aux, '%d/%m/%Y').date()
+
+            # Dar el formato correcto a la fecha con alguna funcion que convierta una fecha naive a timezone dependiente.
+            # No fue necesario. Se trajo el valor del campo de la instancia y no del cleaned_data.
+            # if fecha:
+            #     aux = fecha.split('/')
+            #     fecha = '%s-%s-%s' % (aux[2], aux[1], aux[0])
+
+            print 'Proveedor: %s - fecha_factura_compra: %s - nro_factura: %s' % (proveedor, fecha_fac_compra, nro_factura)
+
+            if FacturaProveedor.objects.filter(numero_factura_compra=nro_factura, proveedor_id=proveedor,
+                                               fecha_factura_compra=fecha_fac_compra).exists():
+                                     # fecha_factura_compra=datetime.datetime.strftime(fecha, '%d/%m/%Y')).exists():
+                print 'EXISTE UNA FACTURA'
+                raise ValidationError({'numero_factura_compra': ('Ya existe una factura con el Numero de Factura y Fecha '
+                                                                 'de Factura indicados para el Proveedor al cual se desea'
+                                                                 'confirmar la compra.')})
+
+
+# class ConfirmarCompraForm(forms.ModelForm):
+#
+#     nro_orden_compra = forms.ModelChoiceField(queryset=OrdenCompra.objects.all(),
+#                                               widget=autocomplete.ModelSelect2(url='compras:ordencompra-compra-autocomplete'),
+#                                               # widget=forms.TextInput(attrs=ATTR_NUMERICO),
+#                                               label='Ordenes de Compra disponibles',
+#                                               required=False, initial=0,
+#                                               help_text='Seleccione el Numero de Orden de Compra para la cual se '
+#                                                         'confirmara la Compra.')
+#     # numero_orden_compra = forms.CharField(widget=forms.TextInput,
+#     #                                       label='Numero Orden de Compra2',
+#     #                                       required=False, initial=0,
+#     #                                       help_text='Numero Orden de Compra seleccionada2.')
+#     disponible_linea_credito_proveedor = forms.CharField(widget=forms.TextInput(),  # attrs=ATTR_NUMERICO_RO_RESALTADO_2
+#                                                          label=mark_safe('<strong style="font-size: 14px;">Disponible Linea de Credito</strong>'),
+#                                                          required=False, initial=0)
+#     # fecha_factura_compra = forms.DateField(required=False, input_formats=['%d/%m/%Y'])
+#     total_compra = forms.CharField(widget=forms.TextInput(),  # attrs=ATTR_NUMERICO_RO_RESALTADO
+#                                    label=mark_safe('<strong style="font-size: 20px;">Total</strong>'),
+#                                    required=False, initial=0)
+#
+#     class Meta:
+#         model = Compra
+#         fields = '__all__'
+#         widgets = {
+#             # 'fecha_factura_compra': SuitDateWidget,
+#             'fecha_factura_compra': AdminDateWidget,
+#         }
+#
+#     def clean(self):
+#         super(ConfirmarCompraForm, self).clean()
+#
+#         import pdb
+#         pdb.set_trace()
+#
+#         # # 1) ==> Valida que nro_ord_compra contenga un valor valido.
+#         # nro_ord_compra = self.data.get('nro_orden_compra', '')
+#         # if not nro_ord_compra:
+#         #     # pass
+#         #     raise ValidationError({'nro_orden_compra': 'Debe seleccionar un Numero de Orden de Compra valido.'})
+#
+#         # if not self.numero_orden_compra:
+#         #     self.numero_orden_compra = self.instance.numero_orden_compra
+#
+#         # 2) ==> Valida que exista una Linea de Credito para el Proveedor.
+#         linea_credito = self.data.get('disponible_linea_credito_proveedor', '')
+#         if not linea_credito:
+#             raise ValidationError('Debe existir una Linea de Credito para el Proveedor.')
+#
+#         # 3) ==> Valida que el Total de la Compra no sea 0.
+#         total_compra = self.data.get('total_compra', '')
+#         if not total_compra:
+#             raise ValidationError('El Total de la Compra no puede ser 0.')
+#
+#         # 4) ==> Valida que la fecha_factura_compra no sea menor que la fecha_orden_compra
+#         # if self.pk is not None:
+#         #     compra_inicial = Compra.objects.get(pk=self.pk)
+#
+#         # ord_compra = OrdenCompra.objects.get(pk=nro_ord_compra)
+#         # nro_oc = self.data.get('numero_orden_compra', '')
+#         ord_compra = self.instance.numero_orden_compra
+#         # ord_compra = OrdenCompra.objects.get(pk=nro_oc.pk)
+#         fecha_ord_compra = timezone.localtime(ord_compra.fecha_orden_compra).date()
+#         fecha_aux = self.data.get('fecha_factura_compra', '')
+#         fecha_fac_compra = datetime.datetime.strptime(fecha_aux, '%d/%m/%Y').date()
+#
+#         print 'fecha_fac_compra: %s - ord_compra.fecha_orden_compra: %s' % \
+#               (fecha_fac_compra, fecha_ord_compra)
+#
+#         if fecha_fac_compra < fecha_ord_compra:
+#             raise ValidationError({'fecha_factura_compra': _('La Fecha de la Factura no puede ser menor que la '
+#                                                              'Fecha de la Orden de Compra. Nro. Orden Compra: %s - '
+#                                                              'Fecha Orden de Compra: %s' % (ord_compra.pk, datetime.datetime.strftime(fecha_ord_compra, '%d/%m/%Y')))})
+
+        # # 5) ==> Valida el formato del campo "numero_factura_compra".
+        # # Mejorar la validacion con RegEx. OK!
+        # nro_factura = self.data.get('numero_factura_compra', '')
+        # # if not nro_factura or len(nro_factura) != 15 or '-' not in nro_factura or nro_factura[3] != '-' or nro_factura[7] != '-' :
+        # if not nro_factura or not re.match(r'^[0-9]{3,}-[0-9]{3,}-[0-9]{7,}$', nro_factura):
+        #     raise ValidationError({'numero_factura_compra': ('Numero de Factura no valido. Ingrese el Numero de '
+        #                                                      'Factura en el formato "999-999-9999999".')})
+        #
+        # # 6) ==> Validar si ya existe ['proveedor', 'numero_factura_compra', 'fecha_factura_compra'] y emitir un mensaje
+        # # informando al respecto para evitar un error de integridad al intentar insertar el registro en la DB.
+        # # No deben existir dos facturas con el mismo numero para el mismo proveedor en la misma fecha.
+        # proveedor = self.instance.proveedor.pk
+        # # fecha = self.data.get('fecha_factura_compra', '')
+        # # fecha = self.instance.fecha_factura_compra
+        # # fecha_factura = timezone.localtime(fecha)
+        # # fecha_aux = self.data.get('fecha_factura_compra', '')
+        # # fecha_fac_compra = datetime.datetime.strptime(fecha_aux, '%d/%m/%Y').date()
+        #
+        # # Dar el formato correcto a la fecha con alguna funcion que convierta una fecha naive a timezone dependiente.
+        # # No fue necesario. Se trajo el valor del campo de la instancia y no del cleaned_data.
+        # # if fecha:
+        # #     aux = fecha.split('/')
+        # #     fecha = '%s-%s-%s' % (aux[2], aux[1], aux[0])
+        #
+        # print 'Proveedor: %s - fecha_factura_compra: %s - nro_factura: %s' % (proveedor, fecha_fac_compra, nro_factura)
+        #
+        # if FacturaProveedor.objects.filter(numero_factura_compra=nro_factura, proveedor_id=proveedor,
+        #                                    fecha_factura_compra=fecha_fac_compra).exists():
+        #                          # fecha_factura_compra=datetime.datetime.strftime(fecha, '%d/%m/%Y')).exists():
+        #     print 'EXISTE UNA FACTURA'
+        #     raise ValidationError({'numero_factura_compra': ('Ya existe una factura con el Numero de Factura y Fecha '
+        #                                                      'de Factura indicados para el Proveedor al cual se desea'
+        #                                                      'confirmar la compra.')})
 
 
 class CompraDetalleForm(forms.ModelForm):

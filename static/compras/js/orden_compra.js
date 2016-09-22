@@ -4,6 +4,9 @@
 
 django.jQuery(document).ready(function(){
 
+    //$("#id_linea_credito").mask('#.##0', {reverse: true});
+    //$("#id_total_orden_compra").mask('#.##0');
+
     $('input[name$=-precio_producto_orden_compra]').keyup(function (){
         var indice = this.name.split('-')[1];
         var cantidad = $('#id_ordencompradetalle_set-'+indice+'-cantidad_producto_orden_compra').val();
