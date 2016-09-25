@@ -526,24 +526,56 @@ class StockDetalle(models.Model):
 # ======================================================================================================================
 
 
-class StockProducto(models.Model):
+class StockProducto(Stock):
     """
     Genera una vista con la agrupacion de los movimientos de Stock por Producto calculando el campo "cantidad_existente"
     """
 
     class Meta:
+        # Definir si va ser una tabla proxy o multitable
+        # proxy = True
         verbose_name = 'Inventario por Producto'
         verbose_name_plural = 'Stock - Inventarios por Productos'
 
 
-class StockDeposito(models.Model):
+class StockDeposito(Stock):
     """
     Genera una vista con la agrupacion de los movimientos de Stock por Deposito calculando el campo "cantidad_existente"
     """
 
     class Meta:
+        # Definir si va ser una tabla proxy o multitable
+        # proxy = True
         verbose_name = 'Inventario por Deposito'
         verbose_name_plural = 'Stock - Inventarios por Depositos'
+
+
+class IngresoDeposito(models.Model):
+    """
+    25/09/2016: Cuando una Compra es confirmada debe generar un registro en esta tabla para que el Encargado del
+    Deposito ubique los productos en un lugar preciso dentro del Deposito.
+    """
+    producto = models.ForeignKey('Producto')
+    piso = models.CharField(max_length=100)
+    pasillo = models.CharField(max_length=100)
+    estante = models.CharField(max_length=100)
+    nivel = models.CharField(max_length=100)
+
+    class Meta:
+        verbose_name = 'Ingreso de Producto a Deposito'
+        verbose_name_plural = 'Stock - Ingresos de Productos a Deposito'
+
+
+class StockAjuste(Stock):
+    """
+    25/09/2016: Registrar ajustes de inventario.
+    """
+
+    class Meta:
+        # Definir si va ser una tabla proxy o multitable
+        # proxy = True
+        verbose_name = 'Ajuste de Inventario'
+        verbose_name_plural = 'Stock - Ajustes de Inventario'
 
 
 # ======================================================================================================================
@@ -695,13 +727,16 @@ class ConfirmaTransferenciaStock(TransferenciaStock):
 #     """
 
 
-class Devolucion(models.Model):
-    """
-    Cuando la Compra llega a los estados de CON o CAN ya no puede volver a ser modificada.
-    En el caso de que una Compra confirmada deba ser devuelta se debe registrar el proceso en el modelo de
-    Devoluciones.
-    """
-
-    class Meta:
-        verbose_name = 'Stock - Devolucion'
-        verbose_name_plural = 'Stock - Devoluciones'
+# class Devolucion(models.Model):
+#     """
+#     Cuando la Compra llega a los estados de CON o CAN ya no puede volver a ser modificada.
+#     En el caso de que una Compra confirmada deba ser devuelta se debe registrar el proceso en el modelo de
+#     Devoluciones.
+#
+#     En la revision del 07/09/2016 con el Prof. Diego Ruiz Diaz Gamarra me indico que podiamos descartar programar
+#     la pantalla de Devoluciones en el modulo de Stock.
+#     """
+#
+#     class Meta:
+#         verbose_name = 'Stock - Devolucion'
+#         verbose_name_plural = 'Stock - Devoluciones'

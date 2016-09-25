@@ -4,7 +4,7 @@ from django.contrib import admin
 from stock.forms import ProductoForm, ProductoCompuestoForm  # PrecioVentaProductoForm
 
 from .models import Producto, ProductoCompuesto, ProductoCompuestoDetalle, Stock, StockDetalle, StockProducto, \
-    StockDeposito, Devolucion, SolicitaTransferenciaStock, ConfirmaTransferenciaStock  # PrecioVentaProducto
+    StockDeposito, SolicitaTransferenciaStock, ConfirmaTransferenciaStock  # PrecioVentaProducto, Devolucion,
 from personal.models import Empleado
 
 
@@ -258,4 +258,4 @@ admin.site.register(StockProducto)
 admin.site.register(StockDeposito)
 admin.site.register(SolicitaTransferenciaStock, SolicitaTransferenciaStockAdmin)
 admin.site.register(ConfirmaTransferenciaStock, ConfirmaTransferenciaStockAdmin)
-admin.site.register(Devolucion)
+# admin.site.register(Devolucion)

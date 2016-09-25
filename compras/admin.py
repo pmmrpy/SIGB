@@ -18,7 +18,8 @@ from django.views.generic.dates import timezone_today
 from psycopg2._psycopg import IntegrityError
 from compras.forms import ProveedorForm, LineaCreditoProveedorForm, LineaCreditoProveedorDetalleForm, PagoProveedorForm, \
     FacturaProveedorForm, EmpresaForm, OrdenCompraForm, OrdenCompraDetalleForm, CompraForm, CompraDetalleForm, \
-    ProveedorTelefonoForm, LineaCreditoProveedorInlineForm, OrdenPagoDetalleForm, OrdenPagoForm
+    ProveedorTelefonoForm, LineaCreditoProveedorInlineForm, OrdenPagoDetalleForm, OrdenPagoForm, CancelarOrdenCompraForm, \
+    CancelarCompraForm, AnularOrdenPagoForm
 from compras.models import ProveedorTelefono, LineaCreditoProveedor, LineaCreditoProveedorDetalle, Proveedor, PagoProveedor, \
     FacturaProveedor, ProductoProveedor, Empresa, OrdenCompra, OrdenCompraDetalle, Compra, CompraDetalle, \
     OrdenPago, OrdenPagoDetalle  # , ModelA, ModelB, ModelC
@@ -168,8 +169,8 @@ class LineaCreditoProveedorDetalleInline(admin.TabularInline):
     model = LineaCreditoProveedorDetalle
     extra = 0
     can_delete = False
-    readonly_fields = ['monto_movimiento', 'tipo_movimiento', 'numero_comprobante', 'fecha_movimiento']
-    fields = ['tipo_movimiento', 'monto_movimiento', 'numero_comprobante', 'fecha_movimiento']
+    readonly_fields = ['tipo_movimiento', 'monto_movimiento', 'numero_comprobante', 'fecha_movimiento', 'anulado', 'fecha_hora_anulacion']
+    # fields = ['tipo_movimiento', 'monto_movimiento', 'numero_comprobante', 'fecha_movimiento']
     form = LineaCreditoProveedorDetalleForm
     # verbose_name = 'Linea de Credito del Proveedor'
     # verbose_name_plural = 'Lineas de Credito del Proveedor'
@@ -245,7 +246,7 @@ class PagoProveedorInline(admin.TabularInline):
     model = PagoProveedor
     extra = 0
     can_delete = False
-    readonly_fields = ['procesado']
+    # readonly_fields = ['procesado']
     form = PagoProveedorForm
     # verbose_name = 'Pago a Proveedores'
     # verbose_name_plural = 'Pagos a Proveedores'
@@ -266,23 +267,29 @@ class PagoProveedorInline(admin.TabularInline):
         #     else:
         #         return None
         #         # return super(PagoProveedorInline, self).get_readonly_fields(request, obj)
-        if obj is not None and obj.estado_factura_compra in ('PAG', 'CAN'):
+        if obj is not None:  # and obj.estado_factura_compra in ('PAG', 'CAN'):
             return [i.name for i in self.model._meta.fields]
         else:
             return super(PagoProveedorInline, self).get_readonly_fields(request, obj)
 
+    # def has_add_permission(self, request):
+    #     object_id = request.path.split("/")[-2]
+    #     if object_id != "add":
+    #         factura_actual = FacturaProveedor.objects.get(pk=object_id)
+    #         return factura_actual.estado_factura_compra not in ('PAG', 'CAN')
+    #     else:
+    #         return super(PagoProveedorInline, self).has_add_permission(request)
+    #
+    # def has_delete_permission(self, request, obj=None):
+    #     if obj is not None and obj.estado_factura_compra in ('PAG', 'CAN'):
+    #         return False
+    #     return super(PagoProveedorInline, self).has_delete_permission(request, obj)
+
     def has_add_permission(self, request):
-        object_id = request.path.split("/")[-2]
-        if object_id != "add":
-            factura_actual = FacturaProveedor.objects.get(pk=object_id)
-            return factura_actual.estado_factura_compra not in ('PAG', 'CAN')
-        else:
-            return super(PagoProveedorInline, self).has_add_permission(request)
+        return False
 
     def has_delete_permission(self, request, obj=None):
-        if obj is not None and obj.estado_factura_compra in ('PAG', 'CAN'):
-            return False
-        return super(PagoProveedorInline, self).has_delete_permission(request, obj)
+        return False
 
 
 class FacturaProveedorAdmin(admin.ModelAdmin):
@@ -310,20 +317,15 @@ class FacturaProveedorAdmin(admin.ModelAdmin):
 
     inlines = [PagoProveedorInline]
 
-    list_display = ['id', 'proveedor', 'compra', 'numero_factura_compra', 'fecha_factura_compra', 'tipo_factura_compra',
+    list_display = ['id', 'numero_factura_compra', 'proveedor', 'compra', 'fecha_factura_compra', 'tipo_factura_compra',
                     'forma_pago_compra', 'plazo_factura_compra', 'total_factura_compra', 'total_pago_factura',
                     'colorea_estado_factura_compra']
-    list_display_links = ['proveedor']
+    list_display_links = ['numero_factura_compra']
     list_filter = ['id', 'proveedor', 'compra', 'numero_factura_compra', 'fecha_factura_compra', 'tipo_factura_compra',
                    'forma_pago_compra', 'plazo_factura_compra', 'estado_factura_compra']
-    search_fields = ['id', 'proveedor', 'compra', 'numero_factura_compra', 'fecha_factura_compra',
-                     'tipo_factura_compra', 'forma_pago_compra', 'plazo_factura_compra', 'estado_factura_compra']
-
-    def has_add_permission(self, request):
-        return False
-
-    def has_delete_permission(self, request, obj=None):
-        return False
+    search_fields = ['id', 'proveedor__proveedor', 'compra__numero_compra', 'numero_factura_compra',
+                     'fecha_factura_compra', 'tipo_factura_compra__tipo_factura_compra',
+                     'forma_pago_compra__forma_pago_compra', 'plazo_factura_compra', 'estado_factura_compra']
 
     def colorea_estado_factura_compra(self, obj):
         # color = 'black'
@@ -345,6 +347,34 @@ class FacturaProveedorAdmin(admin.ModelAdmin):
                                (color, obj.get_estado_factura_compra_display()))
         return obj.estado_factura_compra
     colorea_estado_factura_compra.short_description = 'Estado de la Factura Compra'
+
+    def save_formset(self, request, form, formset, change):
+        obj = form.instance
+        obj.save()
+        formset.save(commit=True)
+        linea_credito = obj.proveedor.lineacreditoproveedor
+        total = 0
+        for f in formset:
+            pago = f.instance
+            total += pago.monto_pago_proveedor
+            if not pago.procesado:
+                linea_credito_detalle = LineaCreditoProveedorDetalle(linea_credito_proveedor_id=linea_credito.pk,
+                                                                     monto_movimiento=pago.monto_pago_proveedor,
+                                                                     tipo_movimiento='PAG',
+                                                                     numero_comprobante=pago.numero_comprobante_pago,
+                                                                     fecha_movimiento=timezone_today())
+                linea_credito_detalle.save()
+                pago.procesado = True
+                pago.save()
+        # pdb.set_trace()
+        if Decimal(total) == Decimal(obj.total_factura_compra):
+            obj.estado_factura_compra = 'PAG'
+            obj.save()
+        elif Decimal(total) > Decimal(obj.total_factura_compra):
+            raise ValidationError({'total_pago_factura': _('El Monto Total de los Pagos no puede exceder al Total '
+                                                           'de la Factura.')})
+            # raise ValidationError({'total_pago_factura': _('La suma de los pagos no debe superar el monto de la '
+            #                                                'factura.')})
 
     def changelist_view(self, request, extra_context=None):
         queryset = self.get_queryset(request).filter(estado_factura_compra='EPP')
@@ -378,33 +408,11 @@ class FacturaProveedorAdmin(admin.ModelAdmin):
 
         return super(FacturaProveedorAdmin, self).changeform_view(request, object_id, form_url, extra_context)
 
-    def save_formset(self, request, form, formset, change):
-        obj = form.instance
-        obj.save()
-        formset.save(commit=True)
-        linea_credito = obj.proveedor.lineacreditoproveedor
-        total = 0
-        for f in formset:
-            pago = f.instance
-            total += pago.monto_pago_proveedor
-            if not pago.procesado:
-                linea_credito_detalle = LineaCreditoProveedorDetalle(linea_credito_proveedor_id=linea_credito.pk,
-                                                                     monto_movimiento=pago.monto_pago_proveedor,
-                                                                     tipo_movimiento='PAG',
-                                                                     numero_comprobante=pago.numero_comprobante_pago,
-                                                                     fecha_movimiento=timezone_today())
-                linea_credito_detalle.save()
-                pago.procesado = True
-                pago.save()
-        # pdb.set_trace()
-        if Decimal(total) == Decimal(obj.total_factura_compra):
-            obj.estado_factura_compra = 'PAG'
-            obj.save()
-        elif Decimal(total) > Decimal(obj.total_factura_compra):
-            raise ValidationError({'total_pago_factura': _('El Monto Total de los Pagos no puede exceder al Total '
-                                                           'de la Factura.')})
-            # raise ValidationError({'total_pago_factura': _('La suma de los pagos no debe superar el monto de la '
-            #                                                'factura.')})
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 class OrdenPagoDetalleInline(admin.TabularInline):
@@ -423,7 +431,7 @@ class OrdenPagoDetalleInline(admin.TabularInline):
         if obj is not None and obj.estado_orden_pago == 'PEN':
             return ['compra', 'proveedor', 'numero_factura_compra', 'fecha_factura_compra', 'tipo_factura_compra',
                     'forma_pago_compra', 'plazo_factura_compra', 'estado_factura_compra']  # 'total_factura_compra',
-        elif obj is not None and obj.estado_orden_pago in ('CON', 'ANU'):
+        elif obj is not None and obj.estado_orden_pago in ('CON', 'ANU', 'CAN'):
             return [i.name for i in self.model._meta.fields]
         else:
             return super(OrdenPagoDetalleInline, self).get_readonly_fields(request, obj)
@@ -464,7 +472,7 @@ class OrdenPagoAdmin(admin.ModelAdmin):
     inlines = [OrdenPagoDetalleInline]
 
     list_display = ['numero_orden_pago', 'proveedor_orden_pago', 'fecha_hora_orden_pago',
-                    'usuario_registro_orden_pago', 'estado_orden_pago', 'total_orden_pago']
+                    'usuario_registro_orden_pago', 'total_orden_pago', 'colorea_estado_orden_pago']
     # list_display_links = []
     list_filter = ['numero_orden_pago', 'proveedor_orden_pago', 'fecha_hora_orden_pago',
                     'usuario_registro_orden_pago', 'estado_orden_pago', 'total_orden_pago']
@@ -476,10 +484,31 @@ class OrdenPagoAdmin(admin.ModelAdmin):
     #     print queryset
     #     return queryset
 
+    def colorea_estado_orden_pago(self, obj):
+        # color = 'black'
+        if obj.estado_orden_pago == 'CON':
+            color = 'green'
+            return format_html('<span style="color: %s"><b> %s </b></span>' %
+                               (color, obj.get_estado_orden_pago_display()))
+        elif obj.estado_orden_pago == 'ANU':
+            color = 'red'
+            return format_html('<span style="color: %s"><b> %s </b></span>' %
+                               (color, obj.get_estado_orden_pago_display()))
+        elif obj.estado_orden_pago == 'CAN':
+            color = 'orange'
+            return format_html('<span style="color: %s"><b> %s </b></span>' %
+                               (color, obj.get_estado_orden_pago_display()))
+        elif obj.estado_orden_pago == 'PEN':
+            color = 'yellowgreen'
+            return format_html('<span style="color: %s"><b> %s </b></span>' %
+                               (color, obj.get_estado_orden_pago_display()))
+        return obj.estado_orden_pago
+    colorea_estado_orden_pago.short_description = 'Estado de la Factura Compra'
+
     def save_model(self, request, obj, form, change):
 
-        import pdb
-        pdb.set_trace()
+        # import pdb
+        # pdb.set_trace()
 
         orden_pago_actual = obj
 
@@ -495,10 +524,23 @@ class OrdenPagoAdmin(admin.ModelAdmin):
             orden_pago_actual.total_orden_pago = 0
             super(OrdenPagoAdmin, self).save_model(request, obj, form, change)
 
-        # Si se ANULA la Orden de Pago se asigna el estado "ANU" a la Orden de Pago y se debe asignar el estado "EPP"
-        # o "FPP" a las facturas en el formset
+        # Si se CANCELA la Orden de Pago se asigna el estado "CAN" a la Orden de Pago y se marcan como
+        # "procesado = False" a los registros del formset
         elif "_cancel" in request.POST:
+            orden_pago_actual.estado_orden_pago = 'CAN'
+            super(OrdenPagoAdmin, self).save_model(request, obj, form, change)
+
+        # Si se ANULA la Orden de Pago se asigna el estado "ANU" a la Orden de Pago, se debe asignar el estado "EPP"
+        # o "FPP" a las facturas en el formset y se deben MARCAR como anulados los registros de pagos en PagoProveedor
+        # para las facturas afectadas.
+        # Se deben MARCAR tambien como anulado el registro correspondiente en la Linea de Credito.
+        elif "_anular" in request.POST:
             orden_pago_actual.estado_orden_pago = 'ANU'
+            orden_pago_actual.motivo_anulacion = request.POST.get('motivo', '')
+            orden_pago_actual.observaciones_anulacion = request.POST.get('observaciones', '')
+            orden_pago_actual.usuario_anulacion = Empleado.objects.get(usuario_id=request.user)
+            orden_pago_actual.fecha_hora_anulacion = timezone.now()
+            # return
             super(OrdenPagoAdmin, self).save_model(request, obj, form, change)
 
         # Si se confirma la Orden de Pago se asigna el estado "CON" a la Orden de Pago, el estado "PAG" a las
@@ -515,8 +557,8 @@ class OrdenPagoAdmin(admin.ModelAdmin):
 
     def save_formset(self, request, form, formset, change):
 
-        import pdb
-        pdb.set_trace()
+        # import pdb
+        # pdb.set_trace()
 
         orden_pago_actual = form.instance
         super(OrdenPagoAdmin, self).save_formset(request, form, formset, change)
@@ -553,11 +595,34 @@ class OrdenPagoAdmin(admin.ModelAdmin):
                 # suma_facturas = suma_facturas + detalle.total_factura_compra
                 orden_pago_detalle.save()
 
-        # Si se ANULA la Orden de Pago se asigna el estado "ANU" a la Orden de Pago y se debe asignar el estado "EPP"
-        # o "FPP" a las facturas en el formset
+        # Si se CANCELA la Orden de Pago se asigna el estado "CAN" a la Orden de Pago y se marcan como
+        # "procesado = False" a los registros del formset
         elif "_cancel" in request.POST:
+            formset.save(commit=False)
             for form in formset:
-                factura = form.instance
+                factura_orden_pago_detalle = form.instance
+                if factura_orden_pago_detalle.procesado is not True:
+                    factura_orden_pago_detalle.delete()
+                elif factura_orden_pago_detalle.procesado is True:
+                    factura_orden_pago_detalle.procesado = False
+            super(OrdenPagoAdmin, self).save_formset(request, form, formset, change)
+
+        # Si se ANULA la Orden de Pago se asigna el estado "ANU" a la Orden de Pago, se debe asignar el estado "EPP"
+        # o "FPP" a las facturas en el formset y se deben MARCAR como anulados los registros de pagos en PagoProveedor
+        # para las facturas afectadas.
+        # Se deben MARCAR tambien como anulado el registro correspondiente en la Linea de Credito.
+        elif "_anular" in request.POST:
+            linea_credito = form.instance.proveedor_orden_pago.lineacreditoproveedor
+            for form in formset:
+                factura_orden_pago_detalle = form.instance
+                factura = FacturaProveedor.objects.get(compra_id=factura_orden_pago_detalle.compra,
+                                                       proveedor_id=factura_orden_pago_detalle.proveedor,
+                                                       numero_factura_compra=factura_orden_pago_detalle.numero_factura_compra,
+                                                       fecha_factura_compra=factura_orden_pago_detalle.fecha_factura_compra,
+                                                       tipo_factura_compra=factura_orden_pago_detalle.tipo_factura_compra,
+                                                       forma_pago_compra=factura_orden_pago_detalle.forma_pago_compra,
+                                                       plazo_factura_compra=factura_orden_pago_detalle.plazo_factura_compra,
+                                                       total_factura_compra=factura_orden_pago_detalle.total_factura_compra)
                 today = datetime.date.today()
                 # print factura.estado_factura_compra, today
 
@@ -570,13 +635,37 @@ class OrdenPagoAdmin(admin.ModelAdmin):
                         factura.estado_factura_compra = 'FPP'
                     else:
                         factura.estado_factura_compra = 'EPP'
-                    factura.save()
+                    # factura.save()
                 elif factura.tipo_factura_compra.tipo_factura_compra == 'CON':
                     if factura.fecha_factura_compra < today:
                         factura.estado_factura_compra = 'FPP'
                     else:
                         factura.estado_factura_compra = 'EPP'
-                    factura.save()
+
+                factura.total_pago_factura = factura.total_pago_factura - factura_orden_pago_detalle.total_factura_compra
+                factura.save()
+
+                pago_proveedor = PagoProveedor.objects.get(factura_proveedor_id=factura.id,
+                                                           # factura_proveedor_id=FacturaProveedor.objects.get(compra_id=factura.compra, proveedor_id=factura.proveedor_id, numero_factura_compra=factura.numero_factura_compra).pk,
+                                                           monto_pago_proveedor=factura.total_factura_compra,
+                                                           fecha_pago_proveedor=timezone.localtime(orden_pago_actual.fecha_hora_orden_pago).date(),
+                                                           numero_comprobante_pago=orden_pago_actual.numero_orden_pago,
+                                                           procesado=True)
+                print 'pago_proveedor: %s' % pago_proveedor
+                pago_proveedor.anulado = True
+                pago_proveedor.fecha_hora_anulacion = timezone.now()
+                pago_proveedor.save()
+
+                linea_credito_detalle = LineaCreditoProveedorDetalle.objects.get(linea_credito_proveedor_id=linea_credito.pk,
+                                                                                 monto_movimiento=factura.total_factura_compra,
+                                                                                 tipo_movimiento='PAG',
+                                                                                 numero_comprobante=orden_pago_actual.numero_orden_pago,
+                                                                                 fecha_movimiento=timezone.localtime(orden_pago_actual.fecha_hora_orden_pago).date())
+                print 'linea_credito_detalle: %s' % linea_credito_detalle
+                linea_credito_detalle.anulado = True
+                linea_credito_detalle.fecha_hora_anulacion = timezone.now()
+                linea_credito_detalle.save()
+
             super(OrdenPagoAdmin, self).save_formset(request, form, formset, change)
 
         # Si se confirma la Orden de Pago se asigna el estado "CON" a la Orden de Pago, el estado "PAG" a las
@@ -587,32 +676,45 @@ class OrdenPagoAdmin(admin.ModelAdmin):
             formset.save(commit=False)
             linea_credito = form.instance.proveedor_orden_pago.lineacreditoproveedor
             for form in formset:
-                factura = form.instance
-                if factura.procesado is True:
+                factura_orden_pago_detalle = form.instance
+                if factura_orden_pago_detalle.procesado is True:
+                    factura = FacturaProveedor.objects.get(compra_id=factura_orden_pago_detalle.compra,
+                                                           proveedor_id=factura_orden_pago_detalle.proveedor,
+                                                           numero_factura_compra=factura_orden_pago_detalle.numero_factura_compra,
+                                                           fecha_factura_compra=factura_orden_pago_detalle.fecha_factura_compra,
+                                                           tipo_factura_compra=factura_orden_pago_detalle.tipo_factura_compra,
+                                                           forma_pago_compra=factura_orden_pago_detalle.forma_pago_compra,
+                                                           plazo_factura_compra=factura_orden_pago_detalle.plazo_factura_compra,
+                                                           total_factura_compra=factura_orden_pago_detalle.total_factura_compra)
                     factura.estado_factura_compra = 'PAG'
                     factura.save()
-                    pago_proveedor = PagoProveedor(factura_proveedor_id=FacturaProveedor.objects.get(compra_id=factura.compra, proveedor_id=factura.proveedor_id, numero_factura_compra=factura.numero_factura_compra).pk,
+
+                    pago_proveedor = PagoProveedor(factura_proveedor_id=factura.id,
+                                                   # factura_proveedor_id=FacturaProveedor.objects.get(compra_id=factura.compra, proveedor_id=factura.proveedor_id, numero_factura_compra=factura.numero_factura_compra).pk,
                                                    monto_pago_proveedor=factura.total_factura_compra,
                                                    fecha_pago_proveedor=timezone_today(),
                                                    numero_comprobante_pago=orden_pago_actual.numero_orden_pago,
-                                                   procesado=True)
+                                                   procesado=True,
+                                                   anulado=False)
+                    pago_proveedor.save()
 
                     linea_credito_detalle = LineaCreditoProveedorDetalle(linea_credito_proveedor_id=linea_credito.pk,
                                                                          monto_movimiento=factura.total_factura_compra,
                                                                          tipo_movimiento='PAG',
                                                                          numero_comprobante=orden_pago_actual.numero_orden_pago,
-                                                                         fecha_movimiento=timezone_today())
+                                                                         fecha_movimiento=timezone_today(),
+                                                                         anulado=False)
                     linea_credito_detalle.save()
-                    pago_proveedor.save()
-                elif factura.procesado is not True:
-                    factura.delete()
+
+                elif factura_orden_pago_detalle.procesado is not True:
+                    factura_orden_pago_detalle.delete()
             super(OrdenPagoAdmin, self).save_formset(request, form, formset, change)
 
     def get_readonly_fields(self, request, obj=None):
         if obj is not None and obj.estado_orden_pago in 'PEN':
             return ['numero_orden_pago', 'fecha_hora_orden_pago', 'usuario_registro_orden_pago',
                     'estado_orden_pago']
-        elif obj is not None and obj.estado_orden_pago in ('CON', 'ANU'):
+        elif obj is not None and obj.estado_orden_pago in ('CON', 'ANU', 'CAN'):
             return [i.name for i in self.model._meta.fields] + \
                    [i.name for i in self.model._meta.many_to_many]
         elif obj is None:
@@ -624,7 +726,11 @@ class OrdenPagoAdmin(admin.ModelAdmin):
     def changeform_view(self, request, object_id=None, form_url='', extra_context=None):
         extra_context = extra_context or {}
 
+        # import pdb
+        # pdb.set_trace()
+
         extra_context['show_button'] = True
+
         if object_id is not None:
             orden_pago_actual = OrdenPago.objects.get(pk=object_id)
             if orden_pago_actual.estado_orden_pago == 'ANU':
@@ -632,20 +738,44 @@ class OrdenPagoAdmin(admin.ModelAdmin):
                 extra_context['show_save_button'] = False
                 extra_context['show_continue_button'] = False
                 extra_context['show_cancel_button'] = False
+                extra_context['show_anular_button'] = False
                 extra_context['show_imprimir_button'] = True
+            elif orden_pago_actual.estado_orden_pago == 'CAN':
+                extra_context['show_save_button'] = False
+                extra_context['show_continue_button'] = False
+                extra_context['show_cancel_button'] = False
+                extra_context['show_anular_button'] = False
+                extra_context['show_imprimir_button'] = False
             elif orden_pago_actual.estado_orden_pago == 'CON':
                 extra_context['show_save_button'] = False
                 extra_context['show_continue_button'] = False
-                extra_context['show_cancel_button'] = True
+                extra_context['show_cancel_button'] = False
+                extra_context['show_anular_button'] = True
                 extra_context['show_imprimir_button'] = True
             elif orden_pago_actual.estado_orden_pago == 'PEN':
                 extra_context['show_save_button'] = True
                 extra_context['show_continue_button'] = True
                 extra_context['show_cancel_button'] = True
+                extra_context['show_anular_button'] = False
                 extra_context['show_imprimir_button'] = False
-            # extra_context['show_imprimir_button'] = True
+
+        elif object_id is None:
+            extra_context['show_save_button'] = True
+            extra_context['show_continue_button'] = True
+            extra_context['show_cancel_button'] = False
+            extra_context['show_anular_button'] = False
+            extra_context['show_imprimir_button'] = False
 
         return super(OrdenPagoAdmin, self).changeform_view(request, object_id, form_url, extra_context)
+
+    def get_form(self, request, obj=None, **kwargs):
+        for a in request.POST: print a
+        if '_anular' in request.POST:
+            form = AnularOrdenPagoForm
+        else:
+            form = super(OrdenPagoAdmin, self).get_form(request, obj=obj, **kwargs)
+            form.request = request
+        return form
 
 
 # class ProductoProveedorAdmin(admin.ModelAdmin):
@@ -837,12 +967,33 @@ class OrdenCompraAdmin(admin.ModelAdmin):
 
         # http://localhost:8001/compras/orden-compra-report/
 
+        import pdb
+        pdb.set_trace()
+
+        if '_cancel' in request.POST:
+            obj.estado_orden_compra = OrdenCompraEstado.objects.get(estado_orden_compra='CAN')
+            obj.motivo_cancelacion = request.POST.get('motivo', '')
+            obj.observaciones_cancelacion = request.POST.get('observaciones', '')
+            obj.usuario_cancelacion = Empleado.objects.get(usuario_id=request.user)
+            obj.fecha_hora_cancelacion = timezone.now()
+
+            compras_afectadas = Compra.objects.filter(numero_orden_compra=obj.numero_orden_compra)
+            if compras_afectadas.exists():
+                for compra in compras_afectadas:
+                    if compra.estado_compra.estado_orden_compra in ('EPP', 'PEP', 'PEN'):
+                        compra.estado_compra = OrdenCompraEstado.objects.get(estado_orden_compra='CAN')
+                        compra.motivo_cancelacion = request.POST.get('motivo', '')
+                        compra.observaciones_cancelacion = request.POST.get('observaciones', '')
+                        compra.usuario_cancelacion = Empleado.objects.get(usuario_id=request.user)
+                        compra.fecha_hora_cancelacion = timezone.now()
+                    compra.save()
+            super(OrdenCompraAdmin, self).save_model(request, obj, form, change)
+
         if getattr(obj, 'usuario_registro_orden_compra', None) is None:
             # empleado = Empleado.objects.filter(usuario=request.user)
             obj.usuario_registro_orden_compra = Empleado.objects.get(usuario_id=request.user)
             print 'obj.usuario_registro_orden_compra: ', obj.usuario_registro_orden_compra
-
-        super(OrdenCompraAdmin, self).save_model(request, obj, form, change)
+            super(OrdenCompraAdmin, self).save_model(request, obj, form, change)
 
     def get_readonly_fields(self, request, obj=None):
         if obj is not None and obj.estado_orden_compra.estado_orden_compra in ('EPP', 'PEP', 'PEN'):
@@ -863,8 +1014,34 @@ class OrdenCompraAdmin(admin.ModelAdmin):
         extra_context['show_button'] = True
         if object_id is not None:
             orden_compra_actual = OrdenCompra.objects.get(pk=object_id)
-            extra_context['show_button'] = orden_compra_actual.estado_orden_compra.estado_orden_compra \
-                                           not in ('ENT', 'CAN')
+            # extra_context['show_button'] = orden_compra_actual.estado_orden_compra.estado_orden_compra \
+            #                                not in ('ENT', 'CAN')
+
+            # if orden_compra_actual.estado_orden_compra.estado_orden_compra == 'PEN':
+            #     extra_context['show_save_button'] = True
+            #     extra_context['show_continue_button'] = True
+            #     extra_context['show_addanother_button'] = True
+            #     extra_context['show_cancel_button'] = False
+            #     extra_context['show_imprimir_button'] = False
+            if orden_compra_actual.estado_orden_compra.estado_orden_compra in ('ENT', 'CAN'):
+                extra_context['show_save_button'] = False
+                extra_context['show_continue_button'] = False
+                extra_context['show_addanother_button'] = False
+                extra_context['show_cancel_button'] = False
+                extra_context['show_imprimir_button'] = True
+            elif orden_compra_actual.estado_orden_compra.estado_orden_compra in ('EPP', 'PEP', 'PEN'):
+                extra_context['show_save_button'] = True
+                extra_context['show_continue_button'] = True
+                extra_context['show_addanother_button'] = True
+                extra_context['show_cancel_button'] = True
+                extra_context['show_imprimir_button'] = True
+
+        elif object_id is None:
+            extra_context['show_save_button'] = True
+            extra_context['show_continue_button'] = True
+            extra_context['show_addanother_button'] = True
+            extra_context['show_cancel_button'] = False
+            extra_context['show_imprimir_button'] = False
 
         return super(OrdenCompraAdmin, self).changeform_view(request, object_id, form_url, extra_context)
 
@@ -882,6 +1059,15 @@ class OrdenCompraAdmin(admin.ModelAdmin):
                 orden_compra.save()
 
         return super(OrdenCompraAdmin, self). changelist_view(request, extra_context=extra_context)
+
+    def get_form(self, request, obj=None, **kwargs):
+        for a in request.POST: print a
+        if '_cancel' in request.POST:
+            form = CancelarOrdenCompraForm
+        else:
+            form = super(OrdenCompraAdmin, self).get_form(request, obj=obj, **kwargs)
+            form.request = request
+        return form
 
 
 # ======================================================================================================================
@@ -999,9 +1185,6 @@ class CompraAdmin(admin.ModelAdmin):
 
     def save_model(self, request, obj, form, change):
 
-        import pdb
-        pdb.set_trace()
-
         compra_actual = obj
         compra_anterior = None
         nro_orden_compra_form = form.cleaned_data['nro_orden_compra']
@@ -1082,10 +1265,21 @@ class CompraAdmin(admin.ModelAdmin):
 
         # Si se cancela la Compra se asigna el estado "CAN" a la Compra
         elif "_cancel" in request.POST:
-            compra_actual.estado_compra = OrdenCompraEstado.objects.get(estado_orden_compra='CAN')
             orden = compra_actual.numero_orden_compra
             orden.estado_orden_compra = OrdenCompraEstado.objects.get(estado_orden_compra='CAN')
+            orden.motivo_cancelacion = request.POST.get('motivo', '')
+            orden.observaciones_cancelacion = request.POST.get('observaciones', '')
+            orden.usuario_cancelacion = Empleado.objects.get(usuario_id=request.user)
+            orden.fecha_hora_cancelacion = timezone.now()
             orden.save()
+
+            compra_actual.estado_compra = OrdenCompraEstado.objects.get(estado_orden_compra='CAN')
+            compra_actual.motivo_cancelacion = request.POST.get('motivo', '')
+            compra_actual.observaciones_cancelacion = request.POST.get('observaciones', '')
+            compra_actual.usuario_cancelacion = Empleado.objects.get(usuario_id=request.user)
+            compra_actual.fecha_hora_cancelacion = timezone.now()
+
+            # return
             super(CompraAdmin, self).save_model(request, obj, form, change)
 
         # Si se confirma la Compra se asigna el estado "ENT" a la Orden de Compra
@@ -1191,7 +1385,7 @@ class CompraAdmin(admin.ModelAdmin):
             # empleado = Empleado.objects.filter(usuario=request.user)
             obj.usuario_registro_compra = Empleado.objects.get(usuario_id=request.user)
             print 'Usuarios: ', request.user, obj.usuario_registro_compra
-        super(CompraAdmin, self).save_model(request, obj, form, change)
+            super(CompraAdmin, self).save_model(request, obj, form, change)
 
     # Alternativa programada con JuanBer para el caso de que no se borraban los registros de CompraDetalle en la DB,
     # el problema se daba con los formfields definidos en el Form, al parecer el framework valida los datos cargdos
@@ -1315,6 +1509,12 @@ class CompraAdmin(admin.ModelAdmin):
                 extra_context['show_cancel_button'] = False
                 extra_context['show_imprimir_button'] = True
 
+        elif object_id is None:
+            extra_context['show_save_button'] = True
+            extra_context['show_continue_button'] = True
+            extra_context['show_cancel_button'] = False
+            extra_context['show_imprimir_button'] = False
+
         return super(CompraAdmin, self).changeform_view(request, object_id, form_url, extra_context)
 
     # def get_form(self, request, obj=None, **kwargs):
@@ -1327,6 +1527,7 @@ class CompraAdmin(admin.ModelAdmin):
     #         self.exclude = ("nro_orden_compra", )
     #         # kwargs['exclude'] = ['fecha_compra', 'nro_orden_compra']
     #     form = super(CompraAdmin, self).get_form(request, obj, **kwargs)
+    #       print form.errors
     #     return form
 
     def get_new_fieldsets(self):
@@ -1359,11 +1560,12 @@ class CompraAdmin(admin.ModelAdmin):
         #     a.request = request
         #     return a
         # return form_wrapper
-
-        # import pdb
-        # pdb.set_trace()
-
-        form = super(CompraAdmin, self).get_form(request, obj=obj, **kwargs)
+        
+        for a in request.POST: print
+        if '_cancel' in request.POST:
+            form = CancelarCompraForm
+        else:
+            form = super(CompraAdmin, self).get_form(request, obj=obj, **kwargs)
         form.request = request
         return form
 

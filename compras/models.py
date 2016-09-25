@@ -173,7 +173,7 @@ class LineaCreditoProveedor(models.Model):
 
     def get_monto_total_pagos_proveedor(self):
         detalle_linea_credito = LineaCreditoProveedorDetalle.objects.filter(linea_credito_proveedor_id=self.id,
-                                                                            tipo_movimiento='PAG')
+                                                                            tipo_movimiento='PAG', anulado=False)
         total_pagos = 0
         for detalle in detalle_linea_credito:
             total_pagos += detalle.monto_movimiento
@@ -245,6 +245,8 @@ class LineaCreditoProveedorDetalle(models.Model):
                                                     'de Pago del movimiento.')
     fecha_movimiento = models.DateField(default=timezone.now, verbose_name='Fecha Registro Movimiento',
                                         help_text='Registra la fecha del movimiento.')
+    anulado = models.BooleanField(default=False)
+    fecha_hora_anulacion = models.DateTimeField(null=True, blank=True, verbose_name='Fecha/hora Anulacion')
 
     class Meta:
         verbose_name = 'Detalle Linea de Credito con Proveedor'
@@ -290,6 +292,7 @@ class OrdenPago(models.Model):
         ('PEN', 'Pendiente'),
         ('CON', 'Confirmada'),
         ('ANU', 'Anulada'),
+        ('CAN', 'Cancelada'),
     )
     numero_orden_pago = models.AutoField(primary_key=True,
                                          verbose_name='Numero Orden de Pago',
@@ -299,7 +302,7 @@ class OrdenPago(models.Model):
                                              verbose_name='Proveedor',
                                              help_text='Seleccione el Proveedor para el cual se generara la Orden de '
                                                        'Pago.')
-    fecha_hora_orden_pago = models.DateTimeField(auto_now_add=True,  # editable=True, auto_now_add=True,
+    fecha_hora_orden_pago = models.DateTimeField(auto_now=True,  # editable=True, auto_now_add=True,
                                                  verbose_name='Fecha/hora Orden de Pago',
                                                  help_text='La fecha y hora de la Orden de Pago se asignan al momento '
                                                            'de guardar los datos del pago. No se requiere el ingreso '
@@ -318,14 +321,24 @@ class OrdenPago(models.Model):
                                          help_text='Se asigna automaticamente de acuerdo a la accion que se realice'
                                                    'con la Orden de Pago.')
 
+    motivo_anulacion = models.CharField(max_length=50, null=True, blank=True)
+    observaciones_anulacion = models.CharField(max_length=200, null=True, blank=True)
+    usuario_anulacion = models.ForeignKey('personal.Empleado', null=True, blank=True,
+                                          related_name='usuario_anulacion_orden_pago',
+                                          # limit_choices_to='',
+                                          #  to_field='usuario',
+                                          verbose_name='Anulado por?',
+                                          help_text='Usuario que anulo la Orden de Pago.')
+    fecha_hora_anulacion = models.DateTimeField(null=True, blank=True)
+
     class Meta:
         verbose_name = 'Orden de Pago Proveedor'
         verbose_name_plural = 'Proveedores - Ordenes de Pago'
 
     def clean(self):
 
-        import pdb
-        pdb.set_trace()
+        # import pdb
+        # pdb.set_trace()
 
         # Valida que el Total de la Orden de Pago no sea 0
         if self.pk is not None:
@@ -414,6 +427,8 @@ class PagoProveedor(models.Model):
     #                                                     'la factura de la Compra en caso de que la misma se haya '
     #                                                     'devuelto o cancelado.')
     procesado = models.BooleanField(default=False)
+    anulado = models.BooleanField(default=False)
+    fecha_hora_anulacion = models.DateTimeField(null=True, blank=True, verbose_name='Fecha/hora Anulacion')
 
     class Meta:
         verbose_name = 'Pago a Proveedores'
@@ -472,7 +487,7 @@ class FacturaProveedor(models.Model):
                                                help_text='Este valor se calcula automaticamente en funcion al detalle '
                                                          'de la Compra.')
     total_pago_factura = models.DecimalField(max_digits=18, decimal_places=0, default=0,
-                                             verbose_name='Total Pagado de la Factura Compra',
+                                             verbose_name='Monto Total Pagado de la Factura Compra',
                                              help_text='Este valor se calcula automaticamente en funcion a los pagos '
                                                        'registrados para la Factura.')
     estado_factura_compra = models.CharField(max_length=3, choices=ESTADOS_FACTURA_COMPRA,
@@ -498,7 +513,7 @@ class FacturaProveedor(models.Model):
                                                            'factura.')})
 
     def get_total_pago_factura(self):
-        detalle_pagos = PagoProveedor.objects.filter(factura_proveedor_id=self.id, procesado=True)
+        detalle_pagos = PagoProveedor.objects.filter(factura_proveedor_id=self.id, procesado=True, anulado=False)
         total_pagos = 0
         for detalle in detalle_pagos:
             total_pagos += detalle.monto_pago_proveedor
@@ -670,6 +685,16 @@ class OrdenCompra(models.Model):
     # Debe ir en la cabecera y no en el detalle
     total_orden_compra = models.DecimalField(max_digits=18, decimal_places=0, default=0,
                                              verbose_name='Total')  # blank=False (Default is False)
+
+    motivo_cancelacion = models.CharField(max_length=50, null=True, blank=True)
+    observaciones_cancelacion = models.CharField(max_length=200, null=True, blank=True)
+    usuario_cancelacion = models.ForeignKey('personal.Empleado', null=True, blank=True,
+                                            related_name='usuario_cancelacion_orden_compra',
+                                            # limit_choices_to='',
+                                            #  to_field='usuario',
+                                            verbose_name='Cancelado por?',
+                                            help_text='Usuario que cancelo la Orden de Compra.')
+    fecha_hora_cancelacion = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         verbose_name = 'Orden de Compra'
@@ -889,6 +914,16 @@ class Compra(models.Model):
     total_compra = models.DecimalField(max_digits=18, decimal_places=0, default=0,
                                        verbose_name='Total Compra',
                                        help_text='Este campo se calcula en funcion al detalle de la Compra.')
+
+    motivo_cancelacion = models.CharField(max_length=50, null=True, blank=True)
+    observaciones_cancelacion = models.CharField(max_length=200, null=True, blank=True)
+    usuario_cancelacion = models.ForeignKey('personal.Empleado', null=True, blank=True,
+                                            related_name='usuario_cancelacion_compra',
+                                            # limit_choices_to='',
+                                            #  to_field='usuario',
+                                            verbose_name='Cancelado por?',
+                                            help_text='Usuario que cancelo la Compra.')
+    fecha_hora_cancelacion = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         # proxy = True
