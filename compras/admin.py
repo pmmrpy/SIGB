@@ -1,13 +1,18 @@
 import datetime
 from decimal import Decimal
 import pdb
+from django.conf.urls import patterns
 from django.contrib import admin
 from django.contrib.admin.options import IS_POPUP_VAR, TO_FIELD_VAR
 from django.contrib.admin.templatetags.admin_urls import add_preserved_filters
 from django.contrib.messages.context_processors import messages
+from django.db.models.expressions import Value, RawSQL
+from django.db.models.fields import CharField
 from django.db.models.query_utils import Q
 from django.forms.models import BaseInlineFormSet
 from django.http.response import HttpResponseRedirect
+from django.shortcuts import render_to_response
+from django.template.context import RequestContext
 from django.template.response import SimpleTemplateResponse
 from django.utils import timezone
 from django.core.exceptions import ValidationError
@@ -15,19 +20,19 @@ from django.utils.encoding import force_text
 from django.utils.html import format_html, escape, escapejs
 from django.utils.translation import ugettext_lazy as _
 from django.views.generic.dates import timezone_today
+from pip._vendor.requests.packages.urllib3 import response
 from psycopg2._psycopg import IntegrityError
 from compras.forms import ProveedorForm, LineaCreditoProveedorForm, LineaCreditoProveedorDetalleForm, PagoProveedorForm, \
     FacturaProveedorForm, EmpresaForm, OrdenCompraForm, OrdenCompraDetalleForm, CompraForm, CompraDetalleForm, \
-    ProveedorTelefonoForm, LineaCreditoProveedorInlineForm, OrdenPagoDetalleForm, OrdenPagoForm, CancelarOrdenCompraForm, \
-    CancelarCompraForm, AnularOrdenPagoForm
+    ProveedorTelefonoForm, LineaCreditoProveedorInlineForm, OrdenPagoDetalleForm, OrdenPagoForm
 from compras.models import ProveedorTelefono, LineaCreditoProveedor, LineaCreditoProveedorDetalle, Proveedor, PagoProveedor, \
     FacturaProveedor, ProductoProveedor, Empresa, OrdenCompra, OrdenCompraDetalle, Compra, CompraDetalle, \
     OrdenPago, OrdenPagoDetalle  # , ModelA, ModelB, ModelC
-from bar.models import CompraEstado, OrdenCompraEstado, TipoMovimientoStock, Deposito, TipoFacturaCompra
-from stock.models import Stock, StockDetalle
+from bar.models import CompraEstado, OrdenCompraEstado, TipoMovimientoStock, Deposito, TipoFacturaCompra, \
+    FacturaProveedorEstado, OrdenPagoEstado
+from stock.models import MovimientoStock, Producto
 from personal.models import Empleado
 from django.http import HttpResponse
-from reports import ReportOrdenCompra, GraphicsReport, MasterReport
 from geraldo.generators import PDFGenerator
 from polymorphic.admin import PolymorphicParentModelAdmin, PolymorphicChildModelAdmin, PolymorphicChildModelFilter
 
@@ -329,24 +334,24 @@ class FacturaProveedorAdmin(admin.ModelAdmin):
 
     def colorea_estado_factura_compra(self, obj):
         # color = 'black'
-        if obj.estado_factura_compra == 'PAG':
+        if obj.estado_factura_compra.estado_factura_proveedor == 'PAG':
             color = 'green'
             return format_html('<span style="color: %s"><b> %s </b></span>' %
-                               (color, obj.get_estado_factura_compra_display()))
-        elif obj.estado_factura_compra == 'FPP':
+                               (color, obj.estado_factura_compra.get_estado_factura_proveedor_display()))
+        elif obj.estado_factura_compra.estado_factura_proveedor == 'FPP':
             color = 'red'
             return format_html('<span style="color: %s"><b> %s </b></span>' %
-                               (color, obj.get_estado_factura_compra_display()))
-        elif obj.estado_factura_compra == 'CAN':
+                               (color, obj.estado_factura_compra.get_estado_factura_proveedor_display()))
+        elif obj.estado_factura_compra.estado_factura_proveedor == 'CAN':
             color = 'orange'
             return format_html('<span style="color: %s"><b> %s </b></span>' %
-                               (color, obj.get_estado_factura_compra_display()))
-        elif obj.estado_factura_compra == 'EPP':
+                               (color, obj.estado_factura_compra.get_estado_factura_proveedor_display()))
+        elif obj.estado_factura_compra.estado_factura_proveedor == 'EPP':
             color = 'yellowgreen'
             return format_html('<span style="color: %s"><b> %s </b></span>' %
-                               (color, obj.get_estado_factura_compra_display()))
-        return obj.estado_factura_compra
-    colorea_estado_factura_compra.short_description = 'Estado de la Factura Compra'
+                               (color, obj.estado_factura_compra.get_estado_factura_proveedor_display()))
+        return obj.estado_factura_compra.estado_factura_proveedor
+    colorea_estado_factura_compra.short_description = 'Estado de la Factura'
 
     def save_formset(self, request, form, formset, change):
         obj = form.instance
@@ -368,7 +373,7 @@ class FacturaProveedorAdmin(admin.ModelAdmin):
                 pago.save()
         # pdb.set_trace()
         if Decimal(total) == Decimal(obj.total_factura_compra):
-            obj.estado_factura_compra = 'PAG'
+            obj.estado_factura_compra.estado_factura_proveedor = 'PAG'
             obj.save()
         elif Decimal(total) > Decimal(obj.total_factura_compra):
             raise ValidationError({'total_pago_factura': _('El Monto Total de los Pagos no puede exceder al Total '
@@ -377,11 +382,11 @@ class FacturaProveedorAdmin(admin.ModelAdmin):
             #                                                'factura.')})
 
     def changelist_view(self, request, extra_context=None):
-        queryset = self.get_queryset(request).filter(estado_factura_compra='EPP')
+        queryset = self.get_queryset(request).filter(estado_factura_compra__estado_factura_proveedor='EPP')
 
         for factura in queryset:
             today = datetime.date.today()
-            # print factura.estado_factura_compra, today
+            # print factura.estado_factura_compra.estado_factura_proveedor, today
 
             if factura.tipo_factura_compra.tipo_factura_compra == 'CRE':
                 # print ('factura.fecha_factura_compra: %s - factura.plazo_factura_compra: %s') % (factura.fecha_factura_compra, factura.plazo_factura_compra)
@@ -389,11 +394,11 @@ class FacturaProveedorAdmin(admin.ModelAdmin):
                 # print 'calculo: %s' % calculo
                 if calculo < today:
                     # estado = OrdenCompraEstado.objects.get(estado_orden_compra='PEP')
-                    factura.estado_factura_compra = 'FPP'
+                    factura.estado_factura_compra.estado_factura_proveedor = 'FPP'
                     factura.save()
             elif factura.tipo_factura_compra.tipo_factura_compra == 'CON':
                 if factura.fecha_factura_compra < today:
-                    factura.estado_factura_compra = 'FPP'
+                    factura.estado_factura_compra.estado_factura_proveedor = 'FPP'
                     factura.save()
         return super(FacturaProveedorAdmin, self).changelist_view(request, extra_context=extra_context)
 
@@ -404,7 +409,7 @@ class FacturaProveedorAdmin(admin.ModelAdmin):
         if object_id is not None:
             factura_actual = FacturaProveedor.objects.get(pk=object_id)
             print 'factura_actual: %s' % factura_actual
-            extra_context['show_button'] = factura_actual.estado_factura_compra not in ('PAG', 'CAN')
+            extra_context['show_button'] = factura_actual.estado_factura_compra.estado_factura_proveedor not in ('PAG', 'CAN')
 
         return super(FacturaProveedorAdmin, self).changeform_view(request, object_id, form_url, extra_context)
 
@@ -428,10 +433,10 @@ class OrdenPagoDetalleInline(admin.TabularInline):
     # verbose_name_plural = 'Pagos a Proveedores'
 
     def get_readonly_fields(self, request, obj=None):
-        if obj is not None and obj.estado_orden_pago == 'PEN':
+        if obj is not None and obj.estado_orden_pago.estado_orden_pago == 'PEN':
             return ['compra', 'proveedor', 'numero_factura_compra', 'fecha_factura_compra', 'tipo_factura_compra',
                     'forma_pago_compra', 'plazo_factura_compra', 'estado_factura_compra']  # 'total_factura_compra',
-        elif obj is not None and obj.estado_orden_pago in ('CON', 'ANU', 'CAN'):
+        elif obj is not None and obj.estado_orden_pago.estado_orden_pago in ('CON', 'ANU', 'CAN'):
             return [i.name for i in self.model._meta.fields]
         else:
             return super(OrdenPagoDetalleInline, self).get_readonly_fields(request, obj)
@@ -486,23 +491,23 @@ class OrdenPagoAdmin(admin.ModelAdmin):
 
     def colorea_estado_orden_pago(self, obj):
         # color = 'black'
-        if obj.estado_orden_pago == 'CON':
+        if obj.estado_orden_pago.estado_orden_pago == 'CON':
             color = 'green'
             return format_html('<span style="color: %s"><b> %s </b></span>' %
-                               (color, obj.get_estado_orden_pago_display()))
-        elif obj.estado_orden_pago == 'ANU':
+                               (color, obj.estado_orden_pago.get_estado_orden_pago_display()))
+        elif obj.estado_orden_pago.estado_orden_pago == 'ANU':
             color = 'red'
             return format_html('<span style="color: %s"><b> %s </b></span>' %
-                               (color, obj.get_estado_orden_pago_display()))
-        elif obj.estado_orden_pago == 'CAN':
+                               (color, obj.estado_orden_pago.get_estado_orden_pago_display()))
+        elif obj.estado_orden_pago.estado_orden_pago == 'CAN':
             color = 'orange'
             return format_html('<span style="color: %s"><b> %s </b></span>' %
-                               (color, obj.get_estado_orden_pago_display()))
-        elif obj.estado_orden_pago == 'PEN':
-            color = 'yellowgreen'
+                               (color, obj.estado_orden_pago.get_estado_orden_pago_display()))
+        elif obj.estado_orden_pago.estado_orden_pago == 'PEN':
+            color = 'indianred'
             return format_html('<span style="color: %s"><b> %s </b></span>' %
-                               (color, obj.get_estado_orden_pago_display()))
-        return obj.estado_orden_pago
+                               (color, obj.estado_orden_pago.get_estado_orden_pago_display()))
+        return obj.estado_orden_pago.estado_orden_pago
     colorea_estado_orden_pago.short_description = 'Estado de la Factura Compra'
 
     def save_model(self, request, obj, form, change):
@@ -515,19 +520,19 @@ class OrdenPagoAdmin(admin.ModelAdmin):
         # Si la orden_pago es generada por primera vez se debe guardar el objeto para asignarle un ID y el estado PEN.
         if obj.numero_orden_pago is None:
             obj.usuario_registro_orden_pago = Empleado.objects.get(usuario_id=request.user)
-            obj.estado_orden_pago = 'PEN'
+            obj.estado_orden_pago = OrdenPagoEstado.objects.get(estado_orden_pago='PEN')
             obj.total_orden_pago = 1
             super(OrdenPagoAdmin, self).save_model(request, obj, form, change)
 
-        if "_continue" in request.POST and orden_pago_actual.estado_orden_pago == 'PEN':
-            orden_pago_actual.estado_orden_pago = 'PEN'
+        if "_continue" in request.POST and orden_pago_actual.estado_orden_pago.estado_orden_pago == 'PEN':
+            orden_pago_actual.estado_orden_pago = OrdenPagoEstado.objects.get(estado_orden_pago='PEN')
             orden_pago_actual.total_orden_pago = 0
             super(OrdenPagoAdmin, self).save_model(request, obj, form, change)
 
         # Si se CANCELA la Orden de Pago se asigna el estado "CAN" a la Orden de Pago y se marcan como
         # "procesado = False" a los registros del formset
         elif "_cancel" in request.POST:
-            orden_pago_actual.estado_orden_pago = 'CAN'
+            orden_pago_actual.estado_orden_pago = OrdenPagoEstado.objects.get(estado_orden_pago='CAN')
             super(OrdenPagoAdmin, self).save_model(request, obj, form, change)
 
         # Si se ANULA la Orden de Pago se asigna el estado "ANU" a la Orden de Pago, se debe asignar el estado "EPP"
@@ -535,7 +540,7 @@ class OrdenPagoAdmin(admin.ModelAdmin):
         # para las facturas afectadas.
         # Se deben MARCAR tambien como anulado el registro correspondiente en la Linea de Credito.
         elif "_anular" in request.POST:
-            orden_pago_actual.estado_orden_pago = 'ANU'
+            orden_pago_actual.estado_orden_pago = OrdenPagoEstado.objects.get(estado_orden_pago='ANU')
             orden_pago_actual.motivo_anulacion = request.POST.get('motivo', '')
             orden_pago_actual.observaciones_anulacion = request.POST.get('observaciones', '')
             orden_pago_actual.usuario_anulacion = Empleado.objects.get(usuario_id=request.user)
@@ -546,7 +551,7 @@ class OrdenPagoAdmin(admin.ModelAdmin):
         # Si se confirma la Orden de Pago se asigna el estado "CON" a la Orden de Pago, el estado "PAG" a las
         # facturas en el formset y se deben generar registros de pagos en PagoProveedor para las facturas afectadas
         elif "_save" in request.POST:  # and compra_actual.estado_compra.estado_compra == 'CON':
-            orden_pago_actual.estado_orden_pago = 'CON'
+            orden_pago_actual.estado_orden_pago = OrdenPagoEstado.objects.get(estado_orden_pago='CON')
             super(OrdenPagoAdmin, self).save_model(request, obj, form, change)
 
         if getattr(obj, 'usuario_registro_orden_pago', None) is not None:
@@ -565,7 +570,7 @@ class OrdenPagoAdmin(admin.ModelAdmin):
 
         print 'obj: %s - orden_pago_actual: %s' % (form.instance, orden_pago_actual)
 
-        if "_continue" in request.POST and orden_pago_actual.estado_orden_pago == 'PEN':
+        if "_continue" in request.POST and orden_pago_actual.estado_orden_pago.estado_orden_pago == 'PEN':
             print 'orden_pago_actual.numero_orden_pago: %s - orden_pago_detalle_a_eliminar: %s' % \
                   (orden_pago_actual.numero_orden_pago, OrdenPagoDetalle.objects.filter(numero_orden_pago_id=orden_pago_actual.numero_orden_pago))
 
@@ -580,7 +585,7 @@ class OrdenPagoAdmin(admin.ModelAdmin):
             print 'orden_pago_detalle_a_eliminar: ', OrdenPagoDetalle.objects.filter(numero_orden_pago_id=orden_pago_actual.numero_orden_pago)
 
             # suma_facturas = 0
-            for detalle in FacturaProveedor.objects.filter(Q(proveedor_id=orden_pago_actual.proveedor_orden_pago), Q(estado_factura_compra='EPP') | Q(estado_factura_compra='FPP')):
+            for detalle in FacturaProveedor.objects.filter(Q(proveedor_id=orden_pago_actual.proveedor_orden_pago), Q(estado_factura_compra__estado_factura_proveedor='EPP') | Q(estado_factura_compra__estado_factura_proveedor='FPP')):
                 orden_pago_detalle = OrdenPagoDetalle(numero_orden_pago_id=orden_pago_actual.numero_orden_pago,
                                                       compra_id=detalle.compra_id,
                                                       proveedor_id=detalle.proveedor_id,
@@ -624,7 +629,7 @@ class OrdenPagoAdmin(admin.ModelAdmin):
                                                        plazo_factura_compra=factura_orden_pago_detalle.plazo_factura_compra,
                                                        total_factura_compra=factura_orden_pago_detalle.total_factura_compra)
                 today = datetime.date.today()
-                # print factura.estado_factura_compra, today
+                # print factura.estado_factura_compra.estado_factura_proveedor, today
 
                 if factura.tipo_factura_compra.tipo_factura_compra == 'CRE':
                     # print ('factura.fecha_factura_compra: %s - factura.plazo_factura_compra: %s') % (factura.fecha_factura_compra, factura.plazo_factura_compra)
@@ -632,15 +637,15 @@ class OrdenPagoAdmin(admin.ModelAdmin):
                     # print 'calculo: %s' % calculo
                     if calculo < today:
                         # estado = OrdenCompraEstado.objects.get(estado_orden_compra='PEP')
-                        factura.estado_factura_compra = 'FPP'
+                        factura.estado_factura_compra.estado_factura_proveedor = 'FPP'
                     else:
-                        factura.estado_factura_compra = 'EPP'
+                        factura.estado_factura_compra.estado_factura_proveedor = 'EPP'
                     # factura.save()
                 elif factura.tipo_factura_compra.tipo_factura_compra == 'CON':
                     if factura.fecha_factura_compra < today:
-                        factura.estado_factura_compra = 'FPP'
+                        factura.estado_factura_compra.estado_factura_proveedor = 'FPP'
                     else:
-                        factura.estado_factura_compra = 'EPP'
+                        factura.estado_factura_compra.estado_factura_proveedor = 'EPP'
 
                 factura.total_pago_factura = factura.total_pago_factura - factura_orden_pago_detalle.total_factura_compra
                 factura.save()
@@ -686,7 +691,7 @@ class OrdenPagoAdmin(admin.ModelAdmin):
                                                            forma_pago_compra=factura_orden_pago_detalle.forma_pago_compra,
                                                            plazo_factura_compra=factura_orden_pago_detalle.plazo_factura_compra,
                                                            total_factura_compra=factura_orden_pago_detalle.total_factura_compra)
-                    factura.estado_factura_compra = 'PAG'
+                    factura.estado_factura_compra = FacturaProveedorEstado.objects.get(estado_factura_proveedor='PAG')
                     factura.save()
 
                     pago_proveedor = PagoProveedor(factura_proveedor_id=factura.id,
@@ -711,10 +716,10 @@ class OrdenPagoAdmin(admin.ModelAdmin):
             super(OrdenPagoAdmin, self).save_formset(request, form, formset, change)
 
     def get_readonly_fields(self, request, obj=None):
-        if obj is not None and obj.estado_orden_pago in 'PEN':
+        if obj is not None and obj.estado_orden_pago.estado_orden_pago == 'PEN':
             return ['numero_orden_pago', 'fecha_hora_orden_pago', 'usuario_registro_orden_pago',
                     'estado_orden_pago']
-        elif obj is not None and obj.estado_orden_pago in ('CON', 'ANU', 'CAN'):
+        elif obj is not None and obj.estado_orden_pago.estado_orden_pago in ('CON', 'ANU', 'CAN'):
             return [i.name for i in self.model._meta.fields] + \
                    [i.name for i in self.model._meta.many_to_many]
         elif obj is None:
@@ -733,26 +738,26 @@ class OrdenPagoAdmin(admin.ModelAdmin):
 
         if object_id is not None:
             orden_pago_actual = OrdenPago.objects.get(pk=object_id)
-            if orden_pago_actual.estado_orden_pago == 'ANU':
+            if orden_pago_actual.estado_orden_pago.estado_orden_pago == 'ANU':
                 # extra_context['show_button'] = False
                 extra_context['show_save_button'] = False
                 extra_context['show_continue_button'] = False
                 extra_context['show_cancel_button'] = False
                 extra_context['show_anular_button'] = False
                 extra_context['show_imprimir_button'] = True
-            elif orden_pago_actual.estado_orden_pago == 'CAN':
+            elif orden_pago_actual.estado_orden_pago.estado_orden_pago == 'CAN':
                 extra_context['show_save_button'] = False
                 extra_context['show_continue_button'] = False
                 extra_context['show_cancel_button'] = False
                 extra_context['show_anular_button'] = False
                 extra_context['show_imprimir_button'] = False
-            elif orden_pago_actual.estado_orden_pago == 'CON':
+            elif orden_pago_actual.estado_orden_pago.estado_orden_pago == 'CON':
                 extra_context['show_save_button'] = False
                 extra_context['show_continue_button'] = False
                 extra_context['show_cancel_button'] = False
                 extra_context['show_anular_button'] = True
                 extra_context['show_imprimir_button'] = True
-            elif orden_pago_actual.estado_orden_pago == 'PEN':
+            elif orden_pago_actual.estado_orden_pago.estado_orden_pago == 'PEN':
                 extra_context['show_save_button'] = True
                 extra_context['show_continue_button'] = True
                 extra_context['show_cancel_button'] = True
@@ -770,11 +775,11 @@ class OrdenPagoAdmin(admin.ModelAdmin):
 
     def get_form(self, request, obj=None, **kwargs):
         for a in request.POST: print a
-        if '_anular' in request.POST:
-            form = AnularOrdenPagoForm
-        else:
-            form = super(OrdenPagoAdmin, self).get_form(request, obj=obj, **kwargs)
-            form.request = request
+        # if '_anular' in request.POST:
+        #     form = AnularOrdenPagoForm
+        # else:
+        form = super(OrdenPagoAdmin, self).get_form(request, obj=obj, **kwargs)
+        form.request = request
         return form
 
 
@@ -805,12 +810,14 @@ class EmpresaAdmin(admin.ModelAdmin):
         ('Direccion', {'fields': ['direccion', ('pais', 'ciudad')]}),
         ('Otros datos', {'fields': ['pagina_web', 'fecha_apertura', 'fecha_alta_proveedor']}),
         # ('Timbrado', {'fields': ['timbrado']}),
-        ('Datos Tributarios', {'fields': ['codigo_establecimiento', 'actividad_economica', 'salario_minimo_vigente']})
+        ('Datos Tributarios', {'fields': ['timbrado', 'codigo_establecimiento', 'actividad_economica', 'salario_minimo_vigente']})
     ]
+
+    inlines = [ProveedorTelefonoInline]
 
     list_display = ['id', 'proveedor', 'persona_proveedor', 'ruc', 'digito_verificador', 'direccion', 'pais',
                     'ciudad', 'pagina_web', 'fecha_apertura', 'fecha_alta_proveedor',
-                    'codigo_establecimiento', 'thumb']
+                    'timbrado', 'codigo_establecimiento', 'thumb']
     list_display_links = ['proveedor']
     list_filter = ['id', 'proveedor', 'ruc', 'fecha_alta_proveedor']
     search_fields = ['id', 'proveedor', 'ruc', 'fecha_alta_proveedor']
@@ -930,6 +937,14 @@ class OrdenCompraAdmin(admin.ModelAdmin):
     #     else:
     #         return ['numero_orden_compra', 'fecha_orden_compra', 'estado_orden_compra']
 
+    # 03/10/2016: Creado para probar el raw SQL para agregar el numero de item a los reportes.
+    # def add_view(self, request, form_url='', extra_context=None):
+    #     queryset = OrdenCompraDetalle.objects.raw('select  *,Row_Number() Over ( Order By detalle.id ) As fila  from compras_ordencompradetalle detalle')
+    #     for obj in queryset:
+    #         print obj.producto_orden_compra
+    #     # return render_to_response(template_name='holamundo.html',context={})
+    #     # return super(OrdenCompraAdmin,self).add_view(request,form_url,extra_context)
+
     def colorea_estado_orden_compra(self, obj):
         # color = 'black'
         if obj.estado_orden_compra.estado_orden_compra == 'ENT':
@@ -964,14 +979,34 @@ class OrdenCompraAdmin(admin.ModelAdmin):
         #     report.generate_by(PDFGenerator, filename=resp)
         #     return resp
         # super(OrdenCompraAdmin, self).save_model(request, obj, form, change)
-
         # http://localhost:8001/compras/orden-compra-report/
 
-        import pdb
-        pdb.set_trace()
+        # import pdb
+        # pdb.set_trace()
 
-        if '_cancel' in request.POST:
+        # orden_compra = obj
+
+        if '_save' in request.POST or '_continue' in request.POST or '_addanother' in request.POST:
+            obj.total_orden_compra = request.POST.get('total_orden_compra', '')
+
+            now = timezone.now()
+            if obj.estado_orden_compra.estado_orden_compra == 'EPP' and obj.fecha_entrega_orden_compra < now:
+                obj.estado_orden_compra = OrdenCompraEstado.objects.get(estado_orden_compra='PEP')
+            elif obj.estado_orden_compra.estado_orden_compra == 'PEP' and obj.fecha_entrega_orden_compra > now:
+                obj.estado_orden_compra = OrdenCompraEstado.objects.get(estado_orden_compra='EPP')
+            # elif obj.estado_orden_compra.estado_orden_compra == 'PEN' and obj.fecha_entrega_orden_compra > now:
+            #     obj.estado_orden_compra = OrdenCompraEstado.objects.get(estado_orden_compra='EPP')
+            #     compra_relacionada = Compra.objects.get(numero_orden_compra=obj.numero_orden_compra)
+            #     compra_relacionada.estado_compra = OrdenCompraEstado.objects.get(estado_orden_compra='EPP')
+            # obj.save()  # No descomentar porque genera un error con el campo usuario_registro_orden_compra debido a
+            # que aun no se asigno un valor para este campo en esta instancia, la asignacion del
+            # usuario_registro_orden_compra se realiza mas abajo
+
+            # super(OrdenCompraAdmin, self).save_model(request, obj, form, change)
+
+        elif '_cancel' in request.POST:
             obj.estado_orden_compra = OrdenCompraEstado.objects.get(estado_orden_compra='CAN')
+            obj.total_orden_compra = request.POST.get('total_orden_compra', '')
             obj.motivo_cancelacion = request.POST.get('motivo', '')
             obj.observaciones_cancelacion = request.POST.get('observaciones', '')
             obj.usuario_cancelacion = Empleado.objects.get(usuario_id=request.user)
@@ -987,13 +1022,16 @@ class OrdenCompraAdmin(admin.ModelAdmin):
                         compra.usuario_cancelacion = Empleado.objects.get(usuario_id=request.user)
                         compra.fecha_hora_cancelacion = timezone.now()
                     compra.save()
-            super(OrdenCompraAdmin, self).save_model(request, obj, form, change)
+            # super(OrdenCompraAdmin, self).save_model(request, obj, form, change)
 
-        if getattr(obj, 'usuario_registro_orden_compra', None) is None:
+        if not change and getattr(obj, 'usuario_registro_orden_compra', None) is None:
             # empleado = Empleado.objects.filter(usuario=request.user)
             obj.usuario_registro_orden_compra = Empleado.objects.get(usuario_id=request.user)
             print 'obj.usuario_registro_orden_compra: ', obj.usuario_registro_orden_compra
-            super(OrdenCompraAdmin, self).save_model(request, obj, form, change)
+        elif change and getattr(obj, 'usuario_registro_orden_compra', None) is not None:
+            obj.usuario_modifica_orden_compra = Empleado.objects.get(usuario_id=request.user)
+            print 'obj.usuario_modifica_orden_compra: ', obj.usuario_modifica_orden_compra
+        super(OrdenCompraAdmin, self).save_model(request, obj, form, change)
 
     def get_readonly_fields(self, request, obj=None):
         if obj is not None and obj.estado_orden_compra.estado_orden_compra in ('EPP', 'PEP', 'PEN'):
@@ -1062,11 +1100,11 @@ class OrdenCompraAdmin(admin.ModelAdmin):
 
     def get_form(self, request, obj=None, **kwargs):
         for a in request.POST: print a
-        if '_cancel' in request.POST:
-            form = CancelarOrdenCompraForm
-        else:
-            form = super(OrdenCompraAdmin, self).get_form(request, obj=obj, **kwargs)
-            form.request = request
+        # if '_cancel' in request.POST:
+        #     form = CancelarOrdenCompraForm
+        # else:
+        form = super(OrdenCompraAdmin, self).get_form(request, obj=obj, **kwargs)
+        form.request = request
         return form
 
 
@@ -1185,6 +1223,9 @@ class CompraAdmin(admin.ModelAdmin):
 
     def save_model(self, request, obj, form, change):
 
+        # import pdb
+        # pdb.set_trace()
+
         compra_actual = obj
         compra_anterior = None
         nro_orden_compra_form = form.cleaned_data['nro_orden_compra']
@@ -1300,7 +1341,7 @@ class CompraAdmin(admin.ModelAdmin):
                                                  plazo_factura_compra=orden.forma_pago_orden_compra.plazo_compra,
                                                  total_factura_compra=compra_actual.total_compra,
                                                  total_pago_factura=0,
-                                                 estado_factura_compra="EPP")
+                                                 estado_factura_compra=FacturaProveedorEstado.objects.get(estado_factura_proveedor="EPP"))
         # Al confirmar la Compra se debe generar un registro en LineaCreditoProveedorDetalle con los datos de la factura
         # de la Compra.
             proveedor = orden.proveedor_orden_compra
@@ -1376,7 +1417,6 @@ class CompraAdmin(admin.ModelAdmin):
             linea_credito_proveedor_detalle.save()
 
         # import pdb
-
         # pdb.set_trace()
         # print 'Usuarios: ', request.user, obj, obj.usuario_registro_compra
 
@@ -1419,8 +1459,8 @@ class CompraAdmin(admin.ModelAdmin):
 
     def save_formset(self, request, form, formset, change):
 
-        # import pdb
-        # pdb.set_trace()
+        import pdb
+        pdb.set_trace()
 
         # si orden cambio entonces no hacer nada
         compra_actual = form.instance
@@ -1438,44 +1478,78 @@ class CompraAdmin(admin.ModelAdmin):
         #     compra_actual.estado_compra = OrdenCompraEstado.objects.get(estado_orden_compra='PEN')
         #     compra_actual.save()
 
-
         # Si la Compra se confirma se suman los Productos al Stock.
         if compra_actual.estado_compra.estado_orden_compra == 'ENT':
             for form in formset:
                 detalle = form.instance
-                # Validar que exista un registro de Stock para el Producto, si no existe entonces se debe crear el
-                # registro cabecera en la tabla Stock y luego el detalle en Stock_Detalle
-                # stock_actual = Stock.objects.get(producto_stock_id=detalle.producto_compra_id)
-                stock_actual = Stock.objects.filter(producto_stock_id=detalle.producto_compra_id)
-                if not stock_actual.exists():
-                    stock = Stock(producto_stock_id=detalle.producto_compra_id,
-                                  stock_minimo=0,
-                                  cantidad_existente=detalle.cantidad_producto_compra)
-                    stock.save()
-                    stock_detalle = StockDetalle(stock_id=stock.id,
-                                                 tipo_movimiento=TipoMovimientoStock.objects.get(tipo_movimiento_stock='CO'),
-                                                 id_movimiento=compra_actual.numero_compra,
-                                                 ubicacion_origen=Deposito.objects.get(deposito='PRO'),
-                                                 ubicacion_destino=Deposito.objects.get(deposito='DCE'),
-                                                 cantidad_entrante=detalle.cantidad_producto_compra,
-                                                 cantidad_saliente=0,
-                                                 fecha_hora_registro_stock=timezone.now())
-                    stock_detalle.save()
+                # # Validar que exista un registro de Stock para el Producto, si no existe entonces se debe crear el
+                # # registro cabecera en la tabla Stock y luego el detalle en Stock_Detalle
+                # # stock_actual = Stock.objects.get(producto_stock_id=detalle.producto_compra_id)
+                # stock_actual = MovimientoStock.objects.filter(producto_stock_id=detalle.producto_compra_id)
+                # if not stock_actual.exists():
+                #     stock = MovimientoStock(producto_stock_id=detalle.producto_compra_id,
+                #                   stock_minimo=0,
+                #                   cantidad_existente=detalle.cantidad_producto_compra)
+                #     stock.save()
+                #     stock_detalle = MovimientoStock(stock_id=stock.id,
+                #                                  tipo_movimiento=TipoMovimientoStock.objects.get(tipo_movimiento_stock='CO'),
+                #                                  id_movimiento=compra_actual.numero_compra,
+                #                                  ubicacion_origen=Deposito.objects.get(deposito='PRO'),
+                #                                  ubicacion_destino=Deposito.objects.get(deposito='DCE'),
+                #                                  cantidad_entrante=detalle.cantidad_producto_compra,
+                #                                  cantidad_saliente=0,
+                #                                  fecha_hora_registro_stock=timezone.now())
+                #     stock_detalle.save()
+                # else:
+                #     stock = MovimientoStock(id=stock_actual.first().id,
+                #                   producto_stock_id=detalle.producto_compra_id,
+                #                   stock_minimo=stock_actual.first().stock_minimo,
+                #                   cantidad_existente=stock_actual.first().cantidad_existente + detalle.cantidad_producto_compra)
+                #     stock.save()
+                #     stock_detalle = MovimientoStock(stock_id=stock_actual.first().id,
+                #                                  tipo_movimiento=TipoMovimientoStock.objects.get(tipo_movimiento_stock='CO'),
+                #                                  id_movimiento=compra_actual.numero_compra,
+                #                                  ubicacion_origen=Deposito.objects.get(deposito='PRO'),
+                #                                  ubicacion_destino=Deposito.objects.get(deposito='DCE'),
+                #                                  cantidad_entrante=detalle.cantidad_producto_compra,
+                #                                  cantidad_saliente=0,
+                #                                  fecha_hora_registro_stock=timezone.now())
+                #     stock_detalle.save()
+
+                stock = MovimientoStock(producto_stock_id=detalle.producto_compra_id,
+                                        tipo_movimiento='CO',
+                                        id_movimiento=compra_actual.numero_compra,
+                                        ubicacion_origen=Deposito.objects.get(deposito='PRO'),
+                                        ubicacion_destino=Deposito.objects.get(deposito='DCE'),
+                                        cantidad_entrante=detalle.cantidad_producto_compra,
+                                        cantidad_saliente=0,
+                                        fecha_hora_registro_stock=timezone.now())
+                stock.save()
+
+                # Asigna precio_compra y precio_venta de acuerdo a las Compras realizadas.
+                producto = Producto.objects.get(id=detalle.producto_compra_id)
+                compras = CompraDetalle.objects.filter(producto_compra_id=producto.id,
+                                                       numero_compra__estado_compra__estado_orden_compra='ENT')
+                fecha = timezone.now() - datetime.timedelta(days=30)
+                compras = compras.filter(numero_compra__fecha_compra__gte=fecha)
+                total = 0
+                cantidad = 0
+                # precio_compra_sugerido = 0
+
+                if compras.exists():
+                    for producto_compra in compras:
+                        total += producto_compra.precio_producto_compra
+                        # cantidad += detalle.cantidad_producto_compra
+                        cantidad += 1
+                    print total, cantidad
+                    producto.precio_compra = total / (cantidad if cantidad else 1)
                 else:
-                    stock = Stock(id=stock_actual.first().id,
-                                  producto_stock_id=detalle.producto_compra_id,
-                                  stock_minimo=stock_actual.first().stock_minimo,
-                                  cantidad_existente=stock_actual.first().cantidad_existente + detalle.cantidad_producto_compra)
-                    stock.save()
-                    stock_detalle = StockDetalle(stock_id=stock_actual.first().id,
-                                                 tipo_movimiento=TipoMovimientoStock.objects.get(tipo_movimiento_stock='CO'),
-                                                 id_movimiento=compra_actual.numero_compra,
-                                                 ubicacion_origen=Deposito.objects.get(deposito='PRO'),
-                                                 ubicacion_destino=Deposito.objects.get(deposito='DCE'),
-                                                 cantidad_entrante=detalle.cantidad_producto_compra,
-                                                 cantidad_saliente=0,
-                                                 fecha_hora_registro_stock=timezone.now())
-                    stock_detalle.save()
+                    producto.precio_compra = detalle.precio_producto_compra
+
+                if producto.tipo_producto == 'VE':
+                    producto.precio_venta = (((producto.precio_compra * producto.porcentaje_ganancia) / 100) + producto.precio_compra)
+
+                producto.save()
 
     def get_readonly_fields(self, request, obj=None):
         if obj is not None and obj.estado_compra.estado_orden_compra in ('PEN', 'EPP', 'PEP'):
@@ -1540,6 +1614,23 @@ class CompraAdmin(admin.ModelAdmin):
             ('Datos de la Compra', {'fields': ['fecha_compra', 'estado_compra', 'total_compra']}),
         ]
 
+    # def get_urls(self):
+    #     urls = super(OrdenCompraAdmin, self).get_urls()
+    #     my_urls = patterns('',
+    #         (r'\d+/cancelar/$', self.admin_site.admin_view(self.review)),
+    #     )
+    #     return my_urls + urls
+    #
+    # def review(self, request, id):
+    #     orden_compra = OrdenCompra.objects.get(pk=id)
+    #
+    #     return render_to_response(self.review_template, {
+    #         'title': 'Review entry: %s' % entry.title,
+    #         'entry': entry,
+    #         'opts': self.model._meta,
+    #         'root_path': self.admin_site.root_path,
+    #     }, context_instance=RequestContext(request))
+
     def get_fieldsets(self, request, obj=None):
         if obj is not None:
             if obj.estado_compra.estado_orden_compra in ['ENT', 'CAN']:
@@ -1561,11 +1652,11 @@ class CompraAdmin(admin.ModelAdmin):
         #     return a
         # return form_wrapper
         
-        for a in request.POST: print
-        if '_cancel' in request.POST:
-            form = CancelarCompraForm
-        else:
-            form = super(CompraAdmin, self).get_form(request, obj=obj, **kwargs)
+        for a in request.POST: print a
+        # if '_cancel' in request.POST:
+        #     form = CancelarCompraForm
+        # else:
+        form = super(CompraAdmin, self).get_form(request, obj=obj, **kwargs)
         form.request = request
         return form
 

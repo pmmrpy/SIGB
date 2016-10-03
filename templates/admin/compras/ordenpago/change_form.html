@@ -6,30 +6,30 @@
     {% if original.motivo_anulacion %}
         <fieldset class="module aligned with-legend ">
             <h2 class="legend">Anulacion</h2>
-          <div class="control-group form-row  ">
-              <div>
-                  <div class="control-label"><label>Motivo Anulacion:</label></div>
-            <div class="controls">{{ original.motivo_anulacion }}</div>
-              </div>
-          </div>
-          <div class="control-group form-row  ">
-              <div>
-             <div class="control-label"><label>Observaciones:</label></div>
-            <div class="controls">{{ original.observaciones_anulacion }}</div>
-              </div>
-          </div>
-          <div class="control-group form-row  ">
-              <div>
-             <div class="control-label"><label>Anulado por?:</label></div>
-            <div class="controls">{{ original.usuario_anulacion }}</div>
-              </div>
-          </div>
-          <div class="control-group form-row  ">
-              <div>
-             <div class="control-label"><label>Fecha/hora Anulacion:</label></div>
-            <div class="controls">{{ original.fecha_hora_anulacion }}</div>
-              </div>
-          </div>
+            <div class="control-group form-row  ">
+                <div>
+                    <div class="control-label"><label>Motivo Anulacion:</label></div>
+                    <div class="controls">{{ original.motivo_anulacion }}</div>
+                </div>
+            </div>
+            <div class="control-group form-row  ">
+                <div>
+                    <div class="control-label"><label>Observaciones:</label></div>
+                    <div class="controls">{{ original.observaciones_anulacion }}</div>
+                </div>
+            </div>
+            <div class="control-group form-row  ">
+                <div>
+                    <div class="control-label"><label>Anulado por?:</label></div>
+                    <div class="controls">{{ original.usuario_anulacion }}</div>
+                </div>
+            </div>
+            <div class="control-group form-row  ">
+                <div>
+                    <div class="control-label"><label>Fecha/hora Anulacion:</label></div>
+                    <div class="controls">{{ original.fecha_hora_anulacion }}</div>
+                </div>
+            </div>
         </fieldset>
     {% endif %}
 {% endblock %}
@@ -43,7 +43,7 @@
 
         <!-- Trigger the modal with a button -->
         <button type="button" class="btn btn-danger btn-lg" {% if not show_anular_button %} disabled="disabled" {% endif %} name="_anular" data-toggle="modal" data-target="#myModal">Anular Orden de Pago</button>
-        <a {% if not show_imprimir_button %} disabled="disabled" href="#" {% else %} href="/compras/orden-compra-report/" target="_blank" {% endif %} class="btn btn-high btn-success" style="width: 80%">Imprimir Orden de Pago</a>
+        <a {% if not show_imprimir_button %} disabled="disabled" href="#" {% else %} href="/compras/orden-pago-report/{{ original.pk }}" target="_blank" {% endif %} class="btn btn-high btn-success" style="width: 80%">Imprimir Orden de Pago</a>
 {#    {% endif %}#}
 
     <!-- Modal -->
@@ -57,21 +57,25 @@
             <h4 class="modal-title">Anular Orden de Pago</h4>
           </div>
           <div class="modal-body" style="text-align: left;margin-left: 20px">
+              <div class="alert alert-danger" id="alert-anulacion" style="display: none"></div>
               <h4>Motivo anulacion</h4>
               <input type="radio" name="motivo" value="Datos incorrectos">Datos de la Orden de Pago incorrectos<br/>
               <input type="radio" name="motivo" value="Sin fondos para procesar los pagos">Sin fondos para procesar los pagos<br/>
               <input type="radio" name="motivo" value="Otro">Otro (detallar)<br/> <br/>
+
     {#          <select name="motivo">#}
     {#              <option value="opcion1">opcion1</option>#}
     {#            <option value="opcion2">opcion2</option>#}
     {##}
     {#          </select>#}
-               <h4>Observaciones</h4>
+
+              <h4>Observaciones</h4>
               <textarea id="id_observaciones" name="observaciones" rows="1" cols="200" style="width: 434px; height: 39px;" maxlength="200"></textarea>
           </div>
           <div class="modal-footer">
               <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
-              <input type="submit" class="btn btn-primary" data-dismiss="modal" value="Aceptar" onclick="validar()"/>
+{#              <input type="submit" class="btn btn-primary" data-dismiss="modal" value="Aceptar" onclick="validar()"/>#}
+              <input type="button" class="btn btn-primary" value="Aceptar" onclick="validar()"/>
               <input type="hidden" id="id_anular" name="" value=""/>
           </div>
         </div>
@@ -83,14 +87,15 @@
         function validar(){
             var mensaje = '';
             if (!$('#id_observaciones').val()){
-                mensaje += 'Debe ingresar una Observacion\n'
+                mensaje += 'Debe ingresar una Observacion.' + '<br />'
             }
 
             if ($('input[name=motivo]:checked').length == 0) {
-                 mensaje +='Debe seleccionar un Motivo\n'
+                 mensaje +='Debe seleccionar un Motivo.' + '<br />'
             }
+
             if(mensaje != ''){
-                alert(mensaje)
+                $('#alert-anulacion').html('<button class="close" data-dismiss="alert">×</button>'+mensaje).css({'display':'block'})
             }else{
                 $('#id_anular').attr('name', '_anular').val('_anular');
                 $('#ordenpago_form').submit();

@@ -67,11 +67,19 @@ class Producto(models.Model):
                                               'granel (no envasados) siempre deben ser registrados con contenido igual '
                                               'a una unidad. Ej: Queso - 1 kilo, Detergente - 1 litro.')
 
+# ==> Datos para la Compra <==
+    unidad_medida_compra = models.ForeignKey('bar.UnidadMedidaProducto', related_name='un_med_compra',  # default=1,
+                                             verbose_name='Unidad de Medida Compra',
+                                             help_text='Seleccione la Unidad de Medida con el cual el Producto '
+                                                       'es adquirido. Corresponde a la Unidad de Medida de la '
+                                                       'presentacion del Producto.')
+    precio_compra = models.DecimalField(max_digits=18, decimal_places=0, default=0,
+                                        verbose_name='Precio Compra',
+                                        help_text='Corresponde al valor del Precio de Compra almacenado en la Base de '
+                                                  'Datos del Sistema. Este valor sera utilizado para operaciones a '
+                                                  'realizar con el Producto.')
+
 # ==> Utilidad <==
-    costo_elaboracion = models.DecimalField(max_digits=18, decimal_places=0, default=0,
-                                            verbose_name='Costo de Elaboracion del Producto',
-                                            help_text='Suma de los Totales de Costo del detalle del Producto '
-                                                      'Compuesto.')
     porcentaje_ganancia = models.DecimalField(max_digits=3, decimal_places=0, default=0,
                                               verbose_name='Porcentaje de Ganancia',
                                               help_text='Ingrese el Porcentaje de Ganancia o Margen de Utilidad que '
@@ -85,27 +93,32 @@ class Producto(models.Model):
                                                  'Datos del Sistema. Este valor sera utilizado para operaciones a '
                                                  'realizar con el Producto.')
 
-# ==> Datos para la Compra <==
-    unidad_medida_compra = models.ForeignKey('bar.UnidadMedidaProducto', related_name='un_med_compra',  # default=1,
-                                             verbose_name='Unidad de Medida Compra',
-                                             help_text='Seleccione la Unidad de Medida con el cual el Producto '
-                                                       'es adquirido. Corresponde a la Unidad de Medida de la '
-                                                       'presentacion del Producto.')
-    precio_compra = models.DecimalField(max_digits=18, decimal_places=0, default=0,
-                                        verbose_name='Precio Compra',
-                                        help_text='Corresponde al valor del Precio de Compra almacenado en la Base de '
-                                                  'Datos del Sistema. Este valor sera utilizado para operaciones a '
-                                                  'realizar con el Producto.')
+# ==> Datos para el Stock <==
+    # cantidad_existente_stock = models.DecimalField(max_digits=10, decimal_places=3, default=0,
+    #                                                verbose_name='Cantidad Existente',
+    #                                                help_text='Corresponde a la cantidad existente del Producto '
+    #                                                          'registrada en la tabla Stock.')
 
-    cantidad_existente_stock = models.DecimalField(max_digits=10, decimal_places=3, default=0,
-                                                   verbose_name='Cantidad Existente',
-                                                   help_text='Corresponde a la cantidad existente del Producto '
-                                                             'registrada en la tabla Stock.')
-    # fecha_elaboracion = models.DateField(verbose_name='Fecha de Elaboracion', default=datetime.date.today(),
-    #                                      help_text='Ingrese la fecha de elaboracion del Producto.')
+    # Manejo de stock minimo. Alertar cuando llega a este minimo.
+    stock_minimo = models.DecimalField(max_digits=10, decimal_places=3, default=0,
+                                       verbose_name='Stock Minimo',
+                                       help_text='Cantidad minima del Producto a mantener en Stock.')
+
     # fecha_vencimiento = models.DateField(default=(datetime.date.today() + datetime.timedelta(days=30)),
     #                                      verbose_name='Fecha de Vencimiento',
     #                                      help_text='Ingrese la fecha de vencimiento del Producto.')
+
+# ==> Datos para la Elaboracion <==
+    costo_elaboracion = models.DecimalField(max_digits=18, decimal_places=0, default=0,
+                                            verbose_name='Costo de Elaboracion del Producto',
+                                            help_text='Suma de los Totales de Costo del detalle del Producto '
+                                                      'Compuesto.')
+    tiempo_elaboracion = models.TimeField(verbose_name='Tiempo Elaboracion',  # default=datetime.time(00, 15, 00),
+                                          null=True, blank=True,
+                                          help_text='Corresponde al tiempo estimado que tomara elaborar el Producto '
+                                                    'Compuesto')
+    # fecha_elaboracion = models.DateField(verbose_name='Fecha de Elaboracion', default=datetime.date.today(),
+    #                                      help_text='Ingrese la fecha de elaboracion del Producto.')
 
     class Meta:
         # ordering =
@@ -145,7 +158,8 @@ class Producto(models.Model):
                                                 numero_compra__estado_compra__estado_orden_compra='CON')
         # hoy = timezone_today()
         # fecha = '%s-%s-01'%(hoy.year,('0%s'%(hoy.month-1) if len(str(hoy.month-1))==1 else (hoy.month-1)))
-        fecha = datetime.date.today() - datetime.timedelta(days=30)
+        # fecha = datetime.date.today() - datetime.timedelta(days=30)
+        fecha = timezone.now() - datetime.timedelta(days=30)
         # print 'Fecha para calculo promedio: %s' % fecha
         detalles = detalles.filter(numero_compra__fecha_compra__gte=fecha)
         total = 0
@@ -312,6 +326,24 @@ class ProductoCompuestoDetalle(models.Model):
     def __unicode__(self):
         return "%s" % self.producto_compuesto
 
+
+class ProductoVenta(Producto):
+    """
+    01/10/2016: Productos disponibles para la Venta.
+
+    Se crea esta vista para filtrar los Productos para la Venta que seran visualizados en la pantalla de Pedidos.
+    No se realiza ninguna carga de datos en esta pantalla.
+    """
+
+    class Meta:
+        proxy = True
+        verbose_name = 'Producto para la Venta'
+        verbose_name_plural = 'Productos - Productos para la Venta'
+
+    def __unicode__(self):
+        return "ID Prod: %s - Prod: %s" % (self.id, self.producto)
+
+
 # ======================================================================================================================
 # class ProductoCompuesto(models.Model):
 #     """
@@ -364,9 +396,9 @@ class ProductoCompuestoDetalle(models.Model):
 #
 #     def __unicode__(self):
 #         return "%s" % self.producto_compuesto
+
+
 # ======================================================================================================================
-
-
 # class Stock2(models.Model):
 #     """
 #     21/06/2016: Registrar inventario y ajustes de inventario.
@@ -377,11 +409,10 @@ class ProductoCompuestoDetalle(models.Model):
 #     producto_stock = models.OneToOneField('Producto', related_name='producto_stock',
 #                                           verbose_name='Producto',
 #                                           help_text='Seleccione el Producto a registrar en el Stock.')
-#     # Manejo de stock minimo. Alertar cuando llega a este minimo.
-#     stock_minimo = models.DecimalField(max_digits=10, decimal_places=3, verbose_name='Stock Minimo',
-#                                        help_text='Cantidad minima del producto a mantener en Stock.')
-#     cantidad_existente = models.DecimalField(max_digits=10, decimal_places=3, verbose_name='Cantidad Existente',
-#                                              help_text='Cantidad existente en Stock.')
+#
+#     # cantidad_existente = models.DecimalField(max_digits=10, decimal_places=3, verbose_name='Cantidad Existente',
+#     #                                          help_text='Cantidad existente en Stock.')
+#
 #     tipo_movimiento = models.ForeignKey('bar.TipoMovimientoStock', default=1,
 #                                         verbose_name='Tipo de Movimiento',
 #                                         help_text='Seleccione el identificador del Tipo de Movimiento de Stock.')
@@ -437,66 +468,81 @@ class ProductoCompuestoDetalle(models.Model):
 #
 #     def __unicode__(self):
 #         return "Prod: %s - Cant. Exist: %s" % (self.producto_stock, self.cantidad_existente)
+
+
 # ======================================================================================================================
+# class Stock(models.Model):
+#     """
+#     21/06/2016: Registrar inventario y ajustes de inventario.
+#
+#     * Listar los Productos y/o Stock disponible.
+#     """
+#     producto_stock = models.OneToOneField('Producto', related_name='producto_stock',
+#                                           verbose_name='Producto',
+#                                           help_text='Seleccione el Producto a registrar en el Stock.')
+#     # Manejo de stock minimo. Alertar cuando llega a este minimo.
+#     stock_minimo = models.DecimalField(max_digits=10, decimal_places=3, verbose_name='Stock Minimo',
+#                                        help_text='Cantidad minima del producto a mantener en Stock.')
+#     cantidad_existente = models.DecimalField(max_digits=10, decimal_places=3, verbose_name='Cantidad Existente',
+#                                              help_text='Cantidad existente en Stock.')
+#
+#     class Meta:
+#         # En la tabla solo puede existir un registro para cada Producto en cada Deposito
+#         # Consultar si es correcto aplicar esta restriccion de esta manera
+#         # 08/08/2016: Finalmente traslade el campo "ubicacion" a StockDetalle
+#         # unique_together = ("producto_stock", "ubicacion")
+#         verbose_name = 'Inventario de Producto'
+#         verbose_name_plural = 'Productos - Inventarios'
+#
+#     # VALIDACIONES/FUNCIONALIDADES
+#     # 1) Controlar que la cantidad_existente no sea menor que el stock_minimo y alertar en caso de ser menor.
+#     # 2) Validar que la cantidad_existente no sea negativa.
+#     # 3) Realizar el calculo de la cantidad_existente (suma total de cantidad_entrante - cantidad_saliente)
+#     # 4) Idear una vista HTML que presente la Cantidad Total Existente del Producto.
+#
+#     def clean(self):
+#         # 2) Valida que la cantidad_existente no sea negativa.
+#         if self.cantidad_existente < 0:
+#             raise ValidationError({'cantidad_existente': _('La cantidad existente del Producto no puede ser menor a '
+#                                                            'cero o negativa.')})
+#
+#     @staticmethod
+#     def verifica_estado_stock():
+#         """
+#         Maneja 3 estados:
+#             Stock suficiente: Se asigna este estado en color Verde cuando la cantidad_existente supera al stock_minimo
+#             Menor a stock minimo: Se asigna este estado en color Amarillo cuando la cantidad_existente es mayor a cero
+#             e igual o menor al stock_minimo.
+#             Sin stock: Se asigna este estado en color Rojo cuando la cantidad_existente es igual a cero.
+#         """
+#
+#     def __unicode__(self):
+#         return "Prod: %s - Cant. Exist: %s" % (self.producto_stock, self.cantidad_existente)
 
 
-class Stock(models.Model):
+# ======================================================================================================================
+class MovimientoStock(models.Model):
     """
-    21/06/2016: Registrar inventario y ajustes de inventario.
+    26/09/2016: Registrar inventario y ajustes de inventario.
+    * Registro de los Movimientos de Inventario.
 
     * Listar los Productos y/o Stock disponible.
     """
-    producto_stock = models.OneToOneField('Producto', related_name='producto_stock',
-                                          verbose_name='Producto',
-                                          help_text='Seleccione el Producto a registrar en el Stock.')
-    # Manejo de stock minimo. Alertar cuando llega a este minimo.
-    stock_minimo = models.DecimalField(max_digits=10, decimal_places=3, verbose_name='Stock Minimo',
-                                       help_text='Cantidad minima del producto a mantener en Stock.')
-    cantidad_existente = models.DecimalField(max_digits=10, decimal_places=3, verbose_name='Cantidad Existente',
-                                             help_text='Cantidad existente en Stock.')
+    TIPOS_MOVIMIENTO_STOCK = (
+        ('VE', 'Venta'),
+        ('CO', 'Compra'),
+        # ('ME', 'Mermas'),
+        ('TR', 'Transferencias'),
+        # ('DE', 'Devoluciones'),
+    )
 
-    class Meta:
-        # En la tabla solo puede existir un registro para cada Producto en cada Deposito
-        # Consultar si es correcto aplicar esta restriccion de esta manera
-        # 08/08/2016: Finalmente traslade el campo "ubicacion" a StockDetalle
-        # unique_together = ("producto_stock", "ubicacion")
-        verbose_name = 'Inventario de Producto'
-        verbose_name_plural = 'Productos - Inventarios'
-
-    # VALIDACIONES/FUNCIONALIDADES
-    # 1) Controlar que la cantidad_existente no sea menor que el stock_minimo y alertar en caso de ser menor.
-    # 2) Validar que la cantidad_existente no sea negativa.
-    # 3) Realizar el calculo de la cantidad_existente (suma total de cantidad_entrante - cantidad_saliente)
-    # 4) Idear una vista HTML que presente la Cantidad Total Existente del Producto.
-
-    def clean(self):
-        # 2) Valida que la cantidad_existente no sea negativa.
-        if self.cantidad_existente < 0:
-            raise ValidationError({'cantidad_existente': _('La cantidad existente del Producto no puede ser menor a '
-                                                           'cero o negativa.')})
-
-    @staticmethod
-    def verifica_estado_stock():
-        """
-        Maneja 3 estados:
-            Stock suficiente: Se asigna este estado en color Verde cuando la cantidad_existente supera al stock_minimo
-            Menor a stock minimo: Se asigna este estado en color Amarillo cuando la cantidad_existente es mayor a cero
-            e igual o menor al stock_minimo.
-            Sin stock: Se asigna este estado en color Rojo cuando la cantidad_existente es igual a cero.
-        """
-
-    def __unicode__(self):
-        return "Prod: %s - Cant. Exist: %s" % (self.producto_stock, self.cantidad_existente)
-
-
-class StockDetalle(models.Model):
-    """
-    Registro de los Movimientos de Inventario.
-    """
-    stock = models.ForeignKey('Stock')
-    tipo_movimiento = models.ForeignKey('bar.TipoMovimientoStock', default=1,
-                                        verbose_name='Tipo de Movimiento',
-                                        help_text='Seleccione el identificador del Tipo de Movimiento de Stock.')
+    # stock = models.ForeignKey('Stock')
+    producto_stock = models.ForeignKey('Producto', related_name='producto_stock',  # default=2,
+                                       verbose_name='Producto',
+                                       help_text='Seleccione el Producto a registrar en el Stock.')
+    tipo_movimiento = models.CharField(max_length=2, choices=TIPOS_MOVIMIENTO_STOCK,
+                                       verbose_name='Tipo de Movimiento',
+                                       help_text='Seleccione el identificador del Tipo de Movimiento de Stock.')
     id_movimiento = models.PositiveIntegerField(verbose_name='ID Movimiento',  # default=1,
                                                 help_text='Identificador del movimiento en el Stock.')
     ubicacion_origen = models.ForeignKey('bar.Deposito', related_name='ubicacion_origen',  # default=6,
@@ -518,64 +564,99 @@ class StockDetalle(models.Model):
                                                                'de este dato.')
 
     class Meta:
-        verbose_name = 'Detalle de Inventario del Producto'
-        verbose_name_plural = 'Productos - Detalles de Inventarios'
+        # En la tabla solo puede existir un registro para cada Producto en cada Deposito
+        # Consultar si es correcto aplicar esta restriccion de esta manera
+        # 08/08/2016: Finalmente traslade el campo "ubicacion" a StockDetalle
+        # unique_together = ("producto_stock", "ubicacion")
+        verbose_name = 'Movimientos de Stock'
+        verbose_name_plural = 'Movimientos de Stock'
 
-    # def __unicode__(self):
-    #     return str(self.producto) + ' - ' + str(self.marca)
+    # VALIDACIONES/FUNCIONALIDADES
+    # 1) Controlar que la cantidad_existente no sea menor que el stock_minimo y alertar en caso de ser menor.
+    # 2) Validar que la cantidad_existente no sea negativa.
+    # 3) Realizar el calculo de la cantidad_existente (suma total de cantidad_entrante - cantidad_saliente)
+    # 4) Idear una vista HTML que presente la Cantidad Total Existente del Producto.
+
+    # def clean(self):
+    #     # 2) Valida que la cantidad_existente no sea negativa.
+    #     if self.cantidad_existente < 0:
+    #         raise ValidationError({'cantidad_existente': _('La cantidad existente del Producto no puede ser menor a '
+    #                                                        'cero o negativa.')})
+
+    @staticmethod
+    def verifica_estado_stock():
+        """
+        Maneja 3 estados:
+            Stock suficiente: Se asigna este estado en color Verde cuando la cantidad_existente supera al stock_minimo
+            Menor a stock minimo: Se asigna este estado en color Amarillo cuando la cantidad_existente es mayor a cero
+            e igual o menor al stock_minimo.
+            Sin stock: Se asigna este estado en color Rojo cuando la cantidad_existente es igual a cero.
+        """
+
+    def __unicode__(self):
+        return "Prod: %s" % self.producto_stock
+
+
 # ======================================================================================================================
+# class IngresoDeposito(models.Model):
+#     """
+#     25/09/2016: Cuando una Compra es confirmada debe generar un registro en esta tabla para que el Encargado del
+#     Deposito ubique los productos en un lugar preciso dentro del Deposito.
+#     """
+#     compra = models.ForeignKey('compras.Compra')
+#     producto = models.ForeignKey('Producto')
+#     piso = models.ForeignKey('bar.Piso')
+#     pasillo = models.ForeignKey('bar.Pasillo')
+#     estante = models.ForeignKey('bar.Estante')
+#     nivel = models.ForeignKey('bar.Nivel')
+#     hilera = models.ForeignKey('bar.Hilera')
+#     camara = models.ForeignKey('bar.CamaraFrigorifica', default=1)
+#
+#     class Meta:
+#         verbose_name = 'Ingreso de Producto a Deposito'
+#         verbose_name_plural = 'Stock - Ingresos de Productos a Deposito'
 
 
-class StockProducto(Stock):
+# ======================================================================================================================
+class InventarioProducto(models.Model):
     """
     Genera una vista con la agrupacion de los movimientos de Stock por Producto calculando el campo "cantidad_existente"
     """
+    producto = models.CharField(max_length=50)
+    stock = models.IntegerField()
 
     class Meta:
         # Definir si va ser una tabla proxy o multitable
         # proxy = True
         verbose_name = 'Inventario por Producto'
         verbose_name_plural = 'Stock - Inventarios por Productos'
+        db_table = 'inventario_por_producto'
+        managed = False
 
 
-class StockDeposito(Stock):
-    """
-    Genera una vista con la agrupacion de los movimientos de Stock por Deposito calculando el campo "cantidad_existente"
-    """
-
-    class Meta:
-        # Definir si va ser una tabla proxy o multitable
-        # proxy = True
-        verbose_name = 'Inventario por Deposito'
-        verbose_name_plural = 'Stock - Inventarios por Depositos'
-
-
-class IngresoDeposito(models.Model):
-    """
-    25/09/2016: Cuando una Compra es confirmada debe generar un registro en esta tabla para que el Encargado del
-    Deposito ubique los productos en un lugar preciso dentro del Deposito.
-    """
-    producto = models.ForeignKey('Producto')
-    piso = models.CharField(max_length=100)
-    pasillo = models.CharField(max_length=100)
-    estante = models.CharField(max_length=100)
-    nivel = models.CharField(max_length=100)
-
-    class Meta:
-        verbose_name = 'Ingreso de Producto a Deposito'
-        verbose_name_plural = 'Stock - Ingresos de Productos a Deposito'
+# class StockDeposito(Stock):
+#     """
+#     Genera una vista con la agrupacion de los movimientos de Stock por Deposito calculando el campo
+#     "cantidad_existente"
+#     """
+#
+#     class Meta:
+#         # Definir si va ser una tabla proxy o multitable
+#         # proxy = True
+#         verbose_name = 'Inventario por Deposito'
+#         verbose_name_plural = 'Stock - Inventarios por Depositos'
 
 
-class StockAjuste(Stock):
-    """
-    25/09/2016: Registrar ajustes de inventario.
-    """
-
-    class Meta:
-        # Definir si va ser una tabla proxy o multitable
-        # proxy = True
-        verbose_name = 'Ajuste de Inventario'
-        verbose_name_plural = 'Stock - Ajustes de Inventario'
+# class StockAjuste(Stock):
+#     """
+#     25/09/2016: Registrar ajustes de inventario.
+#     """
+#
+#     class Meta:
+#         # Definir si va ser una tabla proxy o multitable
+#         # proxy = True
+#         verbose_name = 'Ajuste de Inventario'
+#         verbose_name_plural = 'Stock - Ajustes de Inventario'
 
 
 # ======================================================================================================================
@@ -591,11 +672,16 @@ class TransferenciaStock(models.Model):
 
     Los Depositos que realizan las ventas son los Depositos Operativos exceptuando a la Cocina.
     """
-    producto_transferencia = models.ForeignKey('Stock', related_name='producto_solicitado',
+    producto_transferencia = models.ForeignKey('Producto', related_name='producto_solicitado',
                                                # limit_choices_to={'cantidad_existente' > 0},
-                                               limit_choices_to=Q(cantidad_existente__gt=0),
+                                               # limit_choices_to=Q(cantidad_existente__gt=0),
                                                verbose_name='Producto a Transferir',
                                                help_text='Seleccione el producto a Transferir entre depositos.')
+
+    deposito_origen_transferencia = models.ForeignKey('bar.Deposito', related_name='deposito_proveedor',
+                                                      verbose_name='Deposito Proveedor',
+                                                      help_text='Seleccione el Deposito que se encargara de '
+                                                                'procesar la Transferencia.')
     cantidad_existente_stock = models.DecimalField(max_digits=10, decimal_places=3, default=0,
                                                    verbose_name='Cantidad Existente',
                                                    help_text='Despliega la cantidad existente del Producto en el '
@@ -603,10 +689,11 @@ class TransferenciaStock(models.Model):
     cantidad_producto_transferencia = models.DecimalField(max_digits=10, decimal_places=3,
                                                           verbose_name='Cantidad a Transferir',
                                                           help_text='Cantidad a Transferir del producto.')
-    deposito_solicitante_transferencia = models.ForeignKey('bar.Deposito', related_name='deposito_solicitante',
-                                                           verbose_name='Deposito Solicitante',
-                                                           help_text='Seleccione el Deposito desde donde se solicita '
-                                                                     'la Transferencia.')
+    deposito_destino_transferencia = models.ForeignKey('bar.Deposito', related_name='deposito_solicitante',
+                                                       verbose_name='Deposito Solicitante',
+                                                       help_text='Seleccione el Deposito desde donde se solicita '
+                                                                 'la Transferencia.')
+
     # Se debe registrar el usuario del Solicitante de la Transferencia que deberia ser el usuario logueado.
     usuario_solicitante_transferencia = models.ForeignKey('personal.Empleado', related_name='usuario_solicitante',
                                                           # limit_choices_to='request.user',
@@ -615,10 +702,7 @@ class TransferenciaStock(models.Model):
                                                           help_text='El usuario logueado que realice la solicitud de '
                                                                     'Transferencia sera registrado automaticamente '
                                                                     'como el Solicitante.')
-    deposito_proveedor_transferencia = models.ForeignKey('bar.Deposito', related_name='deposito_proveedor',
-                                                         verbose_name='Deposito Proveedor',
-                                                         help_text='Seleccione el Deposito que se encargara de '
-                                                                   'procesar la Transferencia.')
+
     # Se debe registrar el usuario del Autorizante de la Transferencia que deberia ser el usuario logueado.
     usuario_autorizante_transferencia = models.ForeignKey('personal.Empleado', null=True, blank=True,
                                                           related_name='usuario_autorizante',
@@ -636,6 +720,11 @@ class TransferenciaStock(models.Model):
                                                              help_text='La fecha y hora se asignan al momento de '
                                                                        'guardar los datos de la Transferencia. No se '
                                                                        'requiere el ingreso de este dato.')
+    fecha_hora_autorizacion_transferencia = models.DateTimeField(auto_now=True, null=True, blank=True,
+                                                                 verbose_name='Fecha/hora autorizacion Transferencia',
+                                                                 help_text='La fecha y hora se asignan al momento de '
+                                                                           'autorizarse la Transferencia. No se '
+                                                                           'requiere el ingreso de este dato.')
 
     class Meta:
         verbose_name = 'Transferencias de Productos entre Depositos'
@@ -682,7 +771,7 @@ class SolicitaTransferenciaStock(TransferenciaStock):
 
     def __init__(self, *args, **kwargs):
         super(SolicitaTransferenciaStock, self).__init__(*args, **kwargs)
-        self.estado_transferencia = TransferenciaStockEstado.objects.get(estado_transferencia_stock="PEN")
+        # self.estado_transferencia = TransferenciaStockEstado.objects.get(estado_transferencia_stock="PEN")
         # self.usuario_autorizante_transferencia = Empleado.objects.get(usuario__username='admin')
 
     def __unicode__(self):
@@ -708,33 +797,32 @@ class ConfirmaTransferenciaStock(TransferenciaStock):
     # 3) Las Mermas y Devoluciones podrian ser registrados como Transferencias o Movimientos. Analizar esta
     # alternativa.
 
-    def clean(self):
-        # Valida que el usuario_autorizante_transferencia no sea vacio o nulo, esta condicion no deberia darse ya que
-        # este campo se completa con el dato del usuario logueado al Sistema al momento de confirmar la transferencia.
-        if self.usuario_autorizante_transferencia is None:
-            raise ValidationError({'usuario_autorizante_transferencia': _('Se debe seleccionar el Usuario Autorizante '
-                                                                          'de la Transferencia que debe ser el usuario '
-                                                                          'logueado al Sistema.')})
+    # def clean(self):
+    #     # Valida que el usuario_autorizante_transferencia no sea vacio o nulo, esta condicion no deberia darse ya que
+    #     # este campo se completa con el dato del usuario logueado al Sistema al momento de confirmar la transferencia.
+    #     if self.usuario_autorizante_transferencia is None:
+    #         raise ValidationError({'usuario_autorizante_transferencia': _('Se debe seleccionar el Usuario Autorizante '
+    #                                                                       'de la Transferencia que debe ser el usuario '
+    #                                                                       'logueado al Sistema.')})
 
     def __unicode__(self):
         return "ID: %s - Prod. Trans: %s" % (self.id, self.producto_transferencia)
+
 # ======================================================================================================================
-
-
+# En la revision del 07/09/2016 con el Prof. Diego Ruiz Diaz Gamarra me indico que podiamos descartar programar
+# las pantallas de Devoluciones y Mermas en el modulo de Stock.
+#
 # class Mermas(models.Model):
 #     """
 #     21/06/2016: Registrar mermas de productos. Las mermas descuentan el stock existente.
 #     """
-
-
+#
+#
 # class Devolucion(models.Model):
 #     """
 #     Cuando la Compra llega a los estados de CON o CAN ya no puede volver a ser modificada.
 #     En el caso de que una Compra confirmada deba ser devuelta se debe registrar el proceso en el modelo de
 #     Devoluciones.
-#
-#     En la revision del 07/09/2016 con el Prof. Diego Ruiz Diaz Gamarra me indico que podiamos descartar programar
-#     la pantalla de Devoluciones en el modulo de Stock.
 #     """
 #
 #     class Meta:

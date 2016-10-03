@@ -45,6 +45,7 @@ urlpatterns = [
     url(r'^compras/', include('compras.urls', namespace='compras')),
     url(r'^clientes/', include('clientes.urls')),
     url(r'^stock/', include('stock.urls', namespace='stock')),
+    url(r'^ventas/', include('ventas.urls', namespace='ventas')),
     # url(r'^grappelli/', include('grappelli.urls')),
     url(r'^bar/', include('bar.urls', namespace='bar')),
     url(r'^admin/', include(admin.site.urls)),

@@ -2,8 +2,9 @@ from django.contrib import admin
 
 # Register your models here.
 # from bar.forms import PaisForm
-from .models import ReservaEstado, Mesa, MesaEstado, MesaUbicacion, Caja, CajaEstado, CajaUbicacion, Documento, \
-    Persona, FormaPagoVenta, FormaPagoCompra, TipoDeposito, Deposito, CategoriaProducto, SubCategoriaProducto, \
+from bar.forms import TimbradoForm
+from .models import ReservaEstado, Mesa, MesaEstado, MesaUbicacion, Caja, CajaUbicacion, Documento, \
+    Persona, FormaPagoCompra, TipoDeposito, Deposito, CategoriaProducto, SubCategoriaProducto, \
     TipoProducto, UnidadMedidaProducto, Moneda, Cotizacion, CodigoPaisTelefono, CodigoOperadoraTelefono, Pais, \
     Ciudad, CompraEstado, OrdenCompraEstado, PedidoEstado, VentaEstado, Timbrado, FacturaVenta, TipoMovimientoStock, \
     TransferenciaStockEstado, TipoFacturaCompra
@@ -40,15 +41,25 @@ class MesaUbicacionAdmin(admin.ModelAdmin):
 
 
 class CajaAdmin(admin.ModelAdmin):
-    list_display = ('id', 'numero_caja', 'ubicacion', 'estado')
-    list_filter = ['id', 'numero_caja', 'ubicacion', 'estado']
-    search_fields = ['id', 'numero_caja', 'ubicacion', 'estado']
+
+    fieldsets = [
+        ('Datos Caja', {'fields': ['numero_caja', 'ubicacion', 'estado_caja']}),
+        ('Datos Tributarios', {'fields': ['punto_expedicion', 'marca', 'modelo_fabricacion', 'numero_serie']}),
+    ]
+
+    list_display = ['id', 'numero_caja', 'ubicacion', 'punto_expedicion', 'marca', 'modelo_fabricacion', 'numero_serie',
+                    'estado_caja']
+    list_display_links = ['numero_caja']
+    list_filter = ['numero_caja', 'ubicacion', 'punto_expedicion', 'marca', 'modelo_fabricacion', 'numero_serie',
+                   'estado_caja']
+    search_fields = ['numero_caja', 'ubicacion', 'punto_expedicion', 'marca', 'modelo_fabricacion', 'numero_serie',
+                     'estado_caja']
 
 
-class CajaEstadoAdmin(admin.ModelAdmin):
-    list_display = ('id', 'caja_estado', 'descripcion')
-    list_filter = ['id', 'caja_estado', 'descripcion']
-    search_fields = ['id', 'caja_estado', 'descripcion']
+# class CajaEstadoAdmin(admin.ModelAdmin):
+#     list_display = ('id', 'caja_estado', 'descripcion')
+#     list_filter = ['id', 'caja_estado', 'descripcion']
+#     search_fields = ['id', 'caja_estado', 'descripcion']
 
 
 class CajaUbicacionAdmin(admin.ModelAdmin):
@@ -69,10 +80,11 @@ class PersonaAdmin(admin.ModelAdmin):
     search_fields = ['id', 'persona']
 
 
-class FormaPagoVentaAdmin(admin.ModelAdmin):
-    list_display = ('id', 'forma_pago_venta')
-    list_filter = ['id', 'forma_pago_venta']
-    search_fields = ['id', 'forma_pago_venta']
+# class FormaPagoVentaAdmin(admin.ModelAdmin):
+#     list_display = ['id', 'forma_pago_venta']
+#     list_display_links = ['forma_pago_venta']
+#     list_filter = ['id', 'forma_pago_venta']
+#     search_fields = ['id', 'forma_pago_venta']
 
 
 class FormaPagoCompraAdmin(admin.ModelAdmin):
@@ -185,20 +197,23 @@ class VentaEstadoAdmin(admin.ModelAdmin):
 
 
 class TimbradoAdmin(admin.ModelAdmin):
-    readonly_fields = ()
+    form = TimbradoForm
+
+    readonly_fields = []
 
     fieldsets = [
-        ('Empresa', {'fields': ['empresa']}),
+        # ('Empresa', {'fields': ['empresa']}),
         ('Timbrado', {'fields': ['timbrado', 'descripcion_timbrado', 'estado_timbrado']}),
         ('Fechas', {'fields': ['fecha_autorizacion_timbrado', 'fecha_limite_vigencia_timbrado']}),
     ]
 
-    list_display = ('id', 'empresa', 'timbrado', 'descripcion_timbrado', 'estado_timbrado',
-                    'fecha_autorizacion_timbrado', 'fecha_limite_vigencia_timbrado')
-    list_filter = ['id', 'empresa', 'timbrado', 'descripcion_timbrado', 'estado_timbrado',
+    list_display = ['id', 'timbrado', 'descripcion_timbrado', 'estado_timbrado',
+                    'fecha_autorizacion_timbrado', 'fecha_limite_vigencia_timbrado']
+    list_display_links = ['timbrado']
+    list_filter = ['id', 'timbrado', 'descripcion_timbrado', 'estado_timbrado',
                    'fecha_autorizacion_timbrado', 'fecha_limite_vigencia_timbrado']
-    search_fields = ('id', 'empresa', 'timbrado', 'descripcion_timbrado', 'estado_timbrado',
-                     'fecha_autorizacion_timbrado', 'fecha_limite_vigencia_timbrado')
+    search_fields = ['id', 'timbrado', 'descripcion_timbrado', 'estado_timbrado',
+                     'fecha_autorizacion_timbrado', 'fecha_limite_vigencia_timbrado']
 
 
 # class FacturaAdmin(admin.ModelAdmin):
@@ -224,11 +239,11 @@ admin.site.register(Mesa, MesaAdmin)
 admin.site.register(MesaEstado, MesaEstadoAdmin)
 admin.site.register(MesaUbicacion, MesaUbicacionAdmin)
 admin.site.register(Caja, CajaAdmin)
-admin.site.register(CajaEstado, CajaEstadoAdmin)
+# admin.site.register(CajaEstado, CajaEstadoAdmin)
 admin.site.register(CajaUbicacion, CajaUbicacionAdmin)
 admin.site.register(Documento, DocumentoAdmin)
 admin.site.register(Persona, PersonaAdmin)
-admin.site.register(FormaPagoVenta, FormaPagoVentaAdmin)
+# admin.site.register(FormaPagoVenta, FormaPagoVentaAdmin)
 admin.site.register(FormaPagoCompra, FormaPagoCompraAdmin)
 admin.site.register(TipoDeposito, TipoDepositoAdmin)
 admin.site.register(Deposito, DepositoAdmin)

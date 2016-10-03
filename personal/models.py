@@ -83,6 +83,11 @@ class Empleado(models.Model):
     #     value = randint(001, 999)
     #     self._codigo_venta = value
 
+    @property
+    def nombre_completo(self):
+        return "%s %s" % (self.nombres, self.apellidos)
+    # nombre_completo.short_description = 'Nombre Completo Empleado'
+
     def __init__(self, *args, **kwargs):
         # if not self.id:
         empresa = Empresa.objects.get(pk=9)

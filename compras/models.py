@@ -10,7 +10,7 @@ from django.utils import timezone
 from django.core.exceptions import ValidationError
 from django.utils.translation import ugettext_lazy as _
 from django.utils.safestring import mark_safe
-from bar.models import CompraEstado, OrdenCompraEstado
+from bar.models import CompraEstado, OrdenCompraEstado, FacturaProveedorEstado
 
 # Create your models here.
 
@@ -141,11 +141,12 @@ class LineaCreditoProveedor(models.Model):
                                                                        'diferencia entre el Monto de la Linea de '
                                                                        'Credito y el Monto Utilizado de la Linea de '
                                                                        'Credito.')
+    # estado_linea_credito_proveedor = models.ForeignKey('bar.LineaCreditoProveedorEstado',  # default=1,
     estado_linea_credito_proveedor = models.CharField(max_length=3, choices=ESTADOS_LINEA_CREDITO,
                                                       blank=True,  # default='DEL', # unique=True,
                                                       verbose_name='Estado Linea de Credito',
-                                                      help_text='Se asigna automaticamente de acuerdo a la utilizacion '
-                                                                'de la Linea de Credito.')
+                                                      help_text='Se asigna automaticamente de acuerdo a la '
+                                                                'utilizacion de la Linea de Credito.')
     # help_text='Solo una Linea de Credito puede estar activa. '
     #         'La intencion es llevar un control de los cambios '
     #         'de la Linea de Credito en el tiempo.')
@@ -288,12 +289,6 @@ class OrdenPago(models.Model):
     """
     11/09/2016: Registra los datos de las Ordenes de Pago de facturas de los Proveedores.
     """
-    ESTADOS_ORDEN_PAGO = (
-        ('PEN', 'Pendiente'),
-        ('CON', 'Confirmada'),
-        ('ANU', 'Anulada'),
-        ('CAN', 'Cancelada'),
-    )
     numero_orden_pago = models.AutoField(primary_key=True,
                                          verbose_name='Numero Orden de Pago',
                                          help_text='Este dato se genera automaticamente cada vez que se va crear '
@@ -315,13 +310,14 @@ class OrdenPago(models.Model):
                                                     help_text='Usuario que registro la Orden de Pago.')
     total_orden_pago = models.DecimalField(max_digits=18, decimal_places=0, default=0,  # blank=True,
                                            verbose_name='Total Orden de Pago')  # blank=False (Default is False)
-    estado_orden_pago = models.CharField(max_length=3, choices=ESTADOS_ORDEN_PAGO,  # default='PEN',
-                                         blank=True,  # unique=True,
-                                         verbose_name='Estado Orden de Pago',
-                                         help_text='Se asigna automaticamente de acuerdo a la accion que se realice'
-                                                   'con la Orden de Pago.')
+    # estado_orden_pago = models.CharField(max_length=3, choices=ESTADOS_ORDEN_PAGO,  # default='PEN',
+    estado_orden_pago = models.ForeignKey('bar.OrdenPagoEstado',  # default=1,
+                                          blank=True,  # unique=True,
+                                          verbose_name='Estado Orden de Pago',
+                                          help_text='Se asigna automaticamente de acuerdo a la accion que se realice '
+                                                    'con la Orden de Pago.')
 
-    motivo_anulacion = models.CharField(max_length=50, null=True, blank=True)
+    motivo_anulacion = models.CharField(max_length=200, null=True, blank=True)
     observaciones_anulacion = models.CharField(max_length=200, null=True, blank=True)
     usuario_anulacion = models.ForeignKey('personal.Empleado', null=True, blank=True,
                                           related_name='usuario_anulacion_orden_pago',
@@ -388,11 +384,12 @@ class OrdenPagoDetalle(models.Model):
                                                verbose_name='Monto Total de la Factura',
                                                help_text='Este valor se calcula automaticamente en funcion al detalle '
                                                          'de la Compra.')
-    estado_factura_compra = models.CharField(max_length=3, choices=ESTADOS_FACTURA_COMPRA,
-                                             blank=True,  # default="EPP",
-                                             verbose_name='Estado de la Factura',
-                                             help_text='Indique el Estado de la Factura de la Compra de acuerdo a los '
-                                                       'pagos aplicados para la misma.')
+    # estado_factura_compra = models.CharField(max_length=3, choices=ESTADOS_FACTURA_COMPRA,
+    estado_factura_compra = models.ForeignKey('bar.FacturaProveedorEstado',  # default=1,
+                                              blank=True,  # default="EPP",
+                                              verbose_name='Estado de la Factura',
+                                              help_text='Indique el Estado de la Factura de la Compra de acuerdo a los '
+                                                        'pagos aplicados para la misma.')
     procesado = models.BooleanField(default=False, verbose_name='Procesar?',
                                     help_text='Marque esta casilla si la factura sera incluida en la Orden de Pago.')
 
@@ -450,13 +447,6 @@ class FacturaProveedor(models.Model):
     """
     Registrar facturas pendienes de pago.
     """
-    ESTADOS_FACTURA_COMPRA = (
-        # ('PEN', 'Pendiente'),
-        ('EPP', 'En Plazo de Pago'),
-        ('FPP', 'Fuera del Plazo de Pago'),
-        ('PAG', 'Pagada'),
-        ('CAN', 'Cancelada'),
-    )
     # Filtrar las Compras que estan pendientes de pago
     compra = models.ForeignKey('Compra', limit_choices_to={'estado_compra__estado_orden_compra': "ENT"},
                                verbose_name='Compra Asociada',
@@ -470,31 +460,32 @@ class FacturaProveedor(models.Model):
 
     numero_factura_compra = models.CharField(max_length=15,  # blank=True,  # default=1,
                                              # validators=[numero_factura],
-                                             verbose_name='Numero de Factura Compra',
+                                             verbose_name='Numero de Factura',
                                              help_text='Ingrese el Numero de Factura que acompana la Compra.')
     fecha_factura_compra = models.DateField(default=datetime.date.today,
-                                            verbose_name='Fecha de la Factura Compra',
+                                            verbose_name='Fecha de la Factura',
                                             help_text='Ingrese la fecha de la Factura.')
-    tipo_factura_compra = models.ForeignKey('bar.TipoFacturaCompra', verbose_name='Tipo de Factura Compra',
+    tipo_factura_compra = models.ForeignKey('bar.TipoFacturaCompra', verbose_name='Tipo de Factura',
                                             help_text='Seleccione el Tipo de Factura.')
-    forma_pago_compra = models.ForeignKey('bar.FormaPagoCompra', verbose_name='Forma de Pago Compra',
+    forma_pago_compra = models.ForeignKey('bar.FormaPagoCompra', verbose_name='Forma de Pago',
                                           help_text='Seleccione la Forma de Pago para esta Factura.')
-    plazo_factura_compra = models.PositiveIntegerField(verbose_name='Plazo de Pago Compra',
+    plazo_factura_compra = models.PositiveIntegerField(verbose_name='Plazo de Pago',
                                                        help_text='En caso de Credito establecer el plazo de tiempo en '
                                                                  'dias para el pago.')
     total_factura_compra = models.DecimalField(max_digits=18, decimal_places=0, default=0,
-                                               verbose_name='Monto Total de la Factura Compra',
+                                               verbose_name='Monto Total de la Factura',
                                                help_text='Este valor se calcula automaticamente en funcion al detalle '
                                                          'de la Compra.')
     total_pago_factura = models.DecimalField(max_digits=18, decimal_places=0, default=0,
-                                             verbose_name='Monto Total Pagado de la Factura Compra',
+                                             verbose_name='Monto Total Pagado de la Factura',
                                              help_text='Este valor se calcula automaticamente en funcion a los pagos '
                                                        'registrados para la Factura.')
-    estado_factura_compra = models.CharField(max_length=3, choices=ESTADOS_FACTURA_COMPRA,
-                                             blank=True,  # default="EPP",
-                                             verbose_name='Estado de la Factura Compra',
-                                             help_text='Indique el Estado de la Factura de la Compra de acuerdo a los '
-                                                       'pagos aplicados para la misma.')
+    # estado_factura_compra = models.CharField(max_length=3, choices=ESTADOS_FACTURA_COMPRA,
+    estado_factura_compra = models.ForeignKey('bar.FacturaProveedorEstado',  # default=1,
+                                              blank=True,  # default="EPP",
+                                              verbose_name='Estado de la Factura',
+                                              help_text='Indique el Estado de la Factura de la Compra de acuerdo a los '
+                                                        'pagos aplicados para la misma.')
 
     class Meta:
         # No deben existir dos Facturas con el mismo numero para un mismo Proveedor en la tabla.
@@ -524,9 +515,9 @@ class FacturaProveedor(models.Model):
         return total_pagos
 
     def get_estado_factura_compra(self):
-        estado_factura_compra = "EPP"
+        estado_factura_compra = FacturaProveedorEstado.objects.get(estado_factura_proveedor="EPP")
         if self.get_total_pago_factura() >= self.total_factura_compra:
-            estado_factura_compra = "PAG"
+            estado_factura_compra = FacturaProveedorEstado.objects.get(estado_factura_proveedor="PAG")
         if self.get_total_pago_factura() < self.total_factura_compra:
             today = datetime.date.today()
             if self.tipo_factura_compra.tipo_factura_compra == 'CRE':
@@ -536,11 +527,11 @@ class FacturaProveedor(models.Model):
                 # print 'calculo: %s' % calculo
                 if calculo < today:
                     # estado = OrdenCompraEstado.objects.get(estado_orden_compra='PEP')
-                    estado_factura_compra = 'FPP'
+                    estado_factura_compra = FacturaProveedorEstado.objects.get(estado_factura_proveedor='FPP')
                     # factura.save()
             elif self.tipo_factura_compra.tipo_factura_compra == 'CON':
                 if self.fecha_factura_compra < today:
-                    estado_factura_compra = 'FPP'
+                    estado_factura_compra = FacturaProveedorEstado.objects.get(estado_factura_proveedor='FPP')
         return estado_factura_compra
 
     def __unicode__(self):
@@ -570,11 +561,11 @@ class Empresa(Proveedor):
     """
     Prueba de Multi-table Model inheritance.
     """
-    # timbrado = models.ForeignKey('bar.Timbrado')
     logo_empresa = models.ImageField(upload_to='compras/empresa/', verbose_name='Archivo de Logo',
                                      help_text='Seleccione el archivo con el logo de la Empresa.')
     fecha_apertura = models.DateField(verbose_name='Fecha de Apertura',
                                       help_text='Indique la Fecha de Apertura de la Empresa.')
+    timbrado = models.ForeignKey('bar.Timbrado', limit_choices_to={'estado_timbrado': "AC"})
     codigo_establecimiento = models.CharField(max_length=3, default="001",
                                               verbose_name='Codigo de Establecimiento',
                                               help_text='Ingrese el Codigo de Establecimiento.')
@@ -633,7 +624,7 @@ class OrdenCompra(models.Model):
 
     # id = models.AutoField(primary_key=True)
     numero_orden_compra = models.AutoField(primary_key=True,
-                                           verbose_name='Numero Orden de Compra',
+                                           verbose_name='Nro. Orden Compra',
                                            help_text='Este dato se genera automaticamente cada vez que se va crear '
                                                      'una Orden de Compra.')
     # ===============================================================================================================
@@ -680,13 +671,18 @@ class OrdenCompra(models.Model):
                                                       # to_field='usuario',
                                                       verbose_name='Preparado por?',
                                                       help_text='Usuario que registro la Orden de Compra.')
-
+    usuario_modifica_orden_compra = models.ForeignKey('personal.Empleado', null=True, blank=True,  # default=17,
+                                                      related_name='usuario_modifica',
+                                                      # limit_choices_to='',
+                                                      # to_field='usuario',
+                                                      verbose_name='Modificado por?',
+                                                      help_text='Usuario que modifico la Orden de Compra.')
     # Calcular la suma de todos los totales de compra de cada producto
     # Debe ir en la cabecera y no en el detalle
     total_orden_compra = models.DecimalField(max_digits=18, decimal_places=0, default=0,
-                                             verbose_name='Total')  # blank=False (Default is False)
+                                             verbose_name='Total Ord. Compra')  # blank=False (Default is False)
 
-    motivo_cancelacion = models.CharField(max_length=50, null=True, blank=True)
+    motivo_cancelacion = models.CharField(max_length=200, null=True, blank=True)
     observaciones_cancelacion = models.CharField(max_length=200, null=True, blank=True)
     usuario_cancelacion = models.ForeignKey('personal.Empleado', null=True, blank=True,
                                             related_name='usuario_cancelacion_orden_compra',
@@ -800,7 +796,7 @@ class OrdenCompraDetalle(models.Model):
                                               verbose_name='Producto',
                                               help_text='Seleccione un Producto a ordenar.')
     precio_producto_orden_compra = models.DecimalField(max_digits=18, decimal_places=0,
-                                                       verbose_name='Precio Compra del Producto',
+                                                       verbose_name='Precio Compra Producto',
                                                        help_text='Ingrese el precio de compra del producto definido '
                                                                  'por el proveedor.')
 
@@ -808,16 +804,16 @@ class OrdenCompraDetalle(models.Model):
     # Visualmente seria conveniente que el usuario vea la Unidad de Medida de Compra del Producto
     # en el detalle de la Orden de Compra.
     unidad_medida_orden_compra = models.ForeignKey('bar.UnidadMedidaProducto',  # default=1, # to_field='unidad_medida',
-                                                   verbose_name='Unidad de Medida del Producto',
+                                                   verbose_name='Un. Med. Compra Producto',
                                                    help_text='Debe ser la definida en los datos del Producto, no '
                                                              'debe ser seleccionada por el usuario.')
 
     cantidad_producto_orden_compra = models.DecimalField(max_digits=10, decimal_places=3,
-                                                         verbose_name='Cantidad del Producto',
+                                                         verbose_name='Cantidad Producto',
                                                          help_text='Ingrese la cantidad a adquirir del producto.')
     # Calcular "cantidad_producto_orden_compra" x "precio_producto_orden_compra"
     total_producto_orden_compra = models.DecimalField(max_digits=18, decimal_places=0, default=0,
-                                                      verbose_name='Total del Producto',
+                                                      verbose_name='Total Producto',
                                                       help_text='Este valor se calcula automaticamente tomando el '
                                                                 'Precio del Producto por la Cantidad del Producto.')
 
@@ -895,7 +891,7 @@ class Compra(models.Model):
     #                                                            'misma sea a Credito.')
 
     fecha_compra = models.DateTimeField(auto_now=True,  # editable=True, default=timezone.now(),
-                                        verbose_name='Fecha y hora Compra',
+                                        verbose_name='Fecha/hora Compra',
                                         help_text='La fecha y hora se asignan al momento de guardar los datos de la '
                                                   'Compra. No se requiere el ingreso de este dato.')
     # Utilizar los Estados de la Orden de Compra
@@ -915,7 +911,7 @@ class Compra(models.Model):
                                        verbose_name='Total Compra',
                                        help_text='Este campo se calcula en funcion al detalle de la Compra.')
 
-    motivo_cancelacion = models.CharField(max_length=50, null=True, blank=True)
+    motivo_cancelacion = models.CharField(max_length=200, null=True, blank=True)
     observaciones_cancelacion = models.CharField(max_length=200, null=True, blank=True)
     usuario_cancelacion = models.ForeignKey('personal.Empleado', null=True, blank=True,
                                             related_name='usuario_cancelacion_compra',
@@ -924,6 +920,9 @@ class Compra(models.Model):
                                             verbose_name='Cancelado por?',
                                             help_text='Usuario que cancelo la Compra.')
     fecha_hora_cancelacion = models.DateTimeField(null=True, blank=True)
+
+    # Para el caso de posibilitar la anulacion de una Compra.
+    # anulado = models.BooleanField(default=False)
 
     class Meta:
         # proxy = True
@@ -981,7 +980,7 @@ class CompraDetalle(models.Model):
     # Visualmente seria conveniente que el usuario vea la Unidad de Medida de Compra del Producto
     # en el detalle de la Orden de Compra.
     unidad_medida_compra = models.ForeignKey('bar.UnidadMedidaProducto', default=1,  # to_field='unidad_medida',
-                                             verbose_name='Unidad de Medida Compra Producto',
+                                             verbose_name='Un. Med. Compra Producto',
                                              help_text='Debe ser la definida en los datos del Producto, no debe '
                                                        'ser seleccionada por el usuario.')
 

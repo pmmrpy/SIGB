@@ -14,7 +14,16 @@ django.jQuery(document).ready(function(){
     console.log($.fn.jquery);
 
     //Prueba de Masked Input Plugin
-    $("#id_numero_factura_compra").mask('000-000-0000000', {placeholder: "___-___-_______"}, {clearIfNotMatch: true});
+
+    var options =  {
+        onInvalid: function(val, e, f, invalid, options){
+            var error = invalid[0];
+            $("#id_numero_factura_compra").val('')
+        },
+        placeholder: "___-___-_______", clearIfNotMatch: true
+    };
+
+    $("#id_numero_factura_compra").mask('000-000-0000000', options);
     //$("#id_numero_factura_compra").mask("999-999-9999999",{completed:function(){alert("Ejecutado el mask: "+this.val());}});
     //$("#product").mask("99/99/9999",{completed:function(){alert("You typed the following: "+this.val());}});
     //$("#id_disponible_linea_credito_proveedor").mask('#.##0', {reverse: true});

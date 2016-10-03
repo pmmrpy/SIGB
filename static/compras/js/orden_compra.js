@@ -11,7 +11,7 @@ django.jQuery(document).ready(function(){
         var indice = this.name.split('-')[1];
         var cantidad = $('#id_ordencompradetalle_set-'+indice+'-cantidad_producto_orden_compra').val();
         var total =  ((this.value)? parseFloat(this.value) : 0)*(cantidad? cantidad : 0);
-        $('#id_ordencompradetalle_set-'+indice+'-total_producto_orden_compra').val(total)
+        $('#id_ordencompradetalle_set-'+indice+'-total_producto_orden_compra').val(total);
         set_total();
     });
 
@@ -19,7 +19,7 @@ django.jQuery(document).ready(function(){
         var indice = this.name.split('-')[1];
         var precio = $('#id_ordencompradetalle_set-'+indice+'-precio_producto_orden_compra').val();
         var total =  ((this.value)? parseFloat(this.value) : 0)*(precio? precio : 0);
-        $('#id_ordencompradetalle_set-'+indice+'-total_producto_orden_compra').val(total)
+        $('#id_ordencompradetalle_set-'+indice+'-total_producto_orden_compra').val(total);
         set_total();
     });
 
@@ -27,16 +27,32 @@ django.jQuery(document).ready(function(){
          set_linea_credito(this.value);
      });
 
+    //Opcion programada con Delia en Roshka para recalcular el Total de la Orden de Compra si se checkea para
+    // eliminar un producto en el detalle
+    //$('input[type=checkbox]').on('change', function() {
+    //    var suma = 0;
+    //    $('input[type=checkbox]').each(function (key, value) {
+    //        var a = $(value).is(':checked');
+    //        if (a == false) {
+    //            suma = suma + parseFloat(value.parentElement.parentElement.children[3].children[0].value)
+    //        }
+    //    });
+    //    $('#id_total_orden_compra').val(suma);
+    //});
+
     $('input[type=checkbox]').on('change', function() {
         var suma = 0;
         $('input[type=checkbox]').each(function (key, value) {
+            var indice = this.name.split('-')[1];
+            var total_producto = $('#id_ordencompradetalle_set-'+indice+'-total_producto_orden_compra').val();
             var a = $(value).is(':checked');
             if (a == false) {
-                suma = suma + parseFloat(value.parentElement.parentElement.children[3].children[0].value)
+                suma = suma + parseFloat(total_producto)
             }
         });
         $('#id_total_orden_compra').val(suma);
     });
+
 
     // Cuando se elimina un item del inline se debe actualizar el Total de la Orden de Compra
     $('.inline-deletelink').click(function (){

@@ -165,13 +165,25 @@ WSGI_APPLICATION = 'SIGB.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/1.8/ref/settings/#databases
+# ===> PRODUCCION <===
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql_psycopg2',
+#         'NAME': 'SIGB',
+#         'USER': 'sigbadmin',
+#         'PASSWORD': 'sigbadmin',
+#         'HOST': '',
+#         'PORT': '',
+#     }
+# }
 
+# ===> DESARROLLO <===
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': 'SIGB',
-        'USER': 'sigbadmin',
-        'PASSWORD': 'sigbadmin',
+        'NAME': 'SIGB_desarrollo',
+        'USER': 'postgres',
+        'PASSWORD': 'postgres',
         'HOST': '',
         'PORT': '',
     }

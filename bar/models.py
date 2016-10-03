@@ -102,6 +102,11 @@ class Caja(models.Model):
     """
     Datos de las Cajas.
     """
+    ESTADOS_CAJA = (
+        ('ABI', 'Abierta'),
+        ('CER', 'Cerrada'),
+        ('CLA', 'Clausurada')
+    )
     numero_caja = models.PositiveIntegerField(verbose_name='Numero de Caja', unique=True,
                                               help_text='Ingrese el Numero de Caja.')
     ubicacion = models.ForeignKey('CajaUbicacion')
@@ -117,7 +122,9 @@ class Caja(models.Model):
     numero_serie = models.CharField(max_length=20, default="1234567890",
                                     verbose_name='Numero de Serie',
                                     help_text='Ingrese el numero de serie de la Caja.')
-    estado = models.ForeignKey('CajaEstado')
+    estado_caja = models.CharField(max_length=3, choices=ESTADOS_CAJA, default='CER',
+                                   verbose_name='Estado de la Caja',
+                                   help_text='Seleccione el identificador del Estado de la Caja.')
 
     class Meta:
         verbose_name = 'Caja'
@@ -127,26 +134,26 @@ class Caja(models.Model):
         return "%s - %s" % (self.numero_caja, self.ubicacion)
 
 
-class CajaEstado(models.Model):
-    """
-    Diversos ESTADOS que puede tener una Caja.
-    """
-    ESTADOS_CAJA = (
-        ('AB', 'Abierta'),
-        ('CE', 'Cerrada'),
-        ('CL', 'Clausurada')
-    )
-    caja_estado = models.CharField(max_length=2, choices=ESTADOS_CAJA, verbose_name='Estado de la Caja',
-                                   help_text='Ingrese el identificador del Estado de la Caja. (Hasta 2 caracteres')
-    descripcion = models.CharField(max_length=200, verbose_name='Descripcion del Estado',
-                                   help_text='Ingrese la descripcion del Estado de la Caja. (Hasta 200 caracteres)')
-
-    class Meta:
-        verbose_name = 'Caja - Estado'
-        verbose_name_plural = 'Cajas - Estados'
-
-    def __unicode__(self):
-        return "%s" % (self.get_caja_estado_display())
+# class CajaEstado(models.Model):
+#     """
+#     Diversos ESTADOS que puede tener una Caja.
+#     """
+#     ESTADOS_CAJA = (
+#         ('AB', 'Abierta'),
+#         ('CE', 'Cerrada'),
+#         ('CL', 'Clausurada')
+#     )
+#     caja_estado = models.CharField(max_length=2, choices=ESTADOS_CAJA, verbose_name='Estado de la Caja',
+#                                    help_text='Ingrese el identificador del Estado de la Caja. (Hasta 2 caracteres')
+#     descripcion = models.CharField(max_length=200, verbose_name='Descripcion del Estado',
+#                                    help_text='Ingrese la descripcion del Estado de la Caja. (Hasta 200 caracteres)')
+#
+#     class Meta:
+#         verbose_name = 'Caja - Estado'
+#         verbose_name_plural = 'Cajas - Estados'
+#
+#     def __unicode__(self):
+#         return "%s" % (self.get_caja_estado_display())
 
 
 class CajaUbicacion(models.Model):
@@ -219,25 +226,26 @@ class Persona(models.Model):
         return "%s" % (self.get_persona_display())
 
 
-class FormaPagoVenta(models.Model):
-    """
-    Registra las opciones de Formas de Pagos disponibles para cerrar ventas.
-    No se aceptan Pagares ni Cheques.
-    """
-    FORMAS_PAGO_VENTA = (
-        ('CO', 'Contado'),
-        ('TC', 'Tarjeta de Credito'),
-        ('TD', 'Tarjeta de Debito'),
-    )
-    forma_pago_venta = models.CharField(max_length=2, choices=FORMAS_PAGO_VENTA,
-                                        verbose_name='Forma de Pago Venta')
-
-    class Meta:
-        verbose_name = 'Forma de Pago - Venta'
-        verbose_name_plural = 'Formas de Pago - Venta'
-
-    def __unicode__(self):
-        return "%s" % self.get_forma_pago_venta_display()
+# class FormaPagoVenta(models.Model):
+#     """
+#     Registra las opciones de Formas de Pagos disponibles para cerrar ventas.
+#     No se aceptan Pagares ni Cheques.
+#     """
+#     FORMAS_PAGO_VENTA = (
+#         ('CO', 'Contado'),
+#         ('TC', 'Tarjeta de Credito'),
+#         ('TD', 'Tarjeta de Debito'),
+#         ('OM', 'Otros medios'),
+#     )
+#     forma_pago_venta = models.CharField(max_length=2, choices=FORMAS_PAGO_VENTA,
+#                                         verbose_name='Forma de Pago Venta')
+#
+#     class Meta:
+#         verbose_name = 'Forma de Pago - Venta'
+#         verbose_name_plural = 'Formas de Pago - Venta'
+#
+#     def __unicode__(self):
+#         return "%s" % self.get_forma_pago_venta_display()
 
 
 class FormaPagoCompra(models.Model):
@@ -262,6 +270,7 @@ class FormaPagoCompra(models.Model):
         return "%s - %d dias" % (self.get_forma_pago_compra_display(), self.plazo_compra)
 
 
+# ======================================================================================================================
 class TipoDeposito(models.Model):
     """
     Tipos de Depositos.
@@ -307,6 +316,16 @@ class Deposito(models.Model):
     descripcion = models.CharField(max_length=200, verbose_name='Descripcion del Deposito',
                                    help_text='Ingrese la descripcion del Deposito. (Hasta 200 caracteres)')
     tipo_deposito = models.ForeignKey('TipoDeposito')
+    piso = models.PositiveIntegerField(default=1,
+                                       verbose_name='Cantidad de Pisos')
+    pasillo = models.PositiveIntegerField(default=3,
+                                          verbose_name='Cantidad de Pasillos')
+    estante = models.PositiveIntegerField(default=5,
+                                          verbose_name='Cantidad de Estantes')
+    nivel = models.PositiveIntegerField(default=5,
+                                        verbose_name='Cantidad de Niveles')
+    hilera = models.PositiveIntegerField(default=10,
+                                         verbose_name='Cantidad de Hileras')
 
     class Meta:
         verbose_name = 'Deposito'
@@ -316,6 +335,69 @@ class Deposito(models.Model):
         return "%s - %s" % (self.deposito, self.descripcion)
 
 
+class Piso(models.Model):
+    deposito = models.ForeignKey('Deposito', related_name='deposito_piso',)
+    piso = models.CharField(max_length=50, verbose_name='Descripcion del Piso')
+
+    def __unicode__(self):
+        return "%s" % self.piso
+
+
+class Pasillo(models.Model):
+    deposito = models.ForeignKey('Deposito', related_name='deposito_pasillo',)
+    piso = models.ForeignKey('Piso')
+    pasillo = models.CharField(max_length=50, verbose_name='Descripcion del Pasillo')
+
+    def __unicode__(self):
+        return "%s" % self.pasillo
+
+
+class Estante(models.Model):
+    deposito = models.ForeignKey('Deposito', related_name='deposito_estante',)
+    piso = models.ForeignKey('Piso')
+    pasillo = models.ForeignKey('Pasillo')
+    estante = models.CharField(max_length=50, verbose_name='Descripcion del Estante')
+
+    def __unicode__(self):
+        return "%s" % self.estante
+
+
+class Nivel(models.Model):
+    deposito = models.ForeignKey('Deposito', related_name='deposito_nivel',)
+    piso = models.ForeignKey('Piso')
+    pasillo = models.ForeignKey('Pasillo')
+    estante = models.ForeignKey('Estante')
+    nivel = models.CharField(max_length=50, verbose_name='Descripcion del Nivel')
+
+    def __unicode__(self):
+        return "%s" % self.nivel
+
+
+class Hilera(models.Model):
+    deposito = models.ForeignKey('Deposito', related_name='deposito_hilera',)
+    piso = models.ForeignKey('Piso')
+    pasillo = models.ForeignKey('Pasillo')
+    estante = models.ForeignKey('Estante')
+    nivel = models.ForeignKey('Nivel')
+    hilera = models.CharField(max_length=50, verbose_name='Descripcion de la Hilera')
+    ocupada = models.BooleanField
+    producto = models.ForeignKey('stock.Producto')
+
+    def __unicode__(self):
+        return "%s" % self.hilera
+
+
+class CamaraFrigorifica(models.Model):
+    deposito = models.ForeignKey('Deposito', related_name='deposito_camara_frigorifica',)
+    camara = models.CharField(max_length=50, verbose_name='Descripcion del Nivel')
+    capacidad = models.PositiveIntegerField()
+    capacidad_ocupada = models.PositiveIntegerField()
+
+    def __unicode__(self):
+        return "%s" % self.camara
+
+
+# ======================================================================================================================
 class CategoriaProducto(models.Model):
     """
     Categorias de Productos.
@@ -630,6 +712,85 @@ class OrdenCompraEstado(models.Model):
         return "%s" % (self.get_estado_orden_compra_display())
 
 
+class OrdenPagoEstado(models.Model):
+    """
+    Estos son los diversos ESTADOS que puede tener una Orden de Pago.
+    """
+    ESTADOS_ORDEN_PAGO = (
+        ('PEN', 'Pendiente'),
+        ('CON', 'Confirmada'),
+        ('ANU', 'Anulada'),
+        ('CAN', 'Cancelada'),
+    )
+    # id = models.AutoField(primary_key=True)
+    estado_orden_pago = models.CharField(max_length=3, verbose_name='Estado de la Orden de Pago',
+                                         choices=ESTADOS_ORDEN_PAGO)
+    descripcion = models.CharField(max_length=200, verbose_name='Descripcion del Estado de la Orden de Pago',
+                                   help_text='Ingrese la descripcion del Estado de la Orden de Pago. '
+                                             '(Hasta 200 caracteres)')
+
+    class Meta:
+        verbose_name = 'Orden de Pago - Estado'
+        verbose_name_plural = 'Ordenes de Pagos - Estados'
+
+    def __unicode__(self):
+        # return self.documento
+        return "%s" % (self.get_estado_orden_pago_display())
+
+
+class FacturaProveedorEstado(models.Model):
+    """
+    Estos son los diversos ESTADOS que puede tener una Orden de Pago.
+    """
+    ESTADOS_FACTURA_COMPRA = (
+        # ('PEN', 'Pendiente'),
+        ('EPP', 'En Plazo de Pago'),
+        ('FPP', 'Fuera del Plazo de Pago'),
+        ('PAG', 'Pagada'),
+        ('CAN', 'Cancelada'),
+    )
+    # id = models.AutoField(primary_key=True)
+    estado_factura_proveedor = models.CharField(max_length=3, verbose_name='Estado de la Factura del Proveedor',
+                                                choices=ESTADOS_FACTURA_COMPRA)
+    descripcion = models.CharField(max_length=200, verbose_name='Descripcion del Estado de la Factura del Proveedor',
+                                   help_text='Ingrese la descripcion del Estado de la Factura del Proveedor. '
+                                             '(Hasta 200 caracteres)')
+
+    class Meta:
+        verbose_name = 'Factura Proveedor - Estado'
+        verbose_name_plural = 'Facturas Proveedores - Estados'
+
+    def __unicode__(self):
+        # return self.documento
+        return "%s" % (self.get_estado_factura_proveedor_display())
+
+
+class LineaCreditoProveedorEstado(models.Model):
+    """
+    Estos son los diversos ESTADOS que puede tener una Linea de Credito de Proveedores.
+    """
+    ESTADOS_LINEA_CREDITO = (
+        ('DEL', 'Dentro de la Linea de Credito'),
+        ('LIM', 'En el Limite'),
+        ('SOB', 'Sobregirada'),
+    )
+    # id = models.AutoField(primary_key=True)
+    estado_linea_credito = models.CharField(max_length=3, verbose_name='Estado de la Linea de Credito con el Proveedor',
+                                            choices=ESTADOS_LINEA_CREDITO)
+    descripcion = models.CharField(max_length=200, verbose_name='Descripcion del Estado de la Linea de Credito con '
+                                                                'el Proveedor',
+                                   help_text='Ingrese la descripcion del Estado de la Linea de Credito con el '
+                                             'Proveedor. (Hasta 200 caracteres)')
+
+    class Meta:
+        verbose_name = 'Linea de Credito Proveedor - Estado'
+        verbose_name_plural = 'Linea de Credito Proveedores - Estados'
+
+    def __unicode__(self):
+        # return self.documento
+        return "%s" % (self.get_estado_linea_credito_display())
+
+
 class PedidoEstado(models.Model):
     """
     Diversos ESTADOS que puede tener un Pedido.
@@ -639,6 +800,7 @@ class PedidoEstado(models.Model):
         # ('CAD', 'Caducado'),
         ('PRO', 'Procesado'),
         ('CAN', 'Cancelado'),
+        ('ANU', 'Anulada'),
     )
     pedido_estado = models.CharField(max_length=3, choices=ESTADOS_PEDIDO, verbose_name='Estado del Pedido',
                                      help_text='Ingrese el identificador del Estado del Pedido. (Hasta 3 caracteres)')
@@ -659,9 +821,11 @@ class VentaEstado(models.Model):
     Diversos ESTADOS que puede tener una Venta.
     """
     ESTADOS_VENTA = (
-        ('ABI', 'Abierta'),
-        ('CER', 'Cerrada'),
+        # ('ABI', 'Abierta'),
+        ('CON', 'Confirmada'),
         ('ANU', 'Anulada'),
+        ('CAN', 'Cancelada'),
+        ('PEN', 'Pendiente Confirmacion'),
     )
     venta_estado = models.CharField(max_length=3, choices=ESTADOS_VENTA, verbose_name='Estado de la Venta',
                                     help_text='Ingrese el identificador del Estado de la Venta. '
@@ -686,10 +850,10 @@ class Timbrado(models.Model):
         ('AC', 'Activo'),
         ('IN', 'Inactivo'),
     }
-    empresa = models.ForeignKey('compras.Empresa')
-    timbrado = models.DecimalField(max_digits=8, decimal_places=0, default=1,
-                                   verbose_name='Numero de Timbrado',
-                                   help_text='Ingrese el numero de Timbrado.')
+    # empresa = models.ForeignKey('compras.Empresa')
+    timbrado = models.CharField(max_length=8, unique=True,
+                                verbose_name='Numero de Timbrado',
+                                help_text='Ingrese el numero de Timbrado.')
     descripcion_timbrado = models.CharField(max_length=200, verbose_name='Descripcion del Timbrado',
                                             help_text='Ingrese la descripcion del Timbrado. (Hasta 200 caracteres)')
     fecha_autorizacion_timbrado = models.DateField(default=timezone.datetime.today,
@@ -714,7 +878,7 @@ class Timbrado(models.Model):
     #     Validar que exista un unico Timbrado como Activo.
 
     def __unicode__(self):
-        return "%s - %s" % (self.timbrado, self.descripcion_timbrado)
+        return "%s" % self.timbrado
 
 
 class FacturaVenta(models.Model):
@@ -725,13 +889,14 @@ class FacturaVenta(models.Model):
         ('AC', 'Activo'),
         ('IN', 'Inactivo'),
     )
-    empresa = models.ForeignKey('compras.Empresa', default=1)
+    # empresa = models.ForeignKey('compras.Empresa', default=1)
     caja = models.ForeignKey('Caja')
     estado = models.CharField(max_length=2, choices=ESTADOS_FACTURA_VENTA, default="AC",
                               help_text='Seleccione el estado de la Factura.')
     numero_factura_inicial = models.DecimalField(max_digits=7, decimal_places=0, default=1)
     numero_factura_final = models.DecimalField(max_digits=7, decimal_places=0, default=9999999)
     numero_factura_actual = models.DecimalField(max_digits=7, decimal_places=0, default=1)
+    venta = models.ForeignKey('ventas.Venta', default=1)
 
 
 class TipoMovimientoStock(models.Model):

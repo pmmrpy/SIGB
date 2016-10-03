@@ -5,30 +5,30 @@
     {% if original.motivo_cancelacion %}
         <fieldset class="module aligned with-legend ">
             <h2 class="legend">Cancelacion</h2>
-          <div class="control-group form-row  ">
-              <div>
-                  <div class="control-label"><label>Motivo Cancelacion:</label></div>
-            <div class="controls">{{ original.motivo_cancelacion }}</div>
-              </div>
-          </div>
-          <div class="control-group form-row  ">
-              <div>
-             <div class="control-label"><label>Observaciones:</label></div>
-            <div class="controls">{{ original.observaciones_cancelacion }}</div>
-              </div>
-          </div>
-          <div class="control-group form-row  ">
-              <div>
-             <div class="control-label"><label>Cancelado por?:</label></div>
-            <div class="controls">{{ original.usuario_cancelacion }}</div>
-              </div>
-          </div>
-          <div class="control-group form-row  ">
-              <div>
-             <div class="control-label"><label>Fecha/hora Cancelacion:</label></div>
-            <div class="controls">{{ original.fecha_hora_cancelacion }}</div>
-              </div>
-          </div>
+            <div class="control-group form-row  ">
+                <div>
+                    <div class="control-label"><label>Motivo Cancelacion:</label></div>
+                    <div class="controls">{{ original.motivo_cancelacion }}</div>
+                </div>
+            </div>
+            <div class="control-group form-row  ">
+                <div>
+                    <div class="control-label"><label>Observaciones:</label></div>
+                    <div class="controls">{{ original.observaciones_cancelacion }}</div>
+                </div>
+            </div>
+            <div class="control-group form-row  ">
+                <div>
+                    <div class="control-label"><label>Cancelado por?:</label></div>
+                    <div class="controls">{{ original.usuario_cancelacion }}</div>
+                </div>
+            </div>
+            <div class="control-group form-row  ">
+                <div>
+                    <div class="control-label"><label>Fecha/hora Cancelacion:</label></div>
+                    <div class="controls">{{ original.fecha_hora_cancelacion }}</div>
+                </div>
+            </div>
         </fieldset>
     {% endif %}
 {% endblock %}
@@ -43,7 +43,8 @@
 
     <!-- Trigger the modal with a button -->
         <button type="button" class="btn btn-danger btn-lg" {% if not show_cancel_button %} disabled="disabled" {% endif %} name="_cancel" data-toggle="modal" data-target="#myModal">Cancelar Orden de Compra</button>
-        <a {% if not show_imprimir_button %} disabled="disabled" href="#" {% else %} href="/compras/orden-compra-report/" target="_blank" {% endif %} class="btn btn-high btn-success" style="width: 80%">Imprimir Orden de Compra</a>
+
+        <a {% if not show_imprimir_button %} disabled="disabled" href="#" {% else %} href="/compras/orden-compra-report/{{ original.pk }}" target="_blank" {% endif %} class="btn btn-high btn-success" style="width: 80%">Imprimir Orden de Compra</a>
 
     <!-- Modal -->
     <div id="myModal" class="modal fade" role="dialog">
@@ -56,10 +57,13 @@
             <h4 class="modal-title">Cancelar Orden de Compra</h4>
           </div>
           <div class="modal-body" style="text-align: left;margin-left: 20px">
+              <div class="alert alert-danger" id="alert-cancelacion" style="display: none"></div>
               <h4>Motivo cancelacion</h4>
-              <input type="radio" name="motivo" value="Mercaderia no corresponde con Orden de Compra">Mercaderia no corresponde con Orden de Compra<br/>
-              <input type="radio" name="motivo" value="Mercaderia descompuesta">Mercaderia descompuesta<br/>
-              <input type="radio" name="motivo" value="Orden incompleta">Orden incompleta<br/> <br/>
+              <input type="radio" name="motivo" value="Proveedor no posee disponibilidad para entrega en fecha">Proveedor no posee disponibilidad para entrega en fecha<br/>
+              <input type="radio" name="motivo" value="Stock minimo suficiente">Stock minimo suficiente<br/>
+              <input type="radio" name="motivo" value="Suba de precios por parte del Proveedor">Suba de precios por parte del Proveedor<br/>
+              <input type="radio" name="motivo" value="Problemas con el reparto del Proveedor">Problemas con el reparto del Proveedor<br/>
+              <input type="radio" name="motivo" value="Otro">Otro<br/> <br/>
 
     {# Crea un combobox con las opciones #}
     {#          <select name="motivo">#}
@@ -68,12 +72,13 @@
     {##}
     {#          </select>#}
 
-               <h4>Observaciones</h4>
+              <h4>Observaciones</h4>
               <textarea id="id_observaciones" name="observaciones" rows="1" cols="200" style="width: 434px; height: 39px;" maxlength="200"></textarea>
           </div>
           <div class="modal-footer">
               <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
-              <input type="submit" class="btn btn-primary" data-dismiss="modal" value="Aceptar" onclick="validar()"/>
+{#              <input type="submit" class="btn btn-primary" data-dismiss="modal" value="Aceptar" onclick="validar()"/>#}
+              <input type="button" class="btn btn-primary" value="Aceptar" onclick="validar()"/>
               <input type="hidden" id="id_cancel" name="" value=""/>
           </div>
         </div>
@@ -85,14 +90,19 @@
         function validar(){
             var mensaje = '';
             if (!$('#id_observaciones').val()){
-                mensaje += 'Debe ingresar una Observacion\n'
+                mensaje += 'Debe ingresar una Observacion.' + '<br />'
             }
 
+{#            if (!$('#id_numero_factura_compra').val()){#}
+{#                mensaje += 'Debe ingresar un Numero de Factura.\n'#}
+{#            }#}
+
             if ($('input[name=motivo]:checked').length == 0) {
-                 mensaje +='Debe seleccionar un Motivo\n'
+                 mensaje +='Debe seleccionar un Motivo.' + '<br />'
             }
+
             if(mensaje != ''){
-                alert(mensaje);
+                $('#alert-cancelacion').html('<button class="close" data-dismiss="alert">×</button>'+mensaje).css({'display':'block'})
             }else{
                 $('#id_cancel').attr('name', '_cancel').val('_cancel');
                 $('#ordencompra_form').submit();

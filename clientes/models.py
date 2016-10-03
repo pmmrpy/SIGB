@@ -191,4 +191,4 @@ class Reserva(models.Model):
             raise ValidationError({'pago': _('El monto de la Entrega no puede ser menor a 100.000 Gs.')})
 
     def __unicode__(self):
-        return "%s - %s - %s" % (self.descripcion, self.cliente, self.fecha_hora_reserva)
+        return "%s - %s - %s" % (self.descripcion, self.cliente, datetime.datetime.strftime(timezone.localtime(self.fecha_hora_reserva), '%d/%m/%Y %H:%M'))
