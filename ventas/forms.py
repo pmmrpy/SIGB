@@ -3,7 +3,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
 from django.utils import timezone
 from django.utils.safestring import mark_safe
-from bar.models import Caja
+from bar.models import Caja, Mesa
 from compras.models import Empresa
 from personal.models import Empleado
 
@@ -99,11 +99,25 @@ class PedidoDetalleInlineForm(forms.ModelForm):
         # pdb.set_trace()
 
         detalle_pedido = self.instance
-
-        if detalle_pedido.pk and detalle_pedido.procesado is True:  # self.request.method == 'GET' and
+        # if detalle_pedido and detalle_pedido.procesado is False:
+        #     # self.fields['producto_pedido'].widget.attrs['required'] = False
+        #     # self.fields['producto_pedido'].widget.attrs['readonly'] = True
+        #     # self.fields['producto_pedido'].widget.attrs['disabled'] = True
+        #     # self.fields['precio_producto_pedido'].widget.attrs['readonly'] = True
+        #     # self.fields['precio_producto_pedido'].widget.attrs['disabled'] = True
+        #     # self.fields['cantidad_producto_pedido'].widget.attrs['readonly'] = True
+        #     # self.fields['cantidad_producto_pedido'].widget.attrs['disabled'] = True
+        #     # self.fields['total_producto_pedido'].widget.attrs['readonly'] = True
+        #     # self.fields['total_producto_pedido'].widget.attrs['disabled'] = True
+        #     # self.fields['fecha_pedido_detalle'].widget.attrs['readonly'] = True
+        #     # self.fields['procesado'].widget.attrs['readonly'] = True
+        #     # self.fields['anulado'].widget.attrs['readonly'] = True
+        #     self.fields['anulado'].widget.attrs['disabled'] = True
+        #     # self.fields['anulado'].widget.attrs['style'] = 'display:none;'
+        if detalle_pedido and detalle_pedido.pk and detalle_pedido.procesado is True:  # self.request.method == 'GET' and
             self.fields['producto_pedido'].widget.attrs['required'] = False
             self.fields['producto_pedido'].widget.attrs['readonly'] = True
-            self.fields['producto_pedido'].widget.attrs['disabled'] = True
+            # self.fields['producto_pedido'].widget.attrs['disabled'] = True
             self.fields['precio_producto_pedido'].widget.attrs['readonly'] = True
             # self.fields['precio_producto_pedido'].widget.attrs['disabled'] = True
             self.fields['cantidad_producto_pedido'].widget.attrs['readonly'] = True
@@ -112,27 +126,49 @@ class PedidoDetalleInlineForm(forms.ModelForm):
             # self.fields['total_producto_pedido'].widget.attrs['disabled'] = True
             # self.fields['fecha_pedido_detalle'].widget.attrs['readonly'] = True
             # self.fields['procesado'].widget.attrs['readonly'] = True
+            # self.fields['anulado'].widget.attrs['readonly'] = True
             self.fields['anulado'].widget.attrs['disabled'] = True
-        # elif detalle_pedido.pk and detalle_pedido.procesado is False and detalle_pedido.anulado is True:  # self.request.method == 'GET' and
-        #     self.fields['producto_pedido'].widget.attrs['required'] = False
-        #     self.fields['producto_pedido'].widget.attrs['readonly'] = True
-        #     # self.fields['producto_pedido'].widget.attrs['disabled'] = True
-        #     self.fields['precio_producto_pedido'].widget.attrs['readonly'] = True
-        #     # self.fields['precio_producto_pedido'].widget.attrs['disabled'] = True
-        #     self.fields['cantidad_producto_pedido'].widget.attrs['readonly'] = True
-        #     # self.fields['cantidad_producto_pedido'].widget.attrs['disabled'] = True
-        #     self.fields['total_producto_pedido'].widget.attrs['readonly'] = True
-        #     # self.fields['total_producto_pedido'].widget.attrs['disabled'] = True
-        #     # self.fields['fecha_pedido_detalle'].widget.attrs['readonly'] = True
-        #     # self.fields['procesado'].widget.attrs['readonly'] = True
-        #     self.fields['anulado'].widget.attrs['readonly'] = True
-        #     self.fields['anulado'].widget.attrs['disabled'] = True
+            # self.fields['anulado'].widget.attrs['style'] = 'display:none;'
+        elif detalle_pedido and detalle_pedido.pk and detalle_pedido.procesado is False and detalle_pedido.anulado is True:  # self.request.method == 'GET' and
+            self.fields['producto_pedido'].widget.attrs['required'] = False
+            self.fields['producto_pedido'].widget.attrs['readonly'] = True
+            # self.fields['producto_pedido'].widget.attrs['disabled'] = True
+            self.fields['precio_producto_pedido'].widget.attrs['readonly'] = True
+            # self.fields['precio_producto_pedido'].widget.attrs['disabled'] = True
+            self.fields['cantidad_producto_pedido'].widget.attrs['readonly'] = True
+            # self.fields['cantidad_producto_pedido'].widget.attrs['disabled'] = True
+            self.fields['total_producto_pedido'].widget.attrs['readonly'] = True
+            # self.fields['total_producto_pedido'].widget.attrs['disabled'] = True
+            # self.fields['fecha_pedido_detalle'].widget.attrs['readonly'] = True
+            # self.fields['procesado'].widget.attrs['readonly'] = True
+            # self.fields['anulado'].widget.attrs['readonly'] = True
+            self.fields['anulado'].widget.attrs['disabled'] = True
+            # self.fields['anulado'].widget.attrs['style'] = 'display:none;'
+
+    def clean_anulado(self):
+
+        # import pdb
+        # pdb.set_trace()
+
+        detalle_pedido = self.instance
+        if detalle_pedido and detalle_pedido.pk and detalle_pedido.procesado is True:
+            return self.instance.anulado
+        elif detalle_pedido and detalle_pedido.pk and detalle_pedido.procesado is False and detalle_pedido.anulado is True:
+            return self.instance.anulado
+        else:
+            return self.cleaned_data['anulado']
 
 
 class PedidoForm(forms.ModelForm):
-    id_cliente_reserva = forms.CharField(widget=forms.TextInput(attrs={'readonly':'True'}), label='ID Cliente', required=False)
-    cliente_reserva = forms.CharField(widget=forms.TextInput(attrs={'readonly':'True'}), label='Nombre Cliente', required=False)
-    monto_entrega_reserva = forms.CharField(widget=forms.TextInput(attrs={'readonly':'True'}), label='Monto Entrega Reserva', required=False, initial=0)
+    id_cliente_reserva = forms.CharField(widget=forms.TextInput(attrs={'readonly':'True', 'style': 'width: 100px;'}), label='ID Cliente', required=False)
+    cliente_reserva = forms.CharField(widget=forms.TextInput(attrs={'readonly':'True', 'style': 'width: 400px;'}), label='Nombre Cliente', required=False)
+    doc_ruc_cliente_reserva = forms.CharField(widget=forms.TextInput(attrs={'readonly':'True', 'style': 'width: 300px;'}), label='Documento/RUC', required=False)
+    # monto_entrega_reserva = forms.CharField(widget=forms.TextInput(attrs={'readonly':'True'}), label='Monto Entrega Reserva', required=False, initial=0)
+    monto_entrega_reserva = forms.CharField(widget=forms.TextInput(attrs=ATTR_NUMERICO_RO_RESALTADO_2),
+                                            label=mark_safe('<strong style="font-size: 14px;">Monto Entrega Reserva</strong>'),
+                                            required=False, initial=0)
+    mesas_reserva = forms.CharField(widget=forms.TextInput(attrs={'readonly':'True', 'style': 'width: 500px;'}), label='Mesas Reservadas', required=False)
+    # mesas_reserva = forms.ModelChoiceField(queryset=Mesa.objects.all(), label='Mesas Reserva', required=False)
 
     total_pedido = forms.CharField(widget=forms.TextInput(attrs=ATTR_NUMERICO_RO_RESALTADO),
                                    label=mark_safe('<strong style="font-size: 20px;">Total Pedido</strong>'),
@@ -148,12 +184,23 @@ class PedidoForm(forms.ModelForm):
         # import pdb
         # pdb.set_trace()
 
+        # self.fields['id_cliente_reserva'].widget.attrs['style'] = 'width: 500px;'
+
         pedido = self.instance
 
         if pedido.pk:
             self.initial['id_cliente_reserva'] = pedido.reserva.cliente.id
             self.initial['cliente_reserva'] = pedido.reserva.cliente.nombre_completo
+            self.initial['doc_ruc_cliente_reserva'] = pedido.reserva.cliente.clientedocumento_set.all()
             self.initial['monto_entrega_reserva'] = pedido.reserva.pago
+            self.initial['mesas_reserva'] = pedido.reserva.mesas.all().values_list('nombre_mesa')
+            # self.fields['mesas_reserva'].choices = pedido.reserva.mesas.all().values_list('numero_mesa', 'nombre_mesa')
+            # self.fields['mesas_reserva'].widget.attrs['disabled'] = True
+
+    def clean(self):
+        super(PedidoForm, self).clean()
+
+        # Validar que las Mesas seleccionadas tengan estado "DI"
 
 
 class VentaForm(forms.ModelForm):

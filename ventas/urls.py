@@ -7,13 +7,7 @@ from compras.autocomplete import ProveedorAutocomplete, ProveedorOrdenCompraAuto
 
 urlpatterns = [
     # # Geraldo reports
-    # url(r'orden-compra-report/$', views.orden_compra_report, name='orden_compra_report'),
-    # url(r'compra-report/$', views.compra_report, name='compra_report'),
-    # url(r'orden-pago-report/$', views.orden_pago_report, name='orden_pago_report'),
-    # url(r'listado-ordenes-compra-report/$', views.listado_ordenes_compra_report, name='listado_ordenes_compra_report'),
-    #
-    # url(r'graphic-report/$', views.graphic_report, name='graphic_report'),
-    # url(r'master-report/$', views.master_report, name='master_report'),
+    url(r'pedido-report/(?P<pk>\d+)/$', views.pedido_report, name='pedido_report'),
     #
     # # autocompletes
     # url(r'^proveedor-autocomplete/$', ProveedorAutocomplete.as_view(), name='proveedor-autocomplete'),

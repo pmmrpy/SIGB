@@ -3,7 +3,7 @@ from django.contrib import admin
 from django.utils import timezone
 from django.utils.html import format_html
 from bar.models import ReservaEstado
-from .forms import ClienteForm, ReservaForm, ClienteTelefonoForm  # ClienteDocumentoForm
+from clientes.forms import ClienteForm, ReservaForm, ClienteTelefonoForm, ClienteDocumentoForm
 from .models import Cliente, ClienteTelefono, Reserva, ClienteDocumento  # TelefonoMovilCliente,
 # from ajax_select import make_ajax_form
 from personal.models import Empleado
@@ -14,7 +14,7 @@ from personal.models import Empleado
 class ClienteDocumentoInline(admin.TabularInline):
     model = ClienteDocumento
     extra = 0
-#    form = ClienteDocumentoForm
+    form = ClienteDocumentoForm
     readonly_fields = ['digito_verificador']
     min_num = 1
     verbose_name = 'Documento del Cliente'
@@ -32,6 +32,8 @@ class ClienteTelefonoInline(admin.TabularInline):
 
 class ClienteAdmin(admin.ModelAdmin):
 
+    form = ClienteForm
+
     class Media:
         js = [
             'clientes/js/rango.js',
@@ -40,8 +42,6 @@ class ClienteAdmin(admin.ModelAdmin):
         css = {
             'all': ('clientes/css/cliente.css',)
         }
-
-    form = ClienteForm
 
     fieldsets = [
         ('Nombres y Apellidos', {'fields': ['nombres', 'apellidos']}),

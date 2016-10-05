@@ -105,15 +105,8 @@ class ClienteDocumento(models.Model):
         else:
             return u'N/A'
 
-    def clean(self):
-        if self.tipo_documento.documento == 'RUC':
-            # numero_documento = self.numero_documento
-            if not re.match(r'^[0-9]*$', self.numero_documento):
-                raise ValidationError({'numero_documento': _('Solo se permiten caracteres numericos para el Tipo de '
-                                                             'Documento RUC.')})
-
     def __unicode__(self):
-        return "%s - %s" % (self.tipo_documento, self.numero_documento)
+        return "%s: %s" % (self.tipo_documento.documento, self.numero_documento)
 
 
 class ClienteTelefono(models.Model):

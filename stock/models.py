@@ -540,6 +540,9 @@ class MovimientoStock(models.Model):
     producto_stock = models.ForeignKey('Producto', related_name='producto_stock',  # default=2,
                                        verbose_name='Producto',
                                        help_text='Seleccione el Producto a registrar en el Stock.')
+#     tipo_movimiento = models.ForeignKey('bar.TipoMovimientoStock', default=1,
+#                                         verbose_name='Tipo de Movimiento',
+#                                         help_text='Seleccione el identificador del Tipo de Movimiento de Stock.')
     tipo_movimiento = models.CharField(max_length=2, choices=TIPOS_MOVIMIENTO_STOCK,
                                        verbose_name='Tipo de Movimiento',
                                        help_text='Seleccione el identificador del Tipo de Movimiento de Stock.')
@@ -622,8 +625,11 @@ class InventarioProducto(models.Model):
     """
     Genera una vista con la agrupacion de los movimientos de Stock por Producto calculando el campo "cantidad_existente"
     """
+    # id_producto = models.PositiveIntegerField()
     producto = models.CharField(max_length=50)
-    stock = models.IntegerField()
+    total_compras = models.IntegerField()
+    total_ventas = models.IntegerField()
+    cantidad_existente = models.IntegerField()
 
     class Meta:
         # Definir si va ser una tabla proxy o multitable

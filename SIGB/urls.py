@@ -43,7 +43,7 @@ urlpatterns = [
     url(r'^$', include('clientes.urls')),
     # url(r'^$', include(admin.site.urls)),
     url(r'^compras/', include('compras.urls', namespace='compras')),
-    url(r'^clientes/', include('clientes.urls')),
+    url(r'^clientes/', include('clientes.urls', namespace='clientes')),
     url(r'^stock/', include('stock.urls', namespace='stock')),
     url(r'^ventas/', include('ventas.urls', namespace='ventas')),
     # url(r'^grappelli/', include('grappelli.urls')),

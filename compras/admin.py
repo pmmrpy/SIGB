@@ -1459,8 +1459,8 @@ class CompraAdmin(admin.ModelAdmin):
 
     def save_formset(self, request, form, formset, change):
 
-        import pdb
-        pdb.set_trace()
+        # import pdb
+        # pdb.set_trace()
 
         # si orden cambio entonces no hacer nada
         compra_actual = form.instance

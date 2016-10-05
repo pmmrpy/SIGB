@@ -4,6 +4,7 @@ from django.contrib import admin
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 from django.utils.html import format_html
+from bar.models import ReservaEstado, Mesa, MesaEstado
 
 from .models import Pedido, PedidoDetalle, Venta, VentaDetalle, Comanda, AperturaCaja, CierreCaja
 from personal.models import Empleado
@@ -18,6 +19,7 @@ from ventas.forms import AperturaCajaForm, VentaForm, PedidoForm, PedidoDetalleI
 class PedidoDetalleInline(admin.TabularInline):
     model = PedidoDetalle
     extra = 0
+    min_num = 1
     form = PedidoDetalleInlineForm
     # fields = ['producto_pedido', 'precio_producto_pedido']
     readonly_fields = ['fecha_pedido_detalle', 'procesado']
@@ -62,7 +64,8 @@ class PedidoAdmin(admin.ModelAdmin):
 
     fieldsets = [
         ('Numero Pedido', {'fields': ['numero_pedido']}),
-        ('Datos de la Reserva', {'fields': ['reserva', 'id_cliente_reserva', 'cliente_reserva', 'monto_entrega_reserva']}),
+        ('Datos de la Reserva', {'fields': ['reserva', ('id_cliente_reserva', 'cliente_reserva', 'doc_ruc_cliente_reserva'),
+                                            'monto_entrega_reserva', 'mesas_reserva']}),
         ('Datos del Pedido', {'fields': ['mesa_pedido', 'mozo_pedido', 'estado_pedido', 'fecha_hora_pedido', 'total_pedido']}),
         # ('Total', {'fields': []}),
     ]
@@ -98,9 +101,11 @@ class PedidoAdmin(admin.ModelAdmin):
     # VALIDACIONES/FUNCIONALIDADES
     # ============================
     # 1) Al seleccionar la Reserva se deben cargar los datos del Monto de la Entrega y de las Mesas Reservadas. OK!
-    # 2.1) Al guardar el Pedido se debe cambiar el estado de la Reserva a UTILIZADA en caso de que se haya utilizado una
+    # 2.1) Al guardar el Pedido se debe cambiar el estado de la Reserva a UTILIZADA en caso de que se haya
+    # utilizado una. OK!
     # 2.2) Al guardar el Pedido se debe descontar los productos solicitados del Stock.
-    # 2.3) Al guardar el Pedido se debe modificar el estado de las Mesas seleccionadas a Ocupadas.
+    # Correccion 05/01/2016: Se debe generar la COMANDA y una vez procesada la Comanda se deben descontar los productos del Stock.
+    # 2.3) Al guardar el Pedido se debe modificar el estado de las Mesas seleccionadas a Ocupadas. OK!
     # 4) Modificar el Estado del Pedido de acuerdo a las acciones que se realicen con el mismo. Por de pronto el campo
     # estado_pedido queda como readonly.
     # 5) Se debe restar el "monto_entrega_reserva" al "total_pedido" en caso de utilizar una Reserva.
@@ -115,15 +120,55 @@ class PedidoAdmin(admin.ModelAdmin):
     # usuario. OK!
 
     def save_model(self, request, obj, form, change):
-        # if obj.reserva:
 
-        if getattr(obj, 'mozo_pedido', None) is None:
+        import pdb
+        pdb.set_trace()
+
+        if not change and getattr(obj, 'mozo_pedido', None) is None:
             # empleado = Empleado.objects.filter(usuario=request.user)
             obj.mozo_pedido = Empleado.objects.get(usuario_id=request.user)
+            print 'obj.mozo_pedido: ', obj.mozo_pedido
+        elif change and getattr(obj, 'mozo_pedido', None) is not None:
+            obj.usuario_modifica_pedido = Empleado.objects.get(usuario_id=request.user)
+            print 'obj.usuario_modifica_pedido: ', obj.usuario_modifica_pedido
+
         super(PedidoAdmin, self).save_model(request, obj, form, change)
 
+        pedido_actual = obj
+
+        if not change and "_continue" in request.POST or "_save" in request.POST:
+        # if not obj.pk:
+            # 2.1) Al guardar el Pedido se debe cambiar el estado de la Reserva a UTILIZADA en caso de que se haya utilizado una
+            if pedido_actual.reserva:
+                reserva = pedido_actual.reserva
+                reserva.estado = ReservaEstado.objects.get(reserva_estado='UTI')
+
+            # 2.3) Al guardar el Pedido se debe modificar el estado de las Mesas seleccionadas a Ocupadas.
+            # Modifica el estado de las Mesas Reservadas
+        #     for mesa in pedido_actual.mesa_pedido.all():
+            mesas = form.cleaned_data['mesa_pedido']
+            for mesa in mesas:
+                mesa_reservada = Mesa.objects.get(pk=mesa.id)
+                mesa_reservada.estado = MesaEstado.objects.get(mesa_estado='OC')
+                mesa_reservada.utilizada_por_numero_pedido = pedido_actual.numero_pedido
+                mesa_reservada.save()
+
+        # if change and "_continue" in request.POST or "_save" in request.POST:
+        #     # Modifica el estado a "DI" de las Mesas que fueron seleccionadas inicialmente en el Pedido pero que luego fueron quitadas.
+        #     # Aplica para el caso en que se cambien de Mesa/s el/los Cliente/s.
+        #     # for mesa in pedido_actual.mesa_pedido.all():
+        #
+        #     # Modifica el estado a "OC" de las Mesas que no fueron Reservadas pero que fueron seleccionadas para ser utilizadas dentro del Pedido.
+        #     mesas = form.cleaned_data['mesa_pedido']
+        #     for mesa in mesas:
+        #         mesa_utilizada = Mesa.objects.get(pk=mesa.id)
+        #         if mesa_utilizada.estado != MesaEstado.objects.get(mesa_estado='OC'):
+        #             mesa_utilizada.estado = MesaEstado.objects.get(mesa_estado='OC')
+        #             mesa_utilizada.utilizada_por_numero_pedido = pedido_actual.numero_pedido
+        #             mesa_utilizada.save()
+
     def get_readonly_fields(self, request, obj=None):
-        if obj is not None and obj.estado_pedido.pedido_estado == 'VIG' and obj.reserva is not None:
+        if obj is not None and obj.pk and obj.estado_pedido.pedido_estado == 'VIG':  # and obj.reserva is not None
             return self.readonly_fields + ['reserva']
         elif obj is not None and obj.estado_pedido in ('PRO', 'CAN', 'ANU'):
             return [i.name for i in self.model._meta.fields] + \
@@ -131,14 +176,39 @@ class PedidoAdmin(admin.ModelAdmin):
         else:
             return super(PedidoAdmin, self).get_readonly_fields(request, obj)
 
-    # def changeform_view(self, request, object_id=None, form_url='', extra_context=None):
-    #     extra_context = extra_context or {}
-    #
-    #     extra_context['show_button'] = False
-    #     # if object_id is not None:
-    #     #     apertura_caja_actual = AperturaCaja.objects.get(pk=object_id)
-    #     #     extra_context['show_button'] = apertura_caja_actual.estado_apertura_caja not in ('VIG', 'CER')
-    #     return super(PedidoAdmin, self).changeform_view(request, object_id, form_url, extra_context)
+    def changeform_view(self, request, object_id=None, form_url='', extra_context=None):
+        extra_context = extra_context or {}
+
+        extra_context['show_button'] = True
+        if object_id is not None:
+            pedido_actual = Pedido.objects.get(pk=object_id)
+            # extra_context['show_button'] = orden_compra_actual.estado_orden_compra.estado_orden_compra \
+            #                                not in ('ENT', 'CAN')
+
+            # if orden_compra_actual.estado_orden_compra.estado_orden_compra == 'PEN':
+            #     extra_context['show_save_button'] = True
+            #     extra_context['show_continue_button'] = True
+            #     extra_context['show_addanother_button'] = True
+            #     extra_context['show_cancel_button'] = False
+            #     extra_context['show_imprimir_button'] = False
+            if pedido_actual.estado_pedido.pedido_estado in ('PRO', 'CAN', 'ANU'):
+                extra_context['show_save_button'] = False
+                extra_context['show_continue_button'] = False
+                extra_context['show_cancel_button'] = False
+                extra_context['show_imprimir_button'] = True
+            elif pedido_actual.estado_pedido.pedido_estado == 'VIG':
+                extra_context['show_save_button'] = True
+                extra_context['show_continue_button'] = True
+                extra_context['show_cancel_button'] = True
+                extra_context['show_imprimir_button'] = True
+
+        elif object_id is None:
+            extra_context['show_save_button'] = True
+            extra_context['show_continue_button'] = True
+            extra_context['show_cancel_button'] = False
+            extra_context['show_imprimir_button'] = False
+
+        return super(PedidoAdmin, self).changeform_view(request, object_id, form_url, extra_context)
 
     # def get_form(self, request, obj=None, **kwargs):
     #
@@ -429,8 +499,8 @@ class AperturaCajaAdmin(admin.ModelAdmin):
 
     def get_form(self, request, obj=None, **kwargs):
 
-        import pdb
-        pdb.set_trace()
+        # import pdb
+        # pdb.set_trace()
 
         form = super(AperturaCajaAdmin, self).get_form(request, obj=obj, **kwargs)
         if obj is None:

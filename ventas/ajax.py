@@ -23,12 +23,14 @@ def get_reserva(request):
 
         if id_reserva and reserva is not None:
             response_data.update({'cliente': {'id': str(reserva.cliente.pk), 'nombre_cliente': str(reserva.cliente.nombre_completo)}})
+            response_data.update({'documentos': [{'t_doc': str(d.tipo_documento.documento), 'num_doc': str(d.numero_documento)} for d in reserva.cliente.clientedocumento_set.all()]})
             response_data.update({'monto_entrega': str(reserva.pago) or '0'})
             response_data.update({'mesas': [{'id': m.pk, 'descripcion': str(m)} for m in reserva.mesas.all()]})
         else:
             response_data.update({'cliente': {'id': '', 'nombre_cliente': ''}})
+            response_data.update({'documentos': [{'t_doc': '', 'num_doc': ''}]})
             response_data.update({'monto_entrega': '0'})
-            response_data.update({'mesas': ''})
+            response_data.update({'mesas': [{'id': '', 'descripcion': ''}]})
 
         # print response_data
 

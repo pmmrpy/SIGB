@@ -47,13 +47,14 @@ class Mesa(models.Model):
                                               help_text='Ingrese el Numero de Mesa.')
     ubicacion = models.ForeignKey('MesaUbicacion')
     estado = models.ForeignKey('MesaEstado')
+    utilizada_por_numero_pedido = models.PositiveIntegerField(null=True, blank=True)
 
     class Meta:
         verbose_name = 'Mesa'
         verbose_name_plural = 'Mesas'
 
     def __unicode__(self):
-        return "Nro. Mesa: %s - %s - Ubic: %s" % (self.numero_mesa, self.nombre_mesa, self.ubicacion)
+        return "Nro. Mesa: %s - Ubic: %s" % (self.numero_mesa, self.ubicacion)
 
 
 class MesaEstado(models.Model):

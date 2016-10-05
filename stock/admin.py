@@ -197,7 +197,7 @@ class ProductoVentaAdmin(admin.ModelAdmin):
 @admin.register(InventarioProducto)
 class InventarioAdmin(admin.ModelAdmin):
     actions = None
-    list_display = ['producto', 'stock']
+    list_display = ['id', 'producto', 'total_compras', 'total_ventas', 'cantidad_existente']
     list_display_links = None
     list_filter = ['producto']
     search_fields = ['producto']

@@ -37,15 +37,16 @@ class Pedido(models.Model):
     #                                                       'se acredita en consumision.')
 
     # Si el Cliente tiene una Reserva los datos de las Mesas se debe tomar de 'clientes.Reserva'
-    mesa_pedido = models.ManyToManyField('bar.Mesa', limit_choices_to={'estado__mesa_estado': "DI"},
+    mesa_pedido = models.ManyToManyField('bar.Mesa',  # through='PedidoMesaPedido',
+                                         # limit_choices_to={'estado__mesa_estado': "DI"},  # Si se filtran las Mesas con estado "DI" no son visualizadas en el filter_horizontal en el form
                                          verbose_name='Mesas',
                                          help_text='Indique la/s mesa/s que sera/n ocupada/s por el/los Cliente/s.')
 
     # Debe ser el usuario con el cual se esta registrando el Pedido, no se debe poder seleccionar el usuario.
-    mozo_pedido = models.ForeignKey(  # 'auth.User', unique=True,
-                                    'personal.Empleado',
+    mozo_pedido = models.ForeignKey('personal.Empleado',
+                                    related_name='mozo_pedido',
                                     # limit_choices_to=Q(cargo__cargo__exact="MO") | Q(cargo__cargo__exact="BM"),
-                                    to_field='usuario',
+                                    # to_field='usuario',
                                     verbose_name='Atendido por?',
                                     help_text='Este dato se completara automaticamente cuando el Pedido sea guardado.')
     estado_pedido = models.ForeignKey('bar.PedidoEstado', default=1,  # default={'pedido_estado': "VIG"},
@@ -56,6 +57,22 @@ class Pedido(models.Model):
                                                        'vez que sea guardado.')  # default=timezone.now()
     total_pedido = models.DecimalField(max_digits=18, decimal_places=0, default=0,
                                        verbose_name='Total del Pedido')
+
+    usuario_modifica_pedido = models.ForeignKey('personal.Empleado', null=True, blank=True,  # default=17,
+                                                related_name='usuario_modifica_pedido',
+                                                # limit_choices_to='',
+                                                # to_field='usuario',
+                                                verbose_name='Modificado por?',
+                                                help_text='Usuario que modifico el Pedido.')
+    motivo_cancelacion = models.CharField(max_length=200, null=True, blank=True)
+    observaciones_cancelacion = models.CharField(max_length=200, null=True, blank=True)
+    usuario_cancelacion = models.ForeignKey('personal.Empleado', null=True, blank=True,
+                                            related_name='usuario_cancelacion_pedido',
+                                            # limit_choices_to='',
+                                            #  to_field='usuario',
+                                            verbose_name='Cancelado por?',
+                                            help_text='Usuario que cancelo el Pedido.')
+    fecha_hora_cancelacion = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         verbose_name = 'Pedido'
@@ -90,7 +107,10 @@ class Pedido(models.Model):
             raise ValidationError({'total_pedido': _('El Total del Pedido no puede ser 0.')})
 
     def __unicode__(self):
-        return "Nro. Ped: %s - Fec. Ped: %s" % (self.numero_pedido, datetime.datetime.strftime(timezone.localtime(self.fecha_hora_pedido), '%d/%m/%Y %H:%M'))
+        # if self is not None:
+        #     return "Nro. Ped: %s - Fec. Ped: %s" % (self.numero_pedido, datetime.datetime.strftime(timezone.localtime(self.fecha_hora_pedido), '%d/%m/%Y %H:%M'))
+        # else:
+        return "Nro. Ped: %s" % self.numero_pedido
 
 
 class PedidoDetalle(models.Model):

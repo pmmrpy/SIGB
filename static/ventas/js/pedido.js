@@ -120,8 +120,9 @@ function set_reserva(id_reserva) {
 
             $('#id_id_cliente_reserva').val(json.cliente.id);
             $('#id_cliente_reserva').val(json.cliente.nombre_cliente);
+            $('#id_doc_ruc_cliente_reserva').val(json.documentos);
             $('#id_monto_entrega_reserva').val(json.monto_entrega);
-            //$('#id_mesa_pedido_to').val(json.mesas);
+            $('#id_mesas_reserva').val(json.mesas);
 
             var options = '';
             for (var i=0;i < json.mesas.length;i++){
