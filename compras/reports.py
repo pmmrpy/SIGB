@@ -206,15 +206,16 @@ class CompraReport(Report):
         # margin_bottom=0.5*cm
         # queryset_string = '%(object)s.ordencompradetalle_set.all()',
         elements = [
-            Label(text="Nro. Compra:", top=0.3*cm, left=20*cm, width=6.5*cm,
+            # Ocultar el Nro. Compra, visualizar solo el Nro. Orden Compra
+            # Label(text="Nro. Compra:", top=0.3*cm, left=20*cm, width=6.5*cm,
+            #       style={'fontName': 'Helvetica-Bold', 'fontSize': 12, 'wordWrap': True, 'borderWidth': 1,
+            #              'borderColor': red, 'borderPadding': 5, 'borderRadius': 5, 'alignment': TA_LEFT}),
+            # ObjectValue(attribute_name='numero_compra', top=0.3*cm, left=-0.2*cm, width=BAND_WIDTH,
+            #             style={'fontName': 'Helvetica-Bold', 'fontSize': 12, 'alignment': TA_RIGHT}),
+            Label(text="Nro. Orden Compra:", top=0.3*cm, left=20*cm, width=6.5*cm,
                   style={'fontName': 'Helvetica-Bold', 'fontSize': 12, 'wordWrap': True, 'borderWidth': 1,
                          'borderColor': red, 'borderPadding': 5, 'borderRadius': 5, 'alignment': TA_LEFT}),
-            ObjectValue(attribute_name='numero_compra', top=0.3*cm, left=-0.2*cm, width=BAND_WIDTH,
-                        style={'fontName': 'Helvetica-Bold', 'fontSize': 12, 'alignment': TA_RIGHT}),
-            Label(text="Nro. Orden Compra:", top=1.2*cm, left=20*cm, width=6.5*cm,
-                  style={'fontName': 'Helvetica-Bold', 'fontSize': 12, 'wordWrap': True, 'borderWidth': 1,
-                         'borderColor': red, 'borderPadding': 5, 'borderRadius': 5, 'alignment': TA_LEFT}),
-            ObjectValue(attribute_name='numero_orden_compra', top=1.2*cm, left=-0.2*cm, width=BAND_WIDTH,
+            ObjectValue(attribute_name='numero_orden_compra', top=0.3*cm, left=-0.2*cm, width=BAND_WIDTH,
                         style={'fontName': 'Helvetica-Bold', 'fontSize': 12, 'alignment': TA_RIGHT}),
 
             Label(text='Proveedor:', top=0.3*cm, left=0.3*cm, style={'fontName': 'Helvetica-Bold'}),

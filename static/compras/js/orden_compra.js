@@ -68,6 +68,27 @@ django.jQuery(document).ready(function(){
     //$(".field-total_producto_orden_compra input, .field-unidad_medida_orden_compra input, .field-total_orden_compra input").attr("readonly", "readonly");
     //$(".field-unidad_medida_orden_compra select").attr("disabled", true);
     $(".field-unidad_medida_orden_compra select").attr("readonly", true);
+
+    DateTimeShortcuts.overrideTimeOptions = function () {
+        var clockCount = 0;
+        console.log('ready');
+        $('ul.timelist').each(function () {
+            var $this = $(this);
+            var originalHref = $this.find('a').attr('href');
+            console.log(originalHref);
+            $this.find('li').remove();
+            for (i=7; i <= 21; i++) {
+                var newLink = '<li><a href="javascript:DateTimeShortcuts.handleClockQuicklink('+ clockCount + ', ' + i
+                    + ');"> ' + i + ':00h</a></li>';
+                $this.append(newLink);
+            }
+            //console.log($this.html());
+
+            clockCount++;
+        });
+    };
+
+    addEvent(window, 'load', DateTimeShortcuts.overrideTimeOptions);
 });
 
 // Retorna los valores del raw_id_fields
@@ -105,6 +126,7 @@ function set_producto_detalle(id_producto,name) {
 
             //alert($('#lookup_id_ordencompradetalle_set-'+indice+'-producto_orden_compra').());
 //)
+            $('#lookup_id_ordencompradetalle_set-'+indice+'-producto_orden_compra').next('strong').remove();
             $('#lookup_id_ordencompradetalle_set-'+indice+'-producto_orden_compra').after('<strong>'+json.producto+'</strong>');
             //var parent = $('#lookup_id_ordencompradetalle_set-'+indice+'-producto_orden_compra');
             //alert(JSON.stringify(parent.html()))

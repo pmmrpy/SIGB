@@ -2,8 +2,10 @@ from django.contrib import admin
 
 # Register your models here.
 # from bar.forms import PaisForm
+from django.utils.html import format_html
 from bar.forms import TimbradoForm
-from .models import ReservaEstado, Mesa, MesaEstado, MesaUbicacion, Caja, CajaUbicacion, Documento, \
+from bar.models import NumeroFacturaVenta
+from .models import ReservaEstado, Mesa, MesaEstado, MesaUbicacion, Caja, Sector, Documento, \
     Persona, FormaPagoCompra, TipoDeposito, Deposito, CategoriaProducto, SubCategoriaProducto, \
     TipoProducto, UnidadMedidaProducto, Moneda, Cotizacion, CodigoPaisTelefono, CodigoOperadoraTelefono, Pais, \
     Ciudad, CompraEstado, OrdenCompraEstado, PedidoEstado, VentaEstado, Timbrado, FacturaVenta, TipoMovimientoStock, \
@@ -22,10 +24,28 @@ class ReservaEstadoAdmin(admin.ModelAdmin):
 
 
 class MesaAdmin(admin.ModelAdmin):
-    list_display = ('nombre_mesa', 'numero_mesa', 'ubicacion', 'estado')
+    ordering = ['numero_mesa']
+    list_display = ('nombre_mesa', 'numero_mesa', 'sector', 'ubicacion', 'colorea_estado_mesa', 'utilizada_por_numero_pedido')
     list_display_links = ['nombre_mesa']
-    list_filter = ['id', 'numero_mesa', 'nombre_mesa', 'ubicacion', 'estado']
-    search_fields = ['id', 'numero_mesa', 'nombre_mesa', 'ubicacion', 'estado']
+    list_filter = ['numero_mesa', 'nombre_mesa', 'sector', 'ubicacion', 'estado']
+    search_fields = ['numero_mesa', 'nombre_mesa', 'sector__sector', 'ubicacion__mesa_ubicacion', 'estado__mesa_estado']
+
+    def colorea_estado_mesa(self, obj):
+        # color = 'black'
+        if obj.estado.mesa_estado == 'DI':
+            color = 'green'
+            return format_html('<span style="color: %s"><b> %s </b></span>' %
+                               (color, obj.estado.get_mesa_estado_display()))
+        elif obj.estado.mesa_estado == 'OC':
+            color = 'red'
+            return format_html('<span style="color: %s"><b> %s </b></span>' %
+                               (color, obj.estado.get_mesa_estado_display()))
+        elif obj.estado.mesa_estado == 'IN':
+            color = 'orange'
+            return format_html('<span style="color: %s"><b> %s </b></span>' %
+                               (color, obj.estado.get_mesa_estado_display()))
+        return obj.estado.mesa_estado
+    colorea_estado_mesa.short_description = 'Estado Mesa'
 
 
 class MesaEstadoAdmin(admin.ModelAdmin):
@@ -43,17 +63,35 @@ class MesaUbicacionAdmin(admin.ModelAdmin):
 class CajaAdmin(admin.ModelAdmin):
 
     fieldsets = [
-        ('Datos Caja', {'fields': ['numero_caja', 'ubicacion', 'estado_caja']}),
+        ('Datos Caja', {'fields': ['numero_caja', 'sector', 'estado_caja']}),
         ('Datos Tributarios', {'fields': ['punto_expedicion', 'marca', 'modelo_fabricacion', 'numero_serie']}),
     ]
 
-    list_display = ['id', 'numero_caja', 'ubicacion', 'punto_expedicion', 'marca', 'modelo_fabricacion', 'numero_serie',
-                    'estado_caja']
+    ordering = ['numero_caja']
+    list_display = ['numero_caja', 'sector', 'punto_expedicion', 'marca', 'modelo_fabricacion', 'numero_serie',
+                    'colorea_estado_caja']
     list_display_links = ['numero_caja']
-    list_filter = ['numero_caja', 'ubicacion', 'punto_expedicion', 'marca', 'modelo_fabricacion', 'numero_serie',
+    list_filter = ['numero_caja', 'sector', 'punto_expedicion', 'marca', 'modelo_fabricacion', 'numero_serie',
                    'estado_caja']
-    search_fields = ['numero_caja', 'ubicacion', 'punto_expedicion', 'marca', 'modelo_fabricacion', 'numero_serie',
+    search_fields = ['numero_caja', 'sector__sector', 'punto_expedicion', 'marca', 'modelo_fabricacion', 'numero_serie',
                      'estado_caja']
+
+    def colorea_estado_caja(self, obj):
+        # color = 'black'
+        if obj.estado_caja == 'ABI':
+            color = 'orange'
+            return format_html('<span style="color: %s"><b> %s </b></span>' %
+                               (color, obj.get_estado_caja_display()))
+        elif obj.estado_caja == 'CER':
+            color = 'green'
+            return format_html('<span style="color: %s"><b> %s </b></span>' %
+                               (color, obj.get_estado_caja_display()))
+        elif obj.estado_caja == 'CLA':
+            color = 'red'
+            return format_html('<span style="color: %s"><b> %s </b></span>' %
+                               (color, obj.get_estado_caja_display()))
+        return obj.estado_caja
+    colorea_estado_caja.short_description = 'Estado Caja'
 
 
 # class CajaEstadoAdmin(admin.ModelAdmin):
@@ -62,10 +100,17 @@ class CajaAdmin(admin.ModelAdmin):
 #     search_fields = ['id', 'caja_estado', 'descripcion']
 
 
-class CajaUbicacionAdmin(admin.ModelAdmin):
-    list_display = ('id', 'caja_ubicacion', 'descripcion')
-    list_filter = ['id', 'caja_ubicacion', 'descripcion']
-    search_fields = ['id', 'caja_ubicacion', 'descripcion']
+# class CajaUbicacionAdmin(admin.ModelAdmin):
+#     list_display = ('id', 'caja_ubicacion', 'descripcion')
+#     list_filter = ['id', 'caja_ubicacion', 'descripcion']
+#     search_fields = ['id', 'caja_ubicacion', 'descripcion']
+
+
+class SectorAdmin(admin.ModelAdmin):
+    ordering = ['id']
+    list_display = ('id', 'sector', 'descripcion', 'operativo', 'deposito')
+    list_filter = ['id', 'sector', 'descripcion', 'deposito__deposito']
+    search_fields = ['id', 'sector', 'descripcion', 'operativo', 'deposito__deposito']
 
 
 class DocumentoAdmin(admin.ModelAdmin):
@@ -94,13 +139,17 @@ class FormaPagoCompraAdmin(admin.ModelAdmin):
 
 
 class TipoDepositoAdmin(admin.ModelAdmin):
-    list_display = ('tipo_deposito', 'descripcion')
+    ordering = ['id']
+    list_display = ['id', 'tipo_deposito', 'descripcion']
+    list_display_links = ['tipo_deposito']
     list_filter = ['tipo_deposito', 'descripcion']
     search_fields = ['tipo_deposito', 'descripcion']
 
 
 class DepositoAdmin(admin.ModelAdmin):
-    list_display = ('deposito', 'descripcion', 'tipo_deposito')
+    ordering = ['id']
+    list_display = ('id', 'deposito', 'descripcion', 'tipo_deposito')
+    list_display_links = ['deposito']
     list_filter = ['deposito', 'descripcion', 'tipo_deposito']
     search_fields = ['deposito', 'descripcion', 'tipo_deposito']
 
@@ -222,6 +271,18 @@ class TimbradoAdmin(admin.ModelAdmin):
 #     search_fields = []
 
 
+class FacturaVentaAdmin(admin.ModelAdmin):
+    list_display = ['id', 'numero_serie', 'caja', 'estado', 'numero_factura_inicial', 'numero_factura_final']
+    list_filter = ['numero_serie', 'caja', 'estado']
+    search_fields = ['numero_serie', 'caja', 'estado']
+
+
+class NumeroFacturaVentaAdmin(admin.ModelAdmin):
+    list_display = ['id', 'serie', 'numero_factura', 'venta_asociada', 'fecha_hora_uso']
+    list_filter = ['serie', 'numero_factura', 'venta_asociada', 'fecha_hora_uso']
+    search_fields = ['serie__numero_serie', 'numero_factura', 'venta_asociada', 'fecha_hora_uso']
+
+
 class TipoMovimientoStockAdmin(admin.ModelAdmin):
     list_display = ('id', 'tipo_movimiento_stock', 'descripcion')
     list_filter = ['id', 'tipo_movimiento_stock', 'descripcion']
@@ -240,7 +301,8 @@ admin.site.register(MesaEstado, MesaEstadoAdmin)
 admin.site.register(MesaUbicacion, MesaUbicacionAdmin)
 admin.site.register(Caja, CajaAdmin)
 # admin.site.register(CajaEstado, CajaEstadoAdmin)
-admin.site.register(CajaUbicacion, CajaUbicacionAdmin)
+# admin.site.register(CajaUbicacion, CajaUbicacionAdmin)
+admin.site.register(Sector, SectorAdmin)
 admin.site.register(Documento, DocumentoAdmin)
 admin.site.register(Persona, PersonaAdmin)
 # admin.site.register(FormaPagoVenta, FormaPagoVentaAdmin)
@@ -262,7 +324,8 @@ admin.site.register(OrdenCompraEstado, OrdenCompraEstadoAdmin)
 admin.site.register(PedidoEstado, PedidoEstadoAdmin)
 admin.site.register(VentaEstado, VentaEstadoAdmin)
 admin.site.register(Timbrado, TimbradoAdmin)
-admin.site.register(FacturaVenta)
+admin.site.register(FacturaVenta, FacturaVentaAdmin)
+admin.site.register(NumeroFacturaVenta, NumeroFacturaVentaAdmin)
 admin.site.register(TipoMovimientoStock, TipoMovimientoStockAdmin)
 admin.site.register(TransferenciaStockEstado, TransferenciaStockEstadoAdmin)
 admin.site.register(TipoFacturaCompra)

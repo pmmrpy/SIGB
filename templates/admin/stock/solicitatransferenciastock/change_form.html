@@ -1,0 +1,175 @@
+{% extends "admin/change_form.html" %}
+{% block field_sets %}
+    {{ block.super }}
+
+    {% if original.motivo_cancelacion %}
+        <fieldset class="module aligned with-legend ">
+            <h2 class="legend">Cancelacion</h2>
+
+            <div class="control-group form-row  ">
+                <div>
+                    <div class="control-label"><label>Motivo Cancelacion:</label></div>
+                    <div class="controls">{{ original.motivo_cancelacion }}</div>
+                </div>
+            </div>
+            <div class="control-group form-row  ">
+                <div>
+                    <div class="control-label"><label>Observaciones:</label></div>
+                    <div class="controls">{{ original.observaciones_cancelacion }}</div>
+                </div>
+            </div>
+            <div class="control-group form-row  ">
+                <div>
+                    <div class="control-label"><label>Cancelado por?:</label></div>
+                    <div class="controls">{{ original.usuario_cancelacion }}</div>
+                </div>
+            </div>
+            <div class="control-group form-row  ">
+                <div>
+                    <div class="control-label"><label>Fecha/hora Cancelacion:</label></div>
+                    <div class="controls">{{ original.fecha_hora_cancelacion }}</div>
+                </div>
+            </div>
+        </fieldset>
+    {% endif %}
+{% endblock %}
+
+{% block submit_buttons_bottom %}
+    {#    {% if show_button %}#}
+    <button type="submit" class="btn btn-high btn-info" {% if not show_save_button %} disabled="disabled" {% endif %}
+            name="_save">Grabar Solicitud de Transferencia
+    </button>
+    <button type="submit" class="btn btn-high btn-default" {% if not show_continue_button %}
+            disabled="disabled" {% endif %} name="_continue">Grabar y continuar editando
+    </button>
+{#    <button type="button" class="btn btn-high btn-warning"  data-toggle="modal" data-target="#jornadasModal" {% if not show_change_button %}#}
+{#            disabled="disabled" {% endif %} name="_change">Cambiar Jornada#}
+{#    </button>#}
+    <!-- Trigger the modal with a button -->
+    <button type="button" class="btn btn-high btn-danger" {% if not show_cancel_button %}disabled="disabled" {% endif %}
+            name="_cancel" data-toggle="modal" data-target="#myModal">Cancelar Solicitud de Transferencia
+    </button>
+    {#        <button type="submit" class="btn btn-high btn-danger" {% if not show_cancel_button %} disabled="disabled" {% endif %} name="_cancel" >Cancelar Compra</button>#}
+    {#        <button type="submit" class="btn btn-high btn-default" {% if not show_button %} disabled="disabled" {% endif %} name="_cargaorden" >Cargar Datos Orden Compra</button>#}
+{#    <a {% if not show_imprimir_button %} disabled="disabled" href="#" {% else %}#}
+{#                                         href="/ventas/pedido-report/{{ original.pk }}" target="_blank" {% endif %}#}
+{#                                         class="btn btn-high btn-success" style="width: 80%">Imprimir Pedido</a>#}
+    {#    {% endif %}#}
+
+    <!-- Modal -->
+    <div id="myModal" class="modal fade" role="dialog">
+        <div class="modal-dialog">
+
+            <!-- Modal content-->
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal">&times;</button>
+                    <h4 class="modal-title">Cancelar Solicitud de Transferencia</h4>
+                </div>
+                <div class="modal-body" style="text-align: left;margin-left: 20px">
+                    <div class="alert alert-danger" id="alert-cancelacion" style="display: none"></div>
+                    <h4>Motivo cancelacion</h4>
+                    <input type="radio" name="motivo" value="Producto sera dado de baja">Producto sera dado de baja<br/>
+                    <input type="radio" name="motivo" value="Datos incorrectos en la Solicitud de Transferencia">Datos incorrectos en la Solicitud de Transferencia<br/>
+                    <input type="radio" name="motivo" value="Stock suficiente">Stock suficiente<br/> <br/>
+
+                    <h4>Observaciones</h4>
+                    <textarea id="id_observaciones" name="observaciones" rows="1" cols="200"
+                              style="width: 434px; height: 39px;" maxlength="200"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" id="close-modal-button" data-dismiss="modal">Close
+                    </button>
+                    <input type="button" class="btn btn-primary" value="Aceptar" onclick="validar()"/>
+                    <input type="hidden" id="id_cancel" name="" value=""/>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+{% comment %}
+    <!-- Modal -->
+    <div id="jornadasModal" class="modal fade" role="dialog">
+        <div class="modal-dialog">
+
+            <!-- Modal content-->
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal">&times;</button>
+                    <h4 class="modal-title">Seleccionar Jornada</h4>
+                </div>
+                <div class="modal-body" style="text-align: left;margin-left: 20px">
+                   {% if jornadas %}
+                       <select id="id_cambiar_jornada" style="width: 500px">
+                        {% for jornada in jornadas %}
+                            <option value="{{ jornada.pk }}">{{ jornada }} | Cajero: {{ jornada.mozo }}</option>
+                       {% endfor %}
+                       </select>
+                    {% else %}
+                       No existen Jornadas vigentes disponibles
+
+                    {% endif %}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" id="close-modal-button" data-dismiss="modal">Close
+                    </button>
+                    <input type="button" class="btn btn-primary" value="Aceptar" onclick="setJornada()"/>
+                    <input type="hidden" id="id_cancel" name="" value=""/>
+                </div>
+            </div>
+
+        </div>
+    </div>
+{% endcomment %}
+
+    <script type="text/javascript">
+
+{% comment %}
+        function setJornada(){
+            var jornada = $('#id_cambiar_jornada').val() || '';
+
+            $('#pedido_form').append( '<input type="hidden" name="cambiar_jornada" value="'+jornada+'"> ');
+            $('#pedido_form').submit();
+        }
+{% endcomment %}
+
+        function validar() {
+{#            alert('Entra a validar()');#}
+            var mensaje = '';
+            if (!$('#id_observaciones').val()) {
+                mensaje += 'Debe ingresar una Observacion.' + '<br />'
+            }
+
+            {#            if (!$('#id_numero_factura_compra').val()){#}
+            {#                mensaje += 'Debe ingresar un Numero de Factura.' + '<br />'#}
+            {#            }#}
+
+            if ($('input[name=motivo]:checked').length == 0) {
+                mensaje += 'Debe seleccionar un Motivo.' + '<br />'
+            }
+
+            {#            if (!$('#id_mesa_pedido_to').val()){#}
+            {#                mensaje += 'Debe elegir una Mesa.' + '<br />'#}
+            {#            }else{#}
+            {#                $('#id_mesa_pedido_to').attr("readonly", "readonly");#}
+            {#            }#}
+
+{#            $('#close-modal-button').click();#}
+{##}
+{#            $('#id_mesa_pedido_to option').each(function () {#}
+{#                $(this).prop('selected', 'selected')#}
+{#            });#}
+
+            if (mensaje != '') {
+                $('#alert-cancelacion').html('<button class="close" data-dismiss="alert">×</button>' + mensaje).css({'display': 'block'})
+            } else {
+                {#                Opcion 1: Limpia el campo id_numero_factura_compra antes de grabar el registro#}
+                {#                Opcion 2 (Elegida): Se agregaron las opciones necesarias para que el mask limpie el campo id_numero_factura_compra en compra.js#}
+                {#                $('#id_numero_factura_compra').val('')                #}
+                $('#id_cancel').attr('name', '_cancel').val('_cancel');
+                $('#solicitatransferenciastock_form').submit();
+            }
+        }
+    </script>
+{% endblock %}

@@ -8,7 +8,10 @@
 {% block title %}{{ title }} | SIGB {% endblock %}
 
 {% block branding %}
-<h1 id="site-name"><a href="{% url 'admin:index' %}">SIGB</a></h1>
+<h1 id="site-name"><a href="{% url 'admin:index' %}">
+    <img src="/static/SIGB/images/logo_SIGB_2.png" width="120">
+</a></h1>
+
 {% endblock %}
 
 {% block nav-global %}{% endblock %}
@@ -67,5 +70,5 @@
 
 {#Footer copyright (right side) #}
 {% block copyright %}
-  Copyright &copy; 2016 PmmR<br>Desarrollado por <a href="http://www.pmmr.com.py" target="_blank">Pedro Molas</a>
+  Copyright &copy; 2016 PmmR<br>Desarrollado por <a href="https://www.linkedin.com/in/pmmrpy" target="_blank">Pedro Molas</a>
 {% endblock %}

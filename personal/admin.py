@@ -43,17 +43,17 @@ class EmpleadoAdmin(admin.ModelAdmin):
                                              'email']}),
         # ('Sexo', {'fields': ['sexo']}),
         # ('Direccion', {'fields': ['direccion']}),
-        ('Datos Laborales', {'fields': ['cargo', 'salario', 'horario', 'usuario', '_codigo_venta']}),
+        ('Datos Laborales', {'fields': ['cargo', 'sector', 'salario', 'horario', 'usuario', '_codigo_venta']}),
         # ('Email', {'fields': ['email']}),  # , 'classes': ['collapse']
     ]
 
     inlines = [EmpleadoTelefonoInline, EmpleadoDocumentoInline]
 
     list_display = ['id', 'upper_case_name', 'fecha_nacimiento', 'direccion', 'pais', 'ciudad', 'barrio',
-                    'cargo', 'horario', 'usuario', 'email']  # 'nombres', 'apellidos',
+                    'cargo', 'sector', 'horario', 'usuario', 'email']  # 'nombres', 'apellidos',
     list_display_links = ['upper_case_name']
-    list_filter = ['id', 'nombres', 'apellidos', 'direccion', 'cargo', 'horario', 'usuario', 'email']
-    search_fields = ['id', 'nombres', 'apellidos', 'direccion', 'cargo__cargo', 'horario__horario',
+    list_filter = ['id', 'nombres', 'apellidos', 'direccion', 'cargo', 'sector', 'horario', 'usuario', 'email']
+    search_fields = ['id', 'nombres', 'apellidos', 'direccion', 'cargo__cargo', 'sector__sector', 'horario__horario',
                      'usuario__username', 'email']
 
     def upper_case_name(self, obj):
@@ -75,10 +75,11 @@ class HorarioAdmin(admin.ModelAdmin):
 
     fieldsets = [
         ('Descripcion', {'fields': ['horario']}),
-        ('Horario', {'fields': ['horario_inicio', 'horario_fin']}),
+        ('Horario', {'fields': ['horario_inicio', 'horario_fin', 'duracion_jornada']}),
     ]
 
-    list_display = ['id', 'horario', 'horario_inicio', 'horario_fin']
+    ordering = ['id']
+    list_display = ['id', 'horario', 'horario_inicio', 'horario_fin', 'duracion_jornada']
     list_display_links = ['horario']
     list_filter = ['id', 'horario', 'horario_inicio', 'horario_fin']
     search_fields = ['id', 'horario', 'horario_inicio', 'horario_fin']

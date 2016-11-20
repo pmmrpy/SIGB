@@ -4,22 +4,34 @@
 
 django.jQuery(document).ready(function(){
     if (document.getElementById("id_tipo_producto").value == 'IN'){
+        $('#id_insumo').removeAttr('readonly');
+        $(`a[id=lookup_id_insumo]`).css({'display':''});
         $('#id_porcentaje_ganancia').prop('readonly', true);
         $('#id_precio_venta_sugerido').prop('readonly', true);
         $('#id_precio_venta').prop('readonly', true);
-    }else{
+    }else if (document.getElementById("id_tipo_producto").value == 'VE') {
+        //alert('Entra a tipo_producto=VE');
+        //$('#id_insumo').prop('readonly', true).val('');
+        $('#id_insumo').prop('readonly', true);
+        $(`a[id=lookup_id_insumo]`).css({'display':'none'});
         $('#id_porcentaje_ganancia').removeAttr('readonly');
-        set_precio_venta_sugerido();
+        //set_precio_venta_sugerido();
         $('#id_precio_venta_sugerido').prop('readonly', true);
         $('#id_precio_venta').removeAttr('readonly');
     }
 
     $("#id_tipo_producto").change(function(){
       if (this.value == 'IN'){
+          $('#id_insumo').removeAttr('readonly');
+          $(`a[id=lookup_id_insumo]`).css({'display':''});
           $('#id_porcentaje_ganancia').prop('readonly', true).val(0);
           $('#id_precio_venta_sugerido').prop('readonly', true).val(0);
           $('#id_precio_venta').prop('readonly', true).val(0);
-      }else{
+      }else if (this.value == 'VE') {
+          //alert('Entra a tipo_producto=VE');
+          $('#id_insumo').prop('readonly', true).val('');
+          $('#lookup_id_insumo').next('strong').remove();
+          $(`a[id=lookup_id_insumo]`).css({'display':'none'});
           $('#id_porcentaje_ganancia').removeAttr('readonly');
           set_precio_venta_sugerido();
           $('#id_precio_venta_sugerido').prop('readonly', true);
@@ -40,9 +52,11 @@ django.jQuery(document).ready(function(){
     });
 
     $('input[name=precio_compra]').keyup(function (){
-        var precio_compra_sugerido = (($('#id_precio_compra_sugerido').val())? ($('#id_precio_compra_sugerido').val()) : 0);
-        if (parseFloat(precio_compra_sugerido) == 0){
-            set_precio_venta_sugerido();
+        if ($("#id_tipo_producto").value == 'VE') {
+            var precio_compra_sugerido = (($('#id_precio_compra_sugerido').val())? ($('#id_precio_compra_sugerido').val()) : 0);
+            if (parseFloat(precio_compra_sugerido) == 0){
+                set_precio_venta_sugerido();
+            }
         }
     });
 

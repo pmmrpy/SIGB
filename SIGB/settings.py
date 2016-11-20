@@ -39,6 +39,7 @@ INSTALLED_APPS = (
     'suit',
     'dal',
     'dal_select2',
+    'admin_view_permission',
     # 'ajax_select',
     'django.contrib.admin',
     'django.contrib.auth',
@@ -138,17 +139,26 @@ SUIT_CONFIG = {
 
     # 'MENU_OPEN_FIRST_CHILD': True, # Default True
     # 'MENU_EXCLUDE': ('auth.group',),
+    'MENU_EXCLUDE': ('filer',),
     'MENU': (
         'sites',
         {'app': 'auth', 'icon': 'icon-lock'},  # , 'models': ('user', 'group')
         # {'label': 'Settings', 'icon':'icon-cog', 'models': ('auth.user', 'auth.group')},
         # {'label': 'Support', 'icon':'icon-question-sign', 'url': '/support/'},
         {'app': 'bar', 'label': 'Parametrizaciones', 'icon': 'icon-list'},
-        {'app': 'clientes', 'label': 'Clientes', 'icon': 'icon-user'},
+        {'app': 'clientes', 'label': 'Clientes', 'icon': 'icon-user',
+         'models': (
+            'cliente', 'reserva',
+            {'label': 'Calendario de Reservas', 'url': '/calendar/'},)
+        },
         {'app': 'compras', 'label': 'Compras', 'icon': 'icon-shopping-cart'},
         {'app': 'personal', 'label': 'Personal', 'icon': 'icon-flag'},
         {'app': 'stock', 'label': 'Stock', 'icon': 'icon-cog'},
         {'app': 'ventas', 'label': 'Ventas', 'icon': 'icon-random'},
+        #  {'label': 'Custom view', 'icon':'icon-cog', 'models': (
+        #     {'label': 'Custom link', 'url': 'auth.user'},
+        # )},
+
     ),
 
     # misc

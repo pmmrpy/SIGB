@@ -42,6 +42,11 @@ class Producto(models.Model):
                                                verbose_name='Fecha de Alta',
                                                help_text='La Fecha de Alta se asigna al momento de guardar los datos '
                                                          'del Producto. No se requiere el ingreso de este dato.')
+    fecha_modificacion_producto = models.DateTimeField(auto_now=True,  # editable=True, default=timezone.now,
+                                                       verbose_name='Fecha de Modificacion',
+                                                       help_text='La Fecha de Modificacion se asigna al momento de '
+                                                                 'guardar los datos modificados del Producto. No se '
+                                                                 'requiere el ingreso de este dato.')
 
 # ==> Contenido del Producto <==
     # tipo_producto = models.ForeignKey('bar.TipoProducto', verbose_name='Tipo de Producto',  # default="VE",
@@ -49,6 +54,7 @@ class Producto(models.Model):
     tipo_producto = models.CharField(max_length=2, choices=TIPOS_PRODUCTO, default='VE',
                                      verbose_name='Tipo de Producto',
                                      help_text='Seleccione el Tipo de Producto.')
+    insumo = models.ForeignKey('Insumo', null=True, blank=True)
     categoria = models.ForeignKey('bar.CategoriaProducto', help_text='Seleccione la Categoria del Producto.')
     subcategoria = models.ForeignKey('bar.SubCategoriaProducto', help_text='Seleccione la SubCategoria del Producto.')
     compuesto = models.BooleanField(verbose_name='Es compuesto?',  # default=False,
@@ -108,9 +114,11 @@ class Producto(models.Model):
     #                                      verbose_name='Fecha de Vencimiento',
     #                                      help_text='Ingrese la fecha de vencimiento del Producto.')
 
+    # inventario_deposito = models.ForeignKey('InventarioDeposito', null=True, blank=True)
+
 # ==> Datos para la Elaboracion <==
     costo_elaboracion = models.DecimalField(max_digits=18, decimal_places=0, default=0,
-                                            verbose_name='Costo de Elaboracion del Producto',
+                                            verbose_name='Costo de Elaboracion',
                                             help_text='Suma de los Totales de Costo del detalle del Producto '
                                                       'Compuesto.')
     tiempo_elaboracion = models.TimeField(verbose_name='Tiempo Elaboracion',  # default=datetime.time(00, 15, 00),
@@ -134,15 +142,6 @@ class Producto(models.Model):
             return u'Imagen no disponible.'
     thumb.short_description = 'Vista de Imagen'
 
-    def __init__(self, *args, **kwargs):
-        self._meta.get_field('compuesto').default = False
-        self._meta.get_field('costo_elaboracion').default = 0
-
-        # if self.tipo_producto == 'VE':
-        #     self._meta.get_field('porcentaje_ganancia').
-
-        super(Producto, self).__init__(*args, **kwargs)
-
     def get_precio_venta_sugerido(self):
         producto = Producto.objects.get(id=self.pk)
         precio_venta_sugerido = (((self.get_precio_compra_sugerido() * producto.porcentaje_ganancia) / 100) +
@@ -154,8 +153,12 @@ class Producto(models.Model):
     #                                   'Compra del producto en el ultimo mes por el Porcentaje de Ganancia'
 
     def get_precio_compra_sugerido(self):
+
+        # import pdb
+        # pdb.set_trace()
+
         detalles = CompraDetalle.objects.filter(producto_compra_id=self.pk,
-                                                numero_compra__estado_compra__estado_orden_compra='CON')
+                                                numero_compra__estado_compra__estado_orden_compra='ENT')
         # hoy = timezone_today()
         # fecha = '%s-%s-01'%(hoy.year,('0%s'%(hoy.month-1) if len(str(hoy.month-1))==1 else (hoy.month-1)))
         # fecha = datetime.date.today() - datetime.timedelta(days=30)
@@ -167,7 +170,7 @@ class Producto(models.Model):
         # precio_compra_sugerido = 0
 
         for detalle in detalles:
-            print detalle.numero_compra.estado_compra.estado_compra
+            print detalle.numero_compra.estado_compra.estado_orden_compra
             total += detalle.precio_producto_compra
             # cantidad += detalle.cantidad_producto_compra
             cantidad += 1
@@ -177,6 +180,39 @@ class Producto(models.Model):
         return precio_compra_sugerido if precio_compra_sugerido else 0  # total / (cantidad if cantidad else 1)
     # precio_compra_sugerido.help_text = 'Este valor se calcula promediando el Costo de Compra del Producto en los ' \
     #                                    'ultimos 30 dias.'
+
+    def get_precio_venta_sugerido_producto_compuesto(self):
+        # producto = Producto.objects.get(id=self.pk)
+        precio_venta_sugerido = (((self.costo_elaboracion * self.porcentaje_ganancia) / 100) +
+                                 self.costo_elaboracion)
+        # print 'precio_compra_sugerido: %s * porcentaje_ganancia: %s - precio_venta_sugerido: %s' % \
+        #       (self.get_precio_compra_sugerido(), producto.porcentaje_ganancia, precio_venta_sugerido)
+        return int(precio_venta_sugerido)
+    # precio_venta_sugerido.help_text = 'Precio de Venta sugerido calculado a partir del promedio del Costo de ' \
+    #                                   'Compra del producto en el ultimo mes por el Porcentaje de Ganancia'
+
+    @property
+    def cantidad_existente_producto(self):
+        """Retorna la cantidad existente del Producto de la vista InventarioDeposito"""
+
+        # import pdb
+        # pdb.set_trace()
+
+        try:
+            stock = InventarioDeposito.objects.get(pk=self.id)
+            cantidad = stock.cant_existente
+        except InventarioDeposito.DoesNotExist:
+            cantidad = 0
+        return cantidad
+
+    def __init__(self, *args, **kwargs):
+        self._meta.get_field('compuesto').default = False
+        self._meta.get_field('costo_elaboracion').default = 0
+
+        # if self.tipo_producto == 'VE':
+        #     self._meta.get_field('porcentaje_ganancia').
+
+        super(Producto, self).__init__(*args, **kwargs)
 
     def clean(self):
         # Valida que el porcentaje_ganancia no sea 0.
@@ -199,8 +235,63 @@ class Producto(models.Model):
                                                       'el Precio de Compra Sugerido.')})
 
     def __unicode__(self):
-        return "ID Prod: %s - Prod: %s - Marca: %s" % (self.id, self.producto, self.marca)
+        return "Prod: %s - Marca: %s" % (self.producto, self.marca)
 
+
+class Insumo(models.Model):
+    """
+    16/11/2016: Agrupacion de Productos a la cual denomine "Insumos" debido a que en la definicion de los Productos
+    Compuestos los mismos quedarian atados a un Producto en particular con su marca y especificaciones lo cual no es
+    correcto. En el detalle de los Productos Compuestos no debe importar la marca del Producto. Esto se convierte en un
+    nivel de abstraccion para evitar la dependencia a un producto en especifico.
+
+    Al momento de confirmar la Comanda se debe recorrer esta agrupacion de Productos para determinar de cual de ellos
+    realizar el descuento del Stock.
+    """
+    insumo = models.CharField(max_length=200, verbose_name='Nombre del Insumo', unique=True,
+                              help_text='Ingrese el nombre o descripcion del Insumo.')
+    # costo_promedio = models.DecimalField(max_digits=18, decimal_places=0, default=0,
+    #                                      verbose_name='Costo Promedio por Unidad',
+    #                                      help_text='Promedio de los Precios de Compra de los Productos integrantes.')
+
+    unidad_medida = models.ForeignKey('bar.UnidadMedidaProducto', related_name='un_med_insumo',  # default=1,
+                                      verbose_name='Unidad de Medida',
+                                      help_text='Seleccione la Unidad de Medida del Insumo. Corresponde a la Unidad de '
+                                                'Medida en comun para la agrupacion de Productos Insumos para la que '
+                                                'sera calculado el costo promedio.')
+
+    fecha_alta_insumo = models.DateTimeField(auto_now_add=True,  # editable=True, default=timezone.now,
+                                             verbose_name='Fecha de Alta',
+                                             help_text='La Fecha de Alta se asigna al momento de guardar los datos '
+                                                       'del Insumo. No se requiere el ingreso de este dato.')
+    fecha_modificacion_insumo = models.DateTimeField(auto_now=True,  # editable=True, default=timezone.now,
+                                                     verbose_name='Fecha de Modificacion',
+                                                     help_text='La Fecha de Modificacion se asigna al momento de '
+                                                               'guardar los datos modificados del Insumo. No se '
+                                                               'requiere el ingreso de este dato.')
+
+    class Meta:
+        verbose_name = 'Insumo'
+        verbose_name_plural = 'Productos - Insumos'
+
+    def get_costo_promedio_por_unidad(self):
+
+        # import pdb
+        # pdb.set_trace()
+
+        productos = Producto.objects.filter(insumo=self.id, tipo_producto='IN')
+        total_cantidad_contenido = 0
+        total_precio_compra = 0
+
+        for producto in productos:
+            total_cantidad_contenido += producto.contenido
+            total_precio_compra += producto.precio_compra
+        costo_promedio_por_unidad = int(total_precio_compra / (total_cantidad_contenido if total_cantidad_contenido else 1))
+        return costo_promedio_por_unidad if costo_promedio_por_unidad else 0  # total / (cantidad if cantidad else 1)
+    get_costo_promedio_por_unidad.short_description = 'Costo Promedio por Unidad'
+
+    def __unicode__(self):
+        return "%s" % self.insumo
 
 # class PrecioVentaProducto(models.Model):
 #     """
@@ -297,34 +388,54 @@ class ProductoCompuesto(Producto):
 
 
 class ProductoCompuestoDetalle(models.Model):
-    producto_compuesto = models.ForeignKey('ProductoCompuesto', related_name="producto_cabecera", null=True)
+    producto_compuesto = models.ForeignKey('ProductoCompuesto', related_name="producto_cabecera")  # , null=True)  # default=49
 
     # Limitar los Productos que pueden ser seleccionados a los que poseen TipoProducto igual a Insumos.
-    producto = models.ForeignKey('Producto', related_name="producto_detalle", null=True,
-                                 limit_choices_to={'tipo_producto': "IN"},
-                                 verbose_name='Nombre del Producto',
-                                 help_text='Seleccione el o los Productos que componen este Producto Compuesto.')
-    cantidad_producto = models.DecimalField(max_digits=10, decimal_places=3,
-                                            verbose_name='Cantidad Producto',
-                                            help_text='Ingrese la cantidad del producto.')
-    costo_unidad_medida = models.DecimalField(max_digits=18, decimal_places=0, default=0,
-                                              verbose_name='Costo por Unidad de Medida',
-                                              help_text='Corresponde al costo de 1 unidad del Producto de acuerdo '
-                                                        'a su Unidad de Medida del Contenido.')
-    total_costo = models.DecimalField(max_digits=18, decimal_places=0, default=0,
+    # producto = models.ForeignKey('Producto', related_name="producto_detalle",  # default=15,  # null=True,
+    #                              limit_choices_to={'tipo_producto': "IN"},
+    #                              verbose_name='Nombre del Producto',
+    #                              help_text='Seleccione el o los Productos que componen este Producto Compuesto.')
+    insumo = models.ForeignKey('Insumo', related_name="producto_insumo_detalle",  # default=1,  # null=True,
+                               verbose_name='Nombre del Insumo',
+                               help_text='Seleccione el o los Insumos que componen este Producto Compuesto.')
+
+    unidad_medida_insumo = models.ForeignKey('bar.UnidadMedidaProducto', related_name='un_med_insumo_prod_compuesto',  # default=1,
+                                             verbose_name='Unidad de Medida Insumo')  # default=1,
+                                             # help_text='Seleccione la Unidad de Medida del Insumo.')
+
+    # unidad_medida_orden_compra = models.ForeignKey('bar.UnidadMedidaProducto',  # default=1, # to_field='unidad_medida',
+    #                                                verbose_name='Un. Med. Compra Producto',
+    #                                                help_text='Debe ser la definida en los datos del Producto, no '
+    #                                                          'debe ser seleccionada por el usuario.')
+
+    # contenido = models.DecimalField(max_digits=10, decimal_places=3,  # default=1,
+    #                                 verbose_name='Cantidad Contenido',
+    #                                 help_text='Ingrese la cantidad del Producto contenida en el envase de acuerdo '
+    #                                           'a su Unidad de Medida. Los Productos del tipo Insumo comprados a '
+    #                                           'granel (no envasados) siempre deben ser registrados con contenido igual '
+    #                                           'a una unidad. Ej: Queso - 1 kilo, Detergente - 1 litro.')
+
+    costo_promedio_insumo = models.DecimalField(max_digits=18, decimal_places=0,  # default=0,
+                                                verbose_name='Costo Promedio Insumo por Un. Med.',
+                                                help_text='Corresponde al costo promedio de 1 unidad del Insumo de '
+                                                          'acuerdo a su Unidad de Medida.')
+
+    cantidad_insumo = models.DecimalField(max_digits=10, decimal_places=3,  # default=1,
+                                          verbose_name='Cantidad Insumo',
+                                          help_text='Ingrese la cantidad del Insumo.')
+    total_costo = models.DecimalField(max_digits=18, decimal_places=0,  # default=0,
                                       verbose_name='Total Costo',
-                                      help_text='Valor calculado entre la Cantidad del Producto por el Costo por '
-                                                'Unidad de Medida del Producto.')
+                                      help_text='Valor calculado entre la Cantidad del Insumo por su Costo Promedio.')
 
     class Meta:
-        verbose_name = 'Producto - Detalle de Compuesto o Elaborado (Receta)'
-        verbose_name_plural = 'Productos - Detalles de Compuestos o Elaborados (Recetas)'
+        verbose_name = 'Detalle de Producto Compuesto o Elaborado (Receta)'
+        verbose_name_plural = 'Productos - Detalles de Productos Compuestos o Elaborados (Recetas)'
 
     # VALIDACIONES/FUNCIONALIDADES
     # Validar la unidad de medida del producto
 
     def __unicode__(self):
-        return "%s" % self.producto_compuesto
+        return "Prod. Comp: %s - Ins: %s" % (self.producto_compuesto, self.insumo)
 
 
 class ProductoVenta(Producto):
@@ -341,7 +452,27 @@ class ProductoVenta(Producto):
         verbose_name_plural = 'Productos - Productos para la Venta'
 
     def __unicode__(self):
-        return "ID Prod: %s - Prod: %s" % (self.id, self.producto)
+        # return "ID Prod: %s - Prod: %s" % (self.id, self.producto)
+        return "%s" % self.producto
+
+
+class ProductoExistente(Producto):
+    """
+    19/11/2016: Productos disponibles para realizar Transferencia entre Depositos.
+
+    Se crea esta vista para filtrar los Productos disponibles para realizar Transferencias entre Depositos que seran
+    visualizados en la pantalla de SolicitaTransferenciaStock.
+    No se realiza ninguna carga de datos en esta pantalla.
+    """
+
+    class Meta:
+        proxy = True
+        verbose_name = 'Producto Existente'
+        verbose_name_plural = 'Productos - Productos Existentes'
+
+    def __unicode__(self):
+        # return "ID Prod: %s - Prod: %s" % (self.id, self.producto)
+        return "%s" % self.producto
 
 
 # ======================================================================================================================
@@ -533,6 +664,7 @@ class MovimientoStock(models.Model):
         ('CO', 'Compra'),
         # ('ME', 'Mermas'),
         ('TR', 'Transferencias'),
+        ('AI', 'Ajustes de Inventario'),
         # ('DE', 'Devoluciones'),
     )
 
@@ -626,10 +758,10 @@ class InventarioProducto(models.Model):
     Genera una vista con la agrupacion de los movimientos de Stock por Producto calculando el campo "cantidad_existente"
     """
     # id_producto = models.PositiveIntegerField()
-    producto = models.CharField(max_length=50)
-    total_compras = models.IntegerField()
-    total_ventas = models.IntegerField()
-    cantidad_existente = models.IntegerField()
+    producto = models.CharField(max_length=100)
+    total_compras = models.IntegerField(verbose_name='Total Compras')
+    total_ventas = models.IntegerField(verbose_name='Total Ventas')
+    cantidad_existente = models.IntegerField(verbose_name='Cantidad Existente')
 
     class Meta:
         # Definir si va ser una tabla proxy o multitable
@@ -640,29 +772,26 @@ class InventarioProducto(models.Model):
         managed = False
 
 
-# class StockDeposito(Stock):
-#     """
-#     Genera una vista con la agrupacion de los movimientos de Stock por Deposito calculando el campo
-#     "cantidad_existente"
-#     """
-#
-#     class Meta:
-#         # Definir si va ser una tabla proxy o multitable
-#         # proxy = True
-#         verbose_name = 'Inventario por Deposito'
-#         verbose_name_plural = 'Stock - Inventarios por Depositos'
+class InventarioDeposito(models.Model):
+    """
+    Genera una vista con la agrupacion de los movimientos de Stock por Deposito calculando el campo
+    "cantidad_existente"
+    """
+    producto = models.CharField(max_length=100)
+    cant_exist_dce = models.IntegerField(verbose_name='Dep. Central')
+    cant_exist_dbp = models.IntegerField(verbose_name='Dep. Barra Principal')
+    cant_exist_dba = models.IntegerField(verbose_name='Dep. Barra Arriba')
+    cant_exist_dco = models.IntegerField(verbose_name='Dep. Barra Cocina')
+    cant_exist_dbi = models.IntegerField(verbose_name='Dep. Barrita')
+    cant_existente = models.IntegerField(verbose_name='Cantidad Existente')
 
-
-# class StockAjuste(Stock):
-#     """
-#     25/09/2016: Registrar ajustes de inventario.
-#     """
-#
-#     class Meta:
-#         # Definir si va ser una tabla proxy o multitable
-#         # proxy = True
-#         verbose_name = 'Ajuste de Inventario'
-#         verbose_name_plural = 'Stock - Ajustes de Inventario'
+    class Meta:
+        # Definir si va ser una tabla proxy o multitable
+        # proxy = True
+        verbose_name = 'Inventario por Deposito'
+        verbose_name_plural = 'Stock - Inventarios por Depositos'
+        db_table = 'inventario_por_deposito'
+        managed = False
 
 
 # ======================================================================================================================
@@ -678,23 +807,17 @@ class TransferenciaStock(models.Model):
 
     Los Depositos que realizan las ventas son los Depositos Operativos exceptuando a la Cocina.
     """
-    producto_transferencia = models.ForeignKey('Producto', related_name='producto_solicitado',
-                                               # limit_choices_to={'cantidad_existente' > 0},
-                                               # limit_choices_to=Q(cantidad_existente__gt=0),
-                                               verbose_name='Producto a Transferir',
-                                               help_text='Seleccione el producto a Transferir entre depositos.')
+
+    # cantidad_existente_stock = models.DecimalField(max_digits=10, decimal_places=3, default=0,
+    #                                                verbose_name='Cantidad Existente',
+    #                                                help_text='Despliega la cantidad existente del Producto en el '
+    #                                                          'Deposito Proveedor seleccionado.')
 
     deposito_origen_transferencia = models.ForeignKey('bar.Deposito', related_name='deposito_proveedor',
                                                       verbose_name='Deposito Proveedor',
                                                       help_text='Seleccione el Deposito que se encargara de '
                                                                 'procesar la Transferencia.')
-    cantidad_existente_stock = models.DecimalField(max_digits=10, decimal_places=3, default=0,
-                                                   verbose_name='Cantidad Existente',
-                                                   help_text='Despliega la cantidad existente del Producto en el '
-                                                             'Deposito Proveedor seleccionado.')
-    cantidad_producto_transferencia = models.DecimalField(max_digits=10, decimal_places=3,
-                                                          verbose_name='Cantidad a Transferir',
-                                                          help_text='Cantidad a Transferir del producto.')
+
     deposito_destino_transferencia = models.ForeignKey('bar.Deposito', related_name='deposito_solicitante',
                                                        verbose_name='Deposito Solicitante',
                                                        help_text='Seleccione el Deposito desde donde se solicita '
@@ -718,22 +841,33 @@ class TransferenciaStock(models.Model):
                                                           help_text='El usuario logueado que autorice la solicitud de'
                                                                     ' Transferencia sera registrado automaticamente '
                                                                     'como el Autorizante.')
-    estado_transferencia = models.ForeignKey('bar.TransferenciaStockEstado', default=1,
+    estado_transferencia = models.ForeignKey('bar.TransferenciaStockEstado', default=2,
                                              verbose_name='Estado Transferencia',
                                              help_text='El estado de la Transferencia se asigna de forma automatica.')
     fecha_hora_registro_transferencia = models.DateTimeField(auto_now_add=True,
-                                                             verbose_name='Fecha/hora registro Transferencia',
-                                                             help_text='La fecha y hora se asignan al momento de '
-                                                                       'guardar los datos de la Transferencia. No se '
+                                                             verbose_name='Fecha/hora registro solicitud Transferencia',
+                                                             help_text='La fecha y hora de registro de la Solicitud de '
+                                                                       'Transferencia se asignan al momento de '
+                                                                       'guardar los datos de la misma. No se '
                                                                        'requiere el ingreso de este dato.')
-    fecha_hora_autorizacion_transferencia = models.DateTimeField(auto_now=True, null=True, blank=True,
+    fecha_hora_autorizacion_transferencia = models.DateTimeField(null=True, blank=True,  # auto_now=True,
                                                                  verbose_name='Fecha/hora autorizacion Transferencia',
                                                                  help_text='La fecha y hora se asignan al momento de '
                                                                            'autorizarse la Transferencia. No se '
                                                                            'requiere el ingreso de este dato.')
 
+    motivo_cancelacion = models.CharField(max_length=200, null=True, blank=True)
+    observaciones_cancelacion = models.CharField(max_length=200, null=True, blank=True)
+    usuario_cancelacion = models.ForeignKey('personal.Empleado', null=True, blank=True,
+                                            related_name='usuario_cancelacion_transferencia',
+                                            # limit_choices_to='',
+                                            #  to_field='usuario',
+                                            verbose_name='Cancelado por?',
+                                            help_text='Usuario que cancelo la Transferencia.')
+    fecha_hora_cancelacion = models.DateTimeField(null=True, blank=True)
+
     class Meta:
-        verbose_name = 'Transferencias de Productos entre Depositos'
+        verbose_name = 'Transferencia de Productos entre Depositos'
         verbose_name_plural = 'Transferencias de Productos entre Depositos'
 
     # VALIDACIONES/FUNCIONALIDADES
@@ -745,15 +879,50 @@ class TransferenciaStock(models.Model):
     # 3) Las Mermas y Devoluciones podrian ser registrados como Transferencias o Movimientos. Analizar esta
     # alternativa.
 
-    def clean(self):
-        # Valida que la cantidad_producto_transferencia no sea mayor a la cantidad_existente_stock
-        if self.cantidad_producto_transferencia > self.cantidad_existente_stock:
-            raise ValidationError({'cantidad_producto_transferencia': _('La cantidad solicitada a transferir no puede '
-                                                                        'ser mayor que la cantidad existente del '
-                                                                        'Producto.')})
+    # def clean(self):
+    #     # Valida que la cantidad_producto_transferencia no sea mayor a la cantidad_existente_stock
+    #     if self.cantidad_producto_transferencia > self.cantidad_existente_stock:
+    #         raise ValidationError({'cantidad_producto_transferencia': _('La cantidad solicitada a transferir no puede '
+    #                                                                     'ser mayor que la cantidad existente del '
+    #                                                                     'Producto.')})
 
     def __unicode__(self):
-        return "ID: %s - Prod. Trans: %s" % (self.id, self.producto_transferencia)
+        return "ID: %s - Dep. Sol.: %s - Dep. Prov.: %s" % (self.id, self.deposito_destino_transferencia, self.deposito_origen_transferencia)
+
+
+class TransferenciaStockDetalle(models.Model):
+    """
+    19/11/2016: Detalle para las Transferencias de Productos entre Depositos.
+    Con este Detalle se permite realizar la transferencia de varios Productos en una unica operacion agilizando el
+    proceso.
+    """
+    transferencia = models.ForeignKey('TransferenciaStock')
+
+    # producto_transferencia = models.ForeignKey('InventarioDeposito', related_name='producto_solicitado',
+    producto_transferencia = models.ForeignKey('ProductoExistente', related_name='producto_solicitado',
+                                               # limit_choices_to={'cantidad_existente_producto': 0},
+                                               # limit_choices_to={'inventariodeposito__cant_existente__gte': 0},
+                                               # limit_choices_to={'cantidad_existente' > 0},
+                                               # limit_choices_to=Q(cantidad_existente__gt=0),
+                                               verbose_name='Producto a transferir',
+                                               help_text='Seleccione el producto a transferir entre Depositos.')
+
+    unidad_medida = models.ForeignKey('bar.UnidadMedidaProducto', related_name='un_med_transferencia',  # default=3,
+                                      verbose_name='Unidad de Medida',
+                                      help_text='Corresponde a la Unidad de Medida de Compra si el Producto es para '
+                                                'la Venta o a la Unidad de Medida del Contenido si el Producto es un '
+                                                'Insumo.')
+
+    cantidad_producto_transferencia = models.DecimalField(max_digits=10, decimal_places=3,
+                                                          verbose_name='Cantidad a transferir',
+                                                          help_text='Ingrese la cantidad a transferir del Producto.')
+
+    class Meta:
+        verbose_name = 'Detalle de Transferencia de Productos entre Depositos'
+        verbose_name_plural = 'Detalles de Transferencias de Productos entre Depositos'
+
+    def __unicode__(self):
+        return "%s - Prod. Trans: %s" % (self.transferencia, self.producto_transferencia)
 
 
 class SolicitaTransferenciaStock(TransferenciaStock):
@@ -775,13 +944,13 @@ class SolicitaTransferenciaStock(TransferenciaStock):
     # 3) Las Mermas y Devoluciones podrian ser registrados como Transferencias o Movimientos. Analizar esta
     # alternativa.
 
-    def __init__(self, *args, **kwargs):
-        super(SolicitaTransferenciaStock, self).__init__(*args, **kwargs)
-        # self.estado_transferencia = TransferenciaStockEstado.objects.get(estado_transferencia_stock="PEN")
-        # self.usuario_autorizante_transferencia = Empleado.objects.get(usuario__username='admin')
+    # def __init__(self, *args, **kwargs):
+    #     super(SolicitaTransferenciaStock, self).__init__(*args, **kwargs)
+    #     # self.estado_transferencia = TransferenciaStockEstado.objects.get(estado_transferencia_stock="PEN")
+    #     # self.usuario_autorizante_transferencia = Empleado.objects.get(usuario__username='admin')
 
     def __unicode__(self):
-        return "ID: %s - Prod. Trans: %s" % (self.id, self.producto_transferencia)
+        return "ID: %s - Dep. Sol.: %s - Dep. Prov.: %s" % (self.id, self.deposito_destino_transferencia, self.deposito_origen_transferencia)
 
 
 class ConfirmaTransferenciaStock(TransferenciaStock):
@@ -812,7 +981,20 @@ class ConfirmaTransferenciaStock(TransferenciaStock):
     #                                                                       'logueado al Sistema.')})
 
     def __unicode__(self):
-        return "ID: %s - Prod. Trans: %s" % (self.id, self.producto_transferencia)
+        return "ID: %s - Dep. Sol.: %s - Dep. Prov.: %s" % (self.id, self.deposito_destino_transferencia, self.deposito_origen_transferencia)
+
+
+class StockAjuste(TransferenciaStock):
+    """
+    25/09/2016: Registrar Ajustes de Inventario.
+    """
+
+    class Meta:
+        # Definir si va ser una tabla proxy o multitable
+        proxy = True
+        verbose_name = 'Ajuste de Inventario'
+        verbose_name_plural = 'Stock - Ajustes de Inventario'
+
 
 # ======================================================================================================================
 # En la revision del 07/09/2016 con el Prof. Diego Ruiz Diaz Gamarra me indico que podiamos descartar programar

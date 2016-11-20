@@ -1,6 +1,9 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse
 from django.utils import timezone
+from geraldo.generators.pdf import PDFGenerator
+from clientes.models import Reserva
+from clientes.reports import ReservaReport
 from .models import Cliente
 from .forms import ClienteForm
 # from dal import autocomplete
@@ -8,6 +11,18 @@ from .forms import ClienteForm
 # Create your views here.
 
 
+def reserva_report(request, pk):
+    resp = HttpResponse(content_type='application/pdf')
+
+    reserva = Reserva.objects.filter(id=pk)  # 107: ENTREGADA - 111: CANCELADA - 56: PENDIENTE
+    report = ReservaReport(queryset=reserva)
+
+    report.generate_by(PDFGenerator, filename=resp)
+
+    return resp
+
+
+# ======================================================================================================================
 def index(request):
     clientes = Cliente.objects.all().order_by('-fecha_nacimiento')
     # return HttpResponse("Esta es la aplicacion de Clientes.")

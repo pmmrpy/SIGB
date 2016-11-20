@@ -1,0 +1,9 @@
+{% extends "admin/change_form.html" %}
+
+{% block submit_buttons_bottom %}
+        <button type="submit" class="btn btn-high btn-info" {% if not show_save_button %} disabled="disabled" {% endif %} name="_save" >Confirmar Cierre de Caja</button>
+        <button type="submit" class="btn btn-high btn-default" {% if not show_continue_button %} disabled="disabled" {% endif %} name="_continue" >Grabar y continuar editando</button>
+    <!-- Trigger the modal with a button -->
+{#        <button type="button" class="btn btn-danger btn-lg" {% if not show_cancel_button %} disabled="disabled" {% endif %} name="_cancel">Cancelar Cierre de Caja</button>#}
+        <a {% if not show_imprimir_button %} disabled="disabled" href="#" {% else %} href="/ventas/cierre_caja_report/{{ original.pk }}" target="_blank" {% endif %} class="btn btn-high btn-success" style="width: 80%">Imprimir Cierre de Caja</a>
+{% endblock %}

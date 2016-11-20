@@ -217,7 +217,7 @@ class LineaCreditoProveedorAdmin(admin.ModelAdmin):
     list_display_links = ['proveedor']
     list_filter = ['proveedor', 'linea_credito_proveedor', 'fecha_linea_credito_proveedor',
                    'estado_linea_credito_proveedor']
-    search_fields = ['proveedor', 'linea_credito_proveedor', 'fecha_linea_credito_proveedor',
+    search_fields = ['proveedor__proveedor', 'linea_credito_proveedor', 'fecha_linea_credito_proveedor',
                      'estado_linea_credito_proveedor']
 
     def colorea_estado_linea_credito_proveedor(self, obj):
@@ -306,7 +306,7 @@ class FacturaProveedorAdmin(admin.ModelAdmin):
             'compras/js/autoNumeric.js', 'compras/js/factura_proveedor.js'
         ]
 
-    readonly_fields = ['proveedor', 'compra', 'numero_factura_compra', 'fecha_factura_compra', 'tipo_factura_compra',
+    readonly_fields = ['proveedor', 'orden_compra', 'numero_factura_compra', 'fecha_factura_compra', 'tipo_factura_compra',
                        'forma_pago_compra', 'plazo_factura_compra']
                        # 'estado_factura_compra']
 
@@ -315,22 +315,22 @@ class FacturaProveedorAdmin(admin.ModelAdmin):
     raw_id_fields = ['compra']
 
     fieldsets = [
-        ('Datos de la Factura', {'fields': ['proveedor', 'compra', 'numero_factura_compra', 'fecha_factura_compra',
+        ('Datos de la Factura', {'fields': ['proveedor', 'orden_compra', 'numero_factura_compra', 'fecha_factura_compra',
                                             'tipo_factura_compra', 'forma_pago_compra', 'plazo_factura_compra',
                                             'total_factura_compra', 'total_pago_factura', 'estado_factura_compra']}),
     ]
 
     inlines = [PagoProveedorInline]
 
-    list_display = ['id', 'numero_factura_compra', 'proveedor', 'compra', 'fecha_factura_compra', 'tipo_factura_compra',
+    list_display = ['numero_factura_compra', 'proveedor', 'orden_compra', 'fecha_factura_compra', 'tipo_factura_compra',
                     'forma_pago_compra', 'plazo_factura_compra', 'total_factura_compra', 'total_pago_factura',
                     'colorea_estado_factura_compra']
     list_display_links = ['numero_factura_compra']
-    list_filter = ['id', 'proveedor', 'compra', 'numero_factura_compra', 'fecha_factura_compra', 'tipo_factura_compra',
+    list_filter = ['proveedor', 'orden_compra', 'numero_factura_compra', 'fecha_factura_compra', 'tipo_factura_compra',
                    'forma_pago_compra', 'plazo_factura_compra', 'estado_factura_compra']
-    search_fields = ['id', 'proveedor__proveedor', 'compra__numero_compra', 'numero_factura_compra',
+    search_fields = ['proveedor__proveedor', 'orden_compra__numero_orden_compra', 'numero_factura_compra',
                      'fecha_factura_compra', 'tipo_factura_compra__tipo_factura_compra',
-                     'forma_pago_compra__forma_pago_compra', 'plazo_factura_compra', 'estado_factura_compra']
+                     'forma_pago_compra__forma_pago_compra', 'plazo_factura_compra', 'estado_factura_compra__descripcion']
 
     def colorea_estado_factura_compra(self, obj):
         # color = 'black'
@@ -405,11 +405,11 @@ class FacturaProveedorAdmin(admin.ModelAdmin):
     def changeform_view(self, request, object_id=None, form_url='', extra_context=None):
         extra_context = extra_context or {}
 
-        extra_context['show_button'] = True
-        if object_id is not None:
-            factura_actual = FacturaProveedor.objects.get(pk=object_id)
-            print 'factura_actual: %s' % factura_actual
-            extra_context['show_button'] = factura_actual.estado_factura_compra.estado_factura_proveedor not in ('PAG', 'CAN')
+        extra_context['show_button'] = False
+        # if object_id is not None:
+        #     factura_actual = FacturaProveedor.objects.get(pk=object_id)
+        #     print 'factura_actual: %s' % factura_actual
+        #     extra_context['show_button'] = factura_actual.estado_factura_compra.estado_factura_proveedor not in ('PAG', 'CAN')
 
         return super(FacturaProveedorAdmin, self).changeform_view(request, object_id, form_url, extra_context)
 
@@ -425,16 +425,17 @@ class OrdenPagoDetalleInline(admin.TabularInline):
     extra = 0
     can_delete = False
     # readonly_fields = ['procesado']
-    fields = ['compra', 'proveedor', 'numero_factura_compra', 'fecha_factura_compra',
+    fields = ['orden_compra', 'proveedor', 'numero_factura_compra', 'fecha_factura_compra',
               'tipo_factura_compra', 'forma_pago_compra', 'plazo_factura_compra', 'total_factura_compra',
               'estado_factura_compra', 'procesado']
     form = OrdenPagoDetalleForm
+    ordering = ['fecha_factura_compra']
     # verbose_name = 'Pago a Proveedores'
     # verbose_name_plural = 'Pagos a Proveedores'
 
     def get_readonly_fields(self, request, obj=None):
         if obj is not None and obj.estado_orden_pago.estado_orden_pago == 'PEN':
-            return ['compra', 'proveedor', 'numero_factura_compra', 'fecha_factura_compra', 'tipo_factura_compra',
+            return ['orden_compra', 'proveedor', 'numero_factura_compra', 'fecha_factura_compra', 'tipo_factura_compra',
                     'forma_pago_compra', 'plazo_factura_compra', 'estado_factura_compra']  # 'total_factura_compra',
         elif obj is not None and obj.estado_orden_pago.estado_orden_pago in ('CON', 'ANU', 'CAN'):
             return [i.name for i in self.model._meta.fields]
@@ -482,7 +483,7 @@ class OrdenPagoAdmin(admin.ModelAdmin):
     list_filter = ['numero_orden_pago', 'proveedor_orden_pago', 'fecha_hora_orden_pago',
                     'usuario_registro_orden_pago', 'estado_orden_pago', 'total_orden_pago']
     search_fields = ['numero_orden_pago', 'proveedor_orden_pago__proveedor', 'fecha_hora_orden_pago',
-                    'usuario_registro_orden_pago__usuario__username', 'estado_orden_pago', 'total_orden_pago']
+                    'usuario_registro_orden_pago__usuario__username', 'estado_orden_pago__descripcion', 'total_orden_pago']
 
     # def get_inline_formsets(self, request, formsets, inline_instances, obj=None):
     #     queryset = FacturaProveedor.objects.filter(proveedor_id=2)
@@ -508,7 +509,7 @@ class OrdenPagoAdmin(admin.ModelAdmin):
             return format_html('<span style="color: %s"><b> %s </b></span>' %
                                (color, obj.estado_orden_pago.get_estado_orden_pago_display()))
         return obj.estado_orden_pago.estado_orden_pago
-    colorea_estado_orden_pago.short_description = 'Estado de la Factura Compra'
+    colorea_estado_orden_pago.short_description = 'Estado Orden de Pago'
 
     def save_model(self, request, obj, form, change):
 
@@ -588,6 +589,7 @@ class OrdenPagoAdmin(admin.ModelAdmin):
             for detalle in FacturaProveedor.objects.filter(Q(proveedor_id=orden_pago_actual.proveedor_orden_pago), Q(estado_factura_compra__estado_factura_proveedor='EPP') | Q(estado_factura_compra__estado_factura_proveedor='FPP')):
                 orden_pago_detalle = OrdenPagoDetalle(numero_orden_pago_id=orden_pago_actual.numero_orden_pago,
                                                       compra_id=detalle.compra_id,
+                                                      orden_compra_id=detalle.orden_compra_id,
                                                       proveedor_id=detalle.proveedor_id,
                                                       numero_factura_compra=detalle.numero_factura_compra,
                                                       fecha_factura_compra=detalle.fecha_factura_compra,
@@ -621,6 +623,7 @@ class OrdenPagoAdmin(admin.ModelAdmin):
             for form in formset:
                 factura_orden_pago_detalle = form.instance
                 factura = FacturaProveedor.objects.get(compra_id=factura_orden_pago_detalle.compra,
+                                                       orden_compra_id=factura_orden_pago_detalle.orden_compra,
                                                        proveedor_id=factura_orden_pago_detalle.proveedor,
                                                        numero_factura_compra=factura_orden_pago_detalle.numero_factura_compra,
                                                        fecha_factura_compra=factura_orden_pago_detalle.fecha_factura_compra,
@@ -684,6 +687,7 @@ class OrdenPagoAdmin(admin.ModelAdmin):
                 factura_orden_pago_detalle = form.instance
                 if factura_orden_pago_detalle.procesado is True:
                     factura = FacturaProveedor.objects.get(compra_id=factura_orden_pago_detalle.compra,
+                                                           orden_compra_id=factura_orden_pago_detalle.orden_compra,
                                                            proveedor_id=factura_orden_pago_detalle.proveedor,
                                                            numero_factura_compra=factura_orden_pago_detalle.numero_factura_compra,
                                                            fecha_factura_compra=factura_orden_pago_detalle.fecha_factura_compra,
@@ -858,6 +862,8 @@ class OrdenCompraDetalleInline(admin.TabularInline):
     # formset = OrdenCompraDetalleFormset
     extra = 0
     min_num = 1
+    fields = ['id', 'producto_orden_compra', 'precio_producto_orden_compra', 'unidad_medida_orden_compra', 'cantidad_producto_orden_compra', 'total_producto_orden_compra']
+    readonly_fields = ['id']
     form = OrdenCompraDetalleForm
     raw_id_fields = ['producto_orden_compra']
     verbose_name = 'Orden de Compra - Detalle de Productos'
@@ -1166,7 +1172,7 @@ class CompraAdmin(admin.ModelAdmin):
     # raw_id_fields = ['numero_orden_compra']
 
     fieldsets = [
-        ('Compra ID', {'fields': ['numero_compra']}),
+        # ('Compra ID', {'fields': ['numero_compra']}),
         ('Numero Orden de Compra', {'fields': ['nro_orden_compra', 'numero_orden_compra', 'proveedor',
                                                'disponible_linea_credito_proveedor']}),
         # ('Datos de la Orden de Compra', {'fields': ['orden_compra__proveedor_orden_compra',
@@ -1182,9 +1188,10 @@ class CompraAdmin(admin.ModelAdmin):
 
     # raw_id_fields = ("numero_orden_compra",)
 
-    list_display = ('numero_compra', 'proveedor', 'numero_orden_compra', 'fecha_compra', 'numero_factura_compra',
+    list_display = ['numero_orden_compra', 'proveedor', 'fecha_compra', 'numero_factura_compra',
                     'tipo_factura_compra', 'fecha_factura_compra', 'colorea_estado_compra', 'total_compra',
-                    'usuario_registro_compra')
+                    'usuario_registro_compra']
+    list_display_links = ['numero_orden_compra']
     list_filter = ['numero_compra', ('proveedor', admin.RelatedOnlyFieldListFilter),
                    ('numero_orden_compra', admin.RelatedOnlyFieldListFilter),
                    'fecha_compra', 'numero_factura_compra', 'tipo_factura_compra', 'fecha_factura_compra',
@@ -1243,6 +1250,7 @@ class CompraAdmin(admin.ModelAdmin):
             obj.numero_orden_compra = nro_orden_compra_form
             obj.proveedor = Proveedor.objects.get(pk=9)
             # obj.numero_factura_compra = 1
+            obj.tipo_factura_compra = TipoFacturaCompra.objects.get(tipo_factura_compra='CON')
             obj.estado_compra = OrdenCompraEstado.objects.get(estado_orden_compra='PEN')
             super(CompraAdmin, self).save_model(request, obj, form, change)
 
@@ -1332,6 +1340,7 @@ class CompraAdmin(admin.ModelAdmin):
             orden.estado_orden_compra = OrdenCompraEstado.objects.get(estado_orden_compra='ENT')
         # 3) Al confirmar la Compra se debe generar un registro en FacturaProveedor con los datos de la factura a pagar.
             factura_proveedor = FacturaProveedor(compra_id=compra_actual.numero_compra,
+                                                 orden_compra_id=compra_actual.numero_orden_compra.pk,
                                                  proveedor_id=compra_actual.numero_orden_compra.proveedor_orden_compra_id,
                                                  # Incluir orden_pago
                                                  numero_factura_compra=compra_actual.numero_factura_compra,
@@ -1516,12 +1525,22 @@ class CompraAdmin(admin.ModelAdmin):
                 #                                  fecha_hora_registro_stock=timezone.now())
                 #     stock_detalle.save()
 
+                # Si el Producto es un Insumo se debe multiplicar su contenido por las unidades compradas.
+                # import pdb
+                # pdb.set_trace()
+
+                cantidad = detalle.cantidad_producto_compra
+                if detalle.producto_compra.tipo_producto == 'IN':
+                    cantidad = detalle.cantidad_producto_compra * detalle.producto_compra.contenido
+                elif detalle.producto_compra.tipo_producto == 'VE':
+                    cantidad = detalle.cantidad_producto_compra
+
                 stock = MovimientoStock(producto_stock_id=detalle.producto_compra_id,
                                         tipo_movimiento='CO',
                                         id_movimiento=compra_actual.numero_compra,
                                         ubicacion_origen=Deposito.objects.get(deposito='PRO'),
                                         ubicacion_destino=Deposito.objects.get(deposito='DCE'),
-                                        cantidad_entrante=detalle.cantidad_producto_compra,
+                                        cantidad_entrante=cantidad,
                                         cantidad_saliente=0,
                                         fecha_hora_registro_stock=timezone.now())
                 stock.save()
@@ -1606,7 +1625,7 @@ class CompraAdmin(admin.ModelAdmin):
 
     def get_new_fieldsets(self):
         return [
-            ('Compra ID', {'fields': ['numero_compra']}),
+            # ('Compra ID', {'fields': ['numero_compra']}),
             ('Numero Orden de Compra', {'fields': ['numero_orden_compra', 'proveedor',
                                                    'disponible_linea_credito_proveedor']}),
             ('Datos de la Factura', {'fields': ['numero_factura_compra', 'tipo_factura_compra',

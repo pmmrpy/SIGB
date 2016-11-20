@@ -61,6 +61,8 @@ class Empleado(models.Model):
     email = models.EmailField(default='mail@ejemplo.com', blank=True,
                               help_text='Ingrese la direccion de correo electronico del Empleado.')
     cargo = models.ForeignKey('Cargo', help_text='Seleccione el cargo.')  # default=1,
+    sector = models.ForeignKey('bar.Sector',  # default=1,
+                               help_text='Seleccione el sector en donde desempenara sus funciones el Empleado.')
     salario = models.DecimalField(max_digits=18, decimal_places=0, default=1824055,
                                   # default=get_salario_minimo_vigente(),
                                   help_text='Ingrese el salario del Empleado.')
@@ -99,10 +101,11 @@ class Empleado(models.Model):
     def clean(self):
         # Validar si el Cliente es mayor de edad.
         # edad = datetime.date.today() - self.fecha_nacimiento
-        edad = calcular_edad(self.fecha_nacimiento)
-        if edad < 18:  # datetime.timedelta(days=365 * 18):
-            raise ValidationError({'fecha_nacimiento': _(u"El Empleado debe ser mayor de edad. Su edad es de %s años."
-                                                         % edad)})
+        if hasattr(self, 'fecha_nacimiento') and self.fecha_nacimiento is not None:
+            edad = calcular_edad(self.fecha_nacimiento)
+            if edad < 18:  # datetime.timedelta(days=365 * 18):
+                raise ValidationError({'fecha_nacimiento': _(u"El Empleado debe ser mayor de edad. Su edad es de %s años."
+                                                             % edad)})
 
     def __unicode__(self):
         # return "%s - %s" % (("%s %s" % (self.nombres, self.apellidos)).upper(), self.cargo)
@@ -130,11 +133,12 @@ class EmpleadoDocumento(models.Model):
             return u'N/A'
 
     def clean(self):
-        if self.tipo_documento.documento == 'RUC':
-            # numero_documento = self.numero_documento
-            if not re.match(r'^[0-9]*$', self.numero_documento):
-                raise ValidationError({'numero_documento': _('Solo se permiten caracteres numericos para el Tipo de '
-                                                             'Documento RUC.')})
+        if hasattr(self, 'tipo_documento') and self.tipo_documento is not None:
+            if self.tipo_documento.documento == 'RUC':
+                # numero_documento = self.numero_documento
+                if not re.match(r'^[0-9]*$', self.numero_documento):
+                    raise ValidationError({'numero_documento': _('Solo se permiten caracteres numericos para el Tipo de '
+                                                                 'Documento RUC.')})
 
     def __unicode__(self):
         return "%s - %s - %s" % (self.empleado, self.tipo_documento, self.numero_documento)
@@ -192,8 +196,10 @@ class Horario(models.Model):
                                help_text='Ingrese el nombre o descripcion de la jornada laboral.')
     horario_inicio = models.TimeField(default=timezone.now, verbose_name='Hora de Inicio Jornada',
                                       help_text='Ingrese la hora de inicio de la jornada de trabajo.')
-    horario_fin = models.TimeField(default=timezone.now, verbose_name='Hora de Finalizacion Jornada',
+    horario_fin = models.TimeField(default=(timezone.now() + datetime.timedelta(hours=8)),  # default=timezone.now,
+                                   verbose_name='Hora de Finalizacion Jornada',
                                    help_text='Ingrese la hora de finalizacion de la jornada de trabajo.')
+    duracion_jornada = models.TimeField(default=datetime.time(8, 00, 00), verbose_name='Duracion Jornada')
 
     def __unicode__(self):
         return "%s" % self.horario

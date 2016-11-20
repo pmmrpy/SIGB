@@ -5,6 +5,14 @@ django.jQuery(document).ready(function(){
 //(function($) {
 //    $(document).ready(function() {
 
+     $('input[name$=-id]').each(function (){
+
+         if(this.value){
+             var id = this.id.split('-')[1];
+             $(`a[id=lookup_id_pedidodetalle_set-${id}-producto_pedido]`).css({'display':'none'});
+         }
+     });
+
     $('input[name$=-cantidad_producto_pedido]').keyup(function (){
         var indice = this.name.split('-')[1];
         var precio = $('#id_pedidodetalle_set-'+indice+'-precio_producto_pedido').val();
@@ -92,7 +100,7 @@ function set_producto_detalle(id_producto,name) {
             set_total();
 
             //alert($('#lookup_id_ordencompradetalle_set-'+indice+'-producto_orden_compra').());
-//)
+            $('#lookup_id_pedidodetalle_set-'+indice+'-producto_pedido').next('strong').remove();
             $('#lookup_id_pedidodetalle_set-'+indice+'-producto_pedido').after('<strong>'+json.producto+'</strong>');
             //var parent = $('#lookup_id_ordencompradetalle_set-'+indice+'-producto_orden_compra');
             //alert(JSON.stringify(parent.html()))
@@ -116,15 +124,38 @@ function set_reserva(id_reserva) {
         // handle a successful response
         success : function(json) {
             //var indice = name.split('-')[1];
-            alert(JSON.stringify(json));
+            //alert(JSON.stringify(json));
 
             $('#id_id_cliente_reserva').val(json.cliente.id);
             $('#id_cliente_reserva').val(json.cliente.nombre_cliente);
-            $('#id_doc_ruc_cliente_reserva').val(json.documentos);
-            $('#id_monto_entrega_reserva').val(json.monto_entrega);
-            $('#id_mesas_reserva').val(json.mesas);
 
+            //var valores_documentos = '';
+            //for (var i=0;i < json.documentos.length;i++){
+            //    valores_documentos += json.documentos[i].t_doc+': '+json.documentos[i].num_doc+' - ';
+            //}
+            //$('#id_doc_ruc_cliente_reserva').val(valores_documentos);
+            //$('#id_doc_ruc_cliente_reserva').val($.parseJSON(documentos));
+            //$('#id_doc_ruc_cliente_reserva').val(JSON.stringify(json.documentos, null, 2));
+            $('#id_doc_ruc_cliente_reserva').val(json.documentos);
+
+            $('#id_monto_entrega_reserva').val(json.monto_entrega);
+
+            var valores_mesas = '';
+            for (var i=0;i < json.mesas.length;i++){
+                valores_mesas += json.mesas[i].descripcion+' | ';
+            }
+            $('#id_mesas_reserva').val(valores_mesas);
+            //$('#id_mesas_reserva').val(json.mesas);
+
+            //$("#id_mesa_pedido_to").empty();
+            $("#id_mesa_pedido_to option").each(function(){
+                //$("#id_mesa_pedido_from").append(this.val());
+                //alert(this.value + ' - ' + this.title);
+                $("#id_mesa_pedido_from").append('<option title="'+this.title+'" value="'+this.value+'">'+this.title+'</option>');
+                $("#id_mesa_pedido_to option[value="+(this.value)+"]").remove();
+            });
             var options = '';
+            //$("#id_mesa_pedido_to").append(options);
             for (var i=0;i < json.mesas.length;i++){
                 options += '<option title="'+json.mesas[i].descripcion+'" value="'+json.mesas[i].id+'">'+json.mesas[i].descripcion+'</option>';
                 $("#id_mesa_pedido_from option[value="+json.mesas[i].id+"]").remove();
@@ -143,12 +174,27 @@ function set_reserva(id_reserva) {
 function set_total(){
     var total = 0;
     $('input[name$=-total_producto_pedido]').each(function (){
-        total += this.value ? parseFloat(this.value) : 0;
+        var indice = this.name.split('-')[1];
+        //var a = $('#id_pedidodetalle_set-'+indice+'-cancelado').is(':checked');
+        //alert(indice + ' - ' + a);
+
+        if ($('#id_pedidodetalle_set-'+indice+'-cancelado').is(':checked') == false){
+            total += this.value ? parseFloat(this.value) : 0;
+        }
     });
 
-    //var linea_credito =  $('#id_linea_credito').val() || 0;
-    //if (parseFloat(linea_credito) < total){
-    //    alert('El Total de la Orden de Compra supera la Linea de Credito con el Proveedor.')
-    //}
+    //$('input[type=checkbox]').on('change', function() {
+    //    var suma = 0;
+    //    $('input[type=checkbox]').each(function (key, value) {
+    //        var indice = this.name.split('-')[1];
+    //        var total_producto = $('#id_pedidodetalle_set-'+indice+'-total_producto_pedido').val();
+    //        var a = $(value).is(':checked');
+    //        if (a == false) {
+    //            suma = suma + parseFloat(total_producto)
+    //        }
+    //    });
+    //    $('#id_total_pedido').val(suma);
+    //});
+
     $('#id_total_pedido').val(total);
 }

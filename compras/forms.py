@@ -2,6 +2,7 @@
 import re
 from django.contrib.admin.widgets import AdminDateWidget
 from suit.widgets import SuitDateWidget
+from bar.models import OrdenPagoEstado
 
 __author__ = 'pmmr'
 # from input_mask.widgets import InputMask
@@ -265,6 +266,18 @@ class OrdenPagoForm(forms.ModelForm):
         model = OrdenPago
         fields = '__all__'
 
+    # def clean(self):
+    #     super(OrdenPagoForm, self).clean()
+    #
+    #     # import pdb
+    #     # pdb.set_trace()
+    #
+    #     proveedor = Proveedor.objects.get(pk=self.data.get('proveedor_orden_pago', ''))
+    #     if OrdenPago.objects.filter(proveedor_orden_pago=proveedor.id,
+    #                                 estado_orden_pago=OrdenPagoEstado.objects.get(estado_orden_pago='PEN')).exists():
+    #         raise ValidationError({'proveedor_orden_pago': ('Ya existe una Orden de Pago pendiente para el '
+    #                                                         'Proveedor "%s".' % proveedor)})
+
 
 class EmpresaForm(forms.ModelForm):
     class Meta:
@@ -429,15 +442,22 @@ class CompraForm(forms.ModelForm):
         # import pdb
         # pdb.set_trace()
 
+        compra = self.instance
+
         # 1) Valida que nro_ord_compra contenga un valor valido.
+
         nro_ord_compra = self.data.get('nro_orden_compra')
         if nro_ord_compra is None:
-            ord_compra = self.instance.numero_orden_compra
+            if compra.pk:
+                ord_compra = compra.numero_orden_compra
+            elif not compra.pk:
+                raise ValidationError({'nro_orden_compra': 'Debe seleccionar una Orden de Compra.'})
         else:
             ord_compra = OrdenCompra.objects.get(pk=nro_ord_compra)
         # if not nro_ord_compra:
         #     # pass
         #     raise ValidationError({'nro_orden_compra': 'Debe seleccionar un Numero de Orden de Compra valido.'})
+
 
         # 2) Valida que exista una Linea de Credito para el Proveedor.
         linea_credito = self.data.get('disponible_linea_credito_proveedor', '')
@@ -449,9 +469,9 @@ class CompraForm(forms.ModelForm):
         if not total_compra:
             raise ValidationError('El Total de la Compra no puede ser 0.')
 
-        # 4) Valida que la fecha_factura_compra no sea menor que la fecha_orden_compra
-        # if self.pk is not None:
-        #     compra_inicial = Compra.objects.get(pk=self.pk)
+    # 4) Valida que la fecha_factura_compra no sea menor que la fecha_orden_compra
+    # if self.pk is not None:
+    #     compra_inicial = Compra.objects.get(pk=self.pk)
 
         fecha_ord_compra = timezone.localtime(ord_compra.fecha_orden_compra).date()
         fecha_aux = self.data.get('fecha_factura_compra', '')
@@ -467,6 +487,9 @@ class CompraForm(forms.ModelForm):
             raise ValidationError({'fecha_factura_compra': _('La Fecha de la Factura no puede ser menor que la '
                                                              'Fecha de la Orden de Compra. Nro. Orden Compra: %s - '
                                                              'Fecha Orden de Compra: %s' % (ord_compra.pk, datetime.datetime.strftime(fecha_ord_compra, '%d/%m/%Y')))})
+        elif fecha_fac_compra.year != datetime.date.today().year or fecha_fac_compra.month != datetime.date.today().month:
+            raise ValidationError({'fecha_factura_compra': _('La Fecha de la Factura no puede ser de un mes distinto '
+                                                             'al actual. Solicite el cambio de la factura.')})
 
         if '_save' in self.request.POST or '_cancel' in self.request.POST:
             # 5) ==> Valida el formato del campo "numero_factura_compra".

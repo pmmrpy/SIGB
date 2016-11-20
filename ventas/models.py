@@ -1,12 +1,19 @@
 from django.db import models
+from django.db.models.aggregates import Sum
 from django.utils import timezone
 import datetime
 from django.db.models import Q
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, ObjectDoesNotExist
 from django.utils.translation import ugettext_lazy as _
+from django.views.generic.dates import timezone_today
+from bar.models import FacturaVenta, NumeroFacturaVenta, Mesa
 from personal.models import Empleado
 
 # Create your models here.
+
+
+# def get_reservas_today():
+#     pass
 
 
 class Pedido(models.Model):
@@ -21,12 +28,22 @@ class Pedido(models.Model):
                                      verbose_name='Nro. Pedido',
                                      help_text='Este dato se genera automaticamente cada vez que se va crear un '
                                                'Pedido.')
+    jornada = models.ForeignKey('InicioJornada',  # default=1,
+                                verbose_name='Jornada',
+                                help_text='Se asigna dependiendo del usuario logueado y de si posee una Jornada '
+                                          'vigente.')
 
     # Desplegar las Reservas que tienen estado "Vigente" unicamente. OK!
     # La Reserva es opcional por lo tanto se asigna blank=True y null=True
     reserva = models.ForeignKey('clientes.Reserva', blank=True, null=True,
-                                limit_choices_to={'estado__reserva_estado': "VIG"},
-                                # limit_choices_to=Q(estado__reserva_estado="VIG"),  # | Q(fecha_hora_reserva=timezone_today()),
+                                limit_choices_to={'fecha_hora_reserva__gte': timezone.make_aware(datetime.datetime.combine(timezone.now().date(), datetime.time(hour=18, minute=0)), timezone.get_default_timezone()), 'fecha_hora_reserva__lte': timezone.make_aware(datetime.datetime.combine(timezone.now().date(), datetime.time(hour=21, minute=0)), timezone.get_default_timezone()), 'estado__reserva_estado': "VIG"},
+                                # limit_choices_to={'fecha_hora_reserva__year': timezone_today().year, 'fecha_hora_reserva__month': timezone_today().month, 'fecha_hora_reserva__day': timezone_today().day, 'estado__reserva_estado': "VIG"},
+                                # limit_choices_to={'fecha_hora_reserva__gte': timezone.now, 'estado__reserva_estado': "VIG"},
+                                # limit_choices_to={'fecha_hora_reserva__range': [(datetime.datetime.combine(timezone_today(), datetime.time.min).replace(tzinfo=timezone.utc), datetime.datetime.combine(timezone_today(), datetime.time.max).replace(tzinfo=timezone.utc))], 'estado__reserva_estado': "VIG"},
+                                # limit_choices_to={'fecha_hora_reserva__startswith': timezone_today(), 'estado__reserva_estado': "VIG"},
+                                # limit_choices_to={'estado__reserva_estado': "VIG"},
+                                # limit_choices_to=(Q(fecha_hora_reserva__startswith=timezone_today())),  # Q(estado__reserva_estado="VIG") &
+                                # verbose_name='Reserva',
                                 help_text='Seleccione una Reserva en caso de que el Cliente haya realizado una.')
 
     # 1) Al seleccionar la Reserva se debe controlar que la misma corresponda a la fecha y hora indicada y se deben
@@ -39,6 +56,8 @@ class Pedido(models.Model):
     # Si el Cliente tiene una Reserva los datos de las Mesas se debe tomar de 'clientes.Reserva'
     mesa_pedido = models.ManyToManyField('bar.Mesa',  # through='PedidoMesaPedido',
                                          # limit_choices_to={'estado__mesa_estado': "DI"},  # Si se filtran las Mesas con estado "DI" no son visualizadas en el filter_horizontal en el form
+                                         # limit_choices_to=(~Q(numero_mesa=9999)),  # Si se filtran las Mesas con estado "DI" no son visualizadas en el filter_horizontal en el form
+                                         # limit_choices_to={'numero_mesa__exclude': '9999'},  # Si se filtran las Mesas con estado "DI" no son visualizadas en el filter_horizontal en el form
                                          verbose_name='Mesas',
                                          help_text='Indique la/s mesa/s que sera/n ocupada/s por el/los Cliente/s.')
 
@@ -49,7 +68,7 @@ class Pedido(models.Model):
                                     # to_field='usuario',
                                     verbose_name='Atendido por?',
                                     help_text='Este dato se completara automaticamente cuando el Pedido sea guardado.')
-    estado_pedido = models.ForeignKey('bar.PedidoEstado', default=1,  # default={'pedido_estado': "VIG"},
+    estado_pedido = models.ForeignKey('bar.PedidoEstado',  # default=1,  # default={'pedido_estado': "VIG"},
                                       verbose_name='Estado del Pedido',
                                       help_text='El estado del Pedido se establece automaticamente.')
     fecha_hora_pedido = models.DateTimeField(auto_now_add=True, verbose_name='Fecha/Hora del Pedido',
@@ -101,6 +120,12 @@ class Pedido(models.Model):
     #     return Empleado.objects.get(Q(cargo__cargo__exact="MO") | Q(cargo__cargo__exact="BM"))
     # limit_choices_to = limit_mozo_pedido_choices
 
+    def get_sector(self):
+        """Retorna el Sector para la Jornada correspondiente."""
+        return '%s' % self.jornada.sector
+    # nombre_completo = property(get_nombre_completo)
+    get_sector.short_description = 'Sector'
+
     def clean(self):
         # Valida que el Total del Pedido no sea 0
         if self.total_pedido == 0:
@@ -110,7 +135,7 @@ class Pedido(models.Model):
         # if self is not None:
         #     return "Nro. Ped: %s - Fec. Ped: %s" % (self.numero_pedido, datetime.datetime.strftime(timezone.localtime(self.fecha_hora_pedido), '%d/%m/%Y %H:%M'))
         # else:
-        return "Nro. Ped: %s" % self.numero_pedido
+        return "%s" % self.numero_pedido
 
 
 class PedidoDetalle(models.Model):
@@ -142,7 +167,7 @@ class PedidoDetalle(models.Model):
                                                    help_text='Ingrese la cantidad del producto solicitado por el '
                                                              'Cliente.')
     total_producto_pedido = models.DecimalField(max_digits=18, decimal_places=0, default=0,
-                                                verbose_name='Costo Total del Producto',
+                                                verbose_name='Total del Producto',
                                                 help_text='Este valor se calcula automaticamente tomando el '
                                                           'Precio Venta del Producto por la Cantidad del Producto.')
     fecha_pedido_detalle = models.DateTimeField(auto_now_add=True,  # default=timezone.now()
@@ -152,8 +177,8 @@ class PedidoDetalle(models.Model):
     procesado = models.BooleanField(default=False, verbose_name='Procesado?',
                                     help_text='Esta casilla se marca cuando el Pedido es procesado por el Deposito '
                                               'correspondiente.')
-    anulado = models.BooleanField(default=False, verbose_name='Anular?',
-                                  help_text='Seleccione esta casilla si desea anular el Producto solicitado.')
+    cancelado = models.BooleanField(default=False, verbose_name='Cancelar?',
+                                    help_text='Seleccione esta casilla si desea cancelar el Producto solicitado.')
 
     class Meta:
         verbose_name = 'Pedido - Detalle'
@@ -183,28 +208,34 @@ class Venta(models.Model):
     * Listar las ventas mensuales, ventas al contado. Ranking de ventas por cliente, por productos, por marcas.
     """
     FORMAS_PAGO_VENTA = (
-        ('CO', 'Contado'),
+        ('EF', 'Efectivo'),
         ('TC', 'Tarjeta de Credito'),
         ('TD', 'Tarjeta de Debito'),
         ('OM', 'Otros medios'),
     )
 
     empresa = models.ForeignKey('compras.Empresa', default=9)
+
+    timbrado = models.ForeignKey('bar.Timbrado',  # default=2,
+                                 limit_choices_to={'estado_timbrado': "AC"})
     # Debe tomar el dato  de la tabla donde se lleva la numeracion de las facturas por Punto de Expedicion
-    numero_factura_venta = models.ForeignKey('bar.FacturaVenta', default=1, related_name='numero_factura',
-                                             # to_field='numero_factura_actual', unique=True,
-                                             verbose_name='Numero de Factura de la Venta',
-                                             help_text='El Numero de Factura se asigna al momento de confirmarse la '
-                                                       'Venta.')
-    fecha_hora_venta = models.DateTimeField(auto_now_add=True,  # default=timezone.now()
+    # numero_factura = models.DecimalField(max_digits=7, decimal_places=0, default=1)
+    numero_factura_venta = models.OneToOneField('bar.NumeroFacturaVenta',  # default=1,
+                                                related_name='numero_factura_venta',
+                                                # to_field='numero_factura_actual', unique=True,
+                                                verbose_name='Numero de Factura',
+                                                help_text='El Numero de Factura se asigna al momento de confirmarse la '
+                                                          'Venta.')
+    fecha_hora_venta = models.DateTimeField(auto_now=True,  # default=timezone.now()
                                             verbose_name='Fecha/hora de la Venta',
                                             help_text='Registra la fecha y hora en la que se confirmo la Venta.')
 
     # Seria ideal que tome el dato de la Caja de acuerdo al usuario logueado y a la Caja aperturada.
-    apertura_caja = models.ForeignKey('AperturaCaja', default=1,
+    apertura_caja = models.ForeignKey('AperturaCaja',  # default=1,
+                                      # limit_choices_to={'cajero':request.user, 'estado_apertura_caja':"VIG"},
                                       verbose_name='Apertura de Caja',
-                                      help_text='Se asigna dependiendo del usuario logueado y de si posee una '
-                                                'Apertura de Caja vigente.')
+                                      help_text='Este valor se asigna dependiendo del usuario logueado y de si posee '
+                                                'una Apertura de Caja vigente.')
 
     # Si el Cliente tiene una Reserva seria conveniente tomar sus datos de la Reserva.
     # reserva = models.ForeignKey('clientes.Reserva')
@@ -213,26 +244,54 @@ class Venta(models.Model):
     #                                       verbose_name='Entrega Reserva',
     #                                       help_text='Monto entregado por la Reserva. Este monto se acredita en '
     #                                                 'consumision y se descuenta del Total de la Venta.')
-    cliente_factura = models.ForeignKey('clientes.Cliente',  # default=1,
+    cliente_factura = models.ForeignKey('clientes.Cliente', null=True, blank=True,  # default=1,
                                         verbose_name='Cliente',
                                         help_text='Corrobore con el Cliente si son correctos sus datos '
                                                   'antes de confirmar la Venta.')
 
-    numero_pedido = models.OneToOneField('Pedido',
-                                         limit_choices_to={'estado_pedido__pedido_estado': "VIG"},
-                                         verbose_name='Numero de Pedido',  # default=1,
-                                         help_text='Seleccione el Numero de Pedido para el cual se registrara la '
-                                                   'Venta.')
+    # cliente_documento_factura = models.ForeignKey('clientes.ClienteDocumento', null=True, blank=True,
+    cliente_documento_factura = models.CharField(max_length=50, null=True, blank=True,  # default='',
+                                                 verbose_name='Documento Factura',
+                                                 help_text='Seleccione el Documento del Cliente el cual se registrara '
+                                                           'en la factura.')
 
-    # forma_pago = models.ForeignKey('bar.FormaPagoVenta', help_text='Seleccione la Forma de Pago.')
+    # numero_pedido = models.OneToOneField('Pedido', blank=True,  # null=True,
+    numero_pedido = models.ForeignKey('Pedido',  # blank=True,  # null=True,  default=1,
+                                      limit_choices_to={'estado_pedido__pedido_estado__in': ('VIG', 'PEN')},
+                                      verbose_name='Numero de Pedido',
+                                      help_text='Seleccione el Numero de Pedido para el cual se registrara la Venta.')
+
+    # forma_pago = models.ForeignKey('bar.FormaPagoVenta',  # default=1,
+    #                                verbose_name='Forma de Pago',
+    #                                help_text='Seleccione la Forma de Pago.')
     forma_pago = models.CharField(max_length=2, choices=FORMAS_PAGO_VENTA,
                                   verbose_name='Forma de Pago',
+                                  null=True, blank=True,
                                   help_text='Seleccione la Forma de Pago.')
     total_venta = models.DecimalField(max_digits=18, decimal_places=0, default=0,
-                                      verbose_name='Total de la Venta')
-    estado_venta = models.ForeignKey('bar.VentaEstado', default=1,
-                                     verbose_name='Estado de la Venta',
-                                     help_text='El estado de la Venta se establece de acuerdo a...')
+                                      verbose_name='Total Venta')
+    efectivo_recibido = models.DecimalField(max_digits=18, decimal_places=0, default=0, null=True, blank=True,
+                                            verbose_name='Efectivo Recibido')
+    vuelto = models.DecimalField(max_digits=18, decimal_places=0, default=0, null=True, blank=True,
+                                 verbose_name='Vuelto')
+    voucher = models.CharField(max_length=15, null=True, blank=True,
+                               verbose_name='Numero de Voucher')
+
+    estado_venta = models.ForeignKey('bar.VentaEstado',  # default=1,
+                                     verbose_name='Estado Venta',
+                                     help_text='El estado de la Venta se establece automaticamente una vez que es '
+                                               'confirmada la misma.')
+    venta_ocasional = models.BooleanField(default=False)
+
+    motivo_cancelacion = models.CharField(max_length=200, null=True, blank=True)
+    observaciones_cancelacion = models.CharField(max_length=200, null=True, blank=True)
+    usuario_cancelacion = models.ForeignKey('personal.Empleado', null=True, blank=True,
+                                            related_name='usuario_cancelacion_venta',
+                                            # limit_choices_to='',
+                                            #  to_field='usuario',
+                                            verbose_name='Cancelado por?',
+                                            help_text='Usuario que cancelo la Venta.')
+    fecha_hora_cancelacion = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         verbose_name = 'Venta'
@@ -248,8 +307,84 @@ class Venta(models.Model):
     # 6) Emitir comprobantes. Factura o ticket.
     # 7) Ventas cerradas no deben ser modificadas.
 
+    # @property
+    def get_numero_caja(self):
+        """Retorna el Numero de Caja para la Apertura de Caja correspondiente."""
+        return '%s' % self.apertura_caja.caja
+    # nombre_completo = property(get_nombre_completo)
+    get_numero_caja.short_description = 'Caja'
+
+    @property
+    def cajero(self):
+        """Retorna el Cajero para la Apertura de Caja correspondiente."""
+        return '%s' % self.apertura_caja.cajero
+    # nombre_completo = property(get_nombre_completo)
+    # get_cajero.short_description = 'Cajero'
+
+    def get_sector(self):
+        """Retorna el Sector para la Apertura de Caja correspondiente."""
+        return '%s' % self.apertura_caja.sector
+    # nombre_completo = property(get_nombre_completo)
+    get_sector.short_description = 'Sector'
+
+    def get_fecha_hora_apertura_caja(self):
+        """Retorna la Fecha/Hora de Apertura de Caja para la Apertura de Caja correspondiente."""
+        return '%s' % datetime.datetime.strftime(timezone.localtime(self.apertura_caja.fecha_hora_apertura_caja), '%d/%m/%Y %H:%M')
+    # nombre_completo = property(get_nombre_completo)
+    get_fecha_hora_apertura_caja.short_description = 'Fecha/hora Apertura Caja'
+
+    def clean(self):
+        super(Venta, self).clean()
+
+        # import pdb
+        # pdb.set_trace()
+
+        if self.pk is None:
+
+            # try:
+            #     field = Venta._meta.get_field('apertura_caja')
+            # except FieldDoesNotExist:
+            #     # field does not exist
+            #     pass
+
+            if hasattr(self, 'apertura_caja'):
+                # if getattr(self, 'apertura_caja'):
+                # if hasattr(self, 'numero_pedido'):
+                #     pedido = getattr(self, 'numero_pedido')
+                # if id_pedido is not None and id_pedido != '':
+                #     pedido = Pedido.objects.get(pk=id_pedido)
+                # if self.venta_ocasional is True or self.venta_ocasional is False and hasattr(self, 'numero_pedido') is False and self.numero_pedido.reserva is None or \
+                if self.venta_ocasional is True or self.venta_ocasional is False and hasattr(self, 'numero_pedido') is False or \
+                                        self.venta_ocasional is False and hasattr(self, 'numero_pedido') is True and self.numero_pedido.reserva is not None and self.numero_pedido.reserva.pago <= self.numero_pedido.total_pedido:
+
+                    try:
+                        factura = FacturaVenta.objects.get(caja=self.apertura_caja.caja, estado='ACT')
+                    except ObjectDoesNotExist:
+                        raise ValidationError('No existe una Serie de Facturas con estado Vigente para la Caja %s. Cargue '
+                                              'una en la pantalla de "Parametrizaciones - Ventas - Series de Facturas"'
+                                              % self.apertura_caja.caja)
+                    # except self.apertura_caja.DoesNotExist:
+                    #     pass
+
+                    try:
+                        nro_factura = NumeroFacturaVenta.objects.filter(serie=factura.id).latest('numero_factura')
+                        if nro_factura.numero_factura == factura.numero_factura_final:
+                            raise ValidationError('Numero de Factura final alcanzado para la Caja %s. Cargue una nueva Serie '
+                                                  'en la pantalla de "Parametrizaciones - Ventas - Series de Facturas".'
+                                                  % self.apertura_caja.caja)
+                        else:
+                            nuevo_nro_factura = NumeroFacturaVenta(serie=factura,
+                                                                   numero_factura=nro_factura.numero_factura + 1)
+                            nuevo_nro_factura.save()
+                            self.numero_factura_venta = nuevo_nro_factura
+                    except ObjectDoesNotExist:
+                        nuevo_nro_factura = NumeroFacturaVenta(serie=factura,
+                                                               numero_factura=factura.numero_factura_inicial)
+                        nuevo_nro_factura.save()
+                        self.numero_factura_venta = nuevo_nro_factura
+
     def __unicode__(self):
-        return "%s - %s - %s" % (self.id, self.cliente, self.fecha_venta)
+        return "ID Venta: %s - Fecha Venta: %s" % (self.id, datetime.datetime.strftime(timezone.localtime(self.fecha_hora_venta), '%d/%m/%Y %H:%M'))
 
 
 class VentaDetalle(models.Model):
@@ -286,34 +421,81 @@ class VentaDetalle(models.Model):
         verbose_name_plural = 'Ventas - Detalles'
 
 
+class VentaOcasional(Venta):
+    class Meta:
+        proxy = True
+        verbose_name = 'Venta Ocasional'
+        verbose_name_plural = 'Ventas Ocasionales'
+
+    def __init__(self, *args, **kwargs):
+        super(VentaOcasional, self).__init__(*args, **kwargs)
+        self.venta_ocasional = True
+
+
+class VentaOcasionalDetalle(VentaDetalle):
+    class Meta:
+        proxy = True
+        verbose_name = 'Venta Ocasional - Detalle'
+        verbose_name_plural = 'Ventas Ocasionales - Detalles'
+
+
 class Comanda(models.Model):
     """
     Llevar el control de los Pedidos (Comandas) realizados a la Cocina y su cumplimiento.
 
     Recepcionar comanda.
     """
-    AREA = (
-        ('COC', 'Cocina'),
-        ('BAR', 'Barra'),
-    )
+    # AREA = (
+    #     ('COC', 'Cocina'),
+    #     ('BAR', 'Barra'),
+    # )
     ESTADO_COMANDA = (
         ('PEN', 'Pendiente'),
         ('PRO', 'Procesada'),
         ('CAN', 'Cancelada'),
     )
-    numero_pedido = models.ForeignKey('Pedido')
-    producto_a_elaborar = models.ForeignKey('stock.ProductoCompuesto', verbose_name='Producto a Elaborar')
-    area_encargada = models.CharField(max_length=3, choices=AREA, verbose_name='Area Encargada')
-    fecha_hora_pedido_comanda = models.DateTimeField(verbose_name='Fecha/hora Pedido Comanda')
-    tiempo_estimado_elaboracion = models.TimeField(verbose_name='Tiempo Estimado Elaboracion',  # default=datetime.time(00, 15, 00),
-                                                   help_text='Corresponde al tiempo estimado que tomara elaborar el '
-                                                             'Producto Compuesto')
+    numero_pedido = models.ForeignKey('Pedido', verbose_name='Numero de Pedido')
+    id_pedido_detalle = models.ForeignKey('PedidoDetalle')  # default=2
+    area_solicitante = models.ForeignKey('bar.Sector',  # default=2,
+                                         related_name='area_solicitante_comanda',
+                                         verbose_name='Area Solicitante')
+    usuario_solicitante = models.ForeignKey('personal.Empleado',  # default=14,
+                                            related_name='usuario_solicitante_comanda',
+                                            # limit_choices_to=Q(cargo__cargo__exact="MO") | Q(cargo__cargo__exact="BM"),
+                                            # to_field='usuario',
+                                            verbose_name='Solicitado por?',
+                                            help_text='Este dato se completara automaticamente cuando el Pedido '
+                                                      'sea guardado.')
+    producto_a_entregar = models.ForeignKey('stock.ProductoVenta',  # default=2,
+                                            verbose_name='Producto Solicitado')
+    cantidad_solicitada = models.DecimalField(max_digits=10, decimal_places=3, default=1,
+                                              verbose_name='Cantidad Solicitada')
+    # area_encargada = models.CharField(max_length=3, choices=AREA, verbose_name='Area Encargada')
+    area_encargada = models.ForeignKey('bar.Sector',  # default=2,
+                                       related_name='area_encargada_comanda',
+                                       verbose_name='Area Encargada')
+    fecha_hora_pedido_comanda = models.DateTimeField(verbose_name='Fecha/hora Comanda')
+    tiempo_estimado_procesamiento = models.TimeField(verbose_name='Tiempo Estimado Procesamiento',
+                                                     # default=datetime.time(00, 15, 00),
+                                                     help_text='Corresponde al tiempo estimado que tomara elaborar el '
+                                                               'Producto Compuesto')
     estado_comanda = models.CharField(max_length=3, choices=ESTADO_COMANDA, verbose_name='Estado Comanda')
-    fecha_hora_procesamiento_comanda = models.DateTimeField(null=True, blank=True, verbose_name='Fecha/hora Procesamiento Comanda')
+    fecha_hora_procesamiento_comanda = models.DateTimeField(null=True, blank=True,
+                                                            verbose_name='Fecha/hora Procesamiento Comanda')
+    usuario_procesa = models.ForeignKey('personal.Empleado', null=True, blank=True,
+                                        related_name='usuario_procesa_comanda',
+                                        # limit_choices_to='',
+                                        #  to_field='usuario',
+                                        verbose_name='Procesado por?',
+                                        help_text='Usuario que proceso la Comanda.')
 
     class Meta:
         verbose_name = 'Comanda'
         verbose_name_plural = 'Comandas'
+
+    def __unicode__(self):
+        return "Com: %s - Ped: %s - Fec/hora Com: %s" % (self.id, self.numero_pedido,
+                                                                         datetime.datetime.strftime(timezone.localtime(self.fecha_hora_pedido_comanda), '%d/%m/%Y %H:%M'))
 
     # VALIDACIONES/FUNCIONALIDADES
     # =============================
@@ -329,6 +511,7 @@ class AperturaCaja(models.Model):
     """
     ESTADO_APERTURA_CAJA = (
         ('VIG', 'Vigente'),
+        ('EXP', 'Expirada'),
         ('CER', 'Cerrada'),
     )
     caja = models.ForeignKey('bar.Caja', limit_choices_to={'estado_caja': "CER"},
@@ -338,17 +521,32 @@ class AperturaCaja(models.Model):
                                # limit_choices_to={'cargo__cargo': "CA"},
                                verbose_name='Cajero',
                                help_text='Seleccione el Cajero que realizara movimientos en esta Caja.')
+    sector = models.ForeignKey('bar.Sector',  # default=2,
+                               help_text='Seleccione el Sector en donde desempenara sus funciones el Empleado.')
     horario = models.ForeignKey('personal.Horario')  # , default='NO')
     monto_apertura = models.DecimalField(max_digits=18, decimal_places=0, default=0,
                                          verbose_name='Monto Apertura',
                                          help_text='Ingrese el monto de efectivo utilizado para aperturar la Caja.')
-    fecha_apertura_caja = models.DateField(default=datetime.date.today,  # auto_now_add=True,
-                                           verbose_name='Fecha Apertura',
-                                           help_text='Fecha en la que se realiza la Apertura de Caja.')
+
+    jornada = models.OneToOneField('InicioJornada',  # default=1,
+                                   # blank=True,
+                                   related_name='jornada_apertura_caja',
+                                   verbose_name='Jornada',
+                                   help_text='Se genera automaticamente al Confirmar la Apertura de Caja.')
+
+    fecha_hora_apertura_caja = models.DateTimeField(default=timezone.now,  # auto_now_add=True,
+                                                    verbose_name='Fecha/hora Apertura Caja',
+                                                    help_text='Fecha en la que se realiza la Apertura de Caja.')
+    duracion_apertura = models.TimeField(default=datetime.time(10, 00, 00), verbose_name='Duracion Apert. Caja')
+    fecha_hora_fin_apertura_caja = models.DateTimeField(default=(timezone.now() + datetime.timedelta(hours=10)),
+                                                        # blank=True,
+                                                        verbose_name='Fecha/hora Fin Apertura Caja',
+                                                        help_text='Fecha/hora de Finalizacion de la Apertura de Caja.')
     fecha_hora_registro_apertura_caja = models.DateTimeField(auto_now_add=True,
-                                                             verbose_name='Fecha/hora registro')
+                                                             verbose_name='Fecha/hora registro Apert. Caja')
     estado_apertura_caja = models.CharField(max_length=3, choices=ESTADO_APERTURA_CAJA,  # default='VIG',
-                                            verbose_name='Estado')
+                                            verbose_name='Estado Apert. Caja')
+    en_proceso_cierre = models.BooleanField(default=False)
 
     class Meta:
         verbose_name = 'Apertura de Caja'
@@ -361,14 +559,156 @@ class AperturaCaja(models.Model):
     # 3) Retiro de Valores: Se ejecuta en el Cierre de la Caja y genera un Comprobante para la impresion.
     # 4) Al confirmar la Apertura de Caja se debe modificar el estado de la Caja a "ABierta".
 
+# ==> Cantidad Total Operaciones Pendientes <==
+    def get_cantidad_total_operaciones_pendientes(self):
+        count = Venta.objects.filter(apertura_caja_id=self.id, estado_venta__venta_estado='PEN').count()
+        return count
+
+# ==> Cantidad Total Operaciones Canceladas <==
+    def get_cantidad_total_operaciones_canceladas(self):
+        count = Venta.objects.filter(apertura_caja_id=self.id, estado_venta__venta_estado='CAN').count()
+        return count
+
+# ==> Efectivo <==
+    def get_cantidad_operaciones_efectivo_procesadas(self):
+        count = Venta.objects.filter(apertura_caja_id=self.id, forma_pago='EF',
+                                     estado_venta__venta_estado='PRO').count()
+        return count
+
+    def get_cantidad_operaciones_efectivo_pendientes(self):
+        count = Venta.objects.filter(apertura_caja_id=self.id, forma_pago='EF',
+                                     estado_venta__venta_estado='PEN').count()
+        return count
+
+    def get_cantidad_operaciones_efectivo_canceladas(self):
+        count = Venta.objects.filter(apertura_caja_id=self.id, forma_pago='EF',
+                                     estado_venta__venta_estado='CAN').count()
+        return count
+
+    def get_monto_registro_efectivo(self):
+        total = Venta.objects.filter(apertura_caja_id=self.id, forma_pago='EF',
+                                     estado_venta__venta_estado='PRO').aggregate(total=Sum('total_venta'))['total']
+        return total
+
+# ==> TCs <==
+    def get_cantidad_operaciones_tcs_procesadas(self):
+        count = Venta.objects.filter(apertura_caja_id=self.id, forma_pago='TC',
+                                     estado_venta__venta_estado='PRO').count()
+        return count
+
+    def get_cantidad_operaciones_tcs_pendientes(self):
+        count = Venta.objects.filter(apertura_caja_id=self.id, forma_pago='TC',
+                                     estado_venta__venta_estado='PEN').count()
+        return count
+
+    def get_cantidad_operaciones_tcs_canceladas(self):
+        count = Venta.objects.filter(apertura_caja_id=self.id, forma_pago='TC',
+                                     estado_venta__venta_estado='CAN').count()
+        return count
+
+    def get_monto_registro_tcs(self):
+        total = Venta.objects.filter(apertura_caja_id=self.id, forma_pago='TC',
+                                     estado_venta__venta_estado='PRO').aggregate(total=Sum('total_venta'))['total']
+        return total
+
+# ==> TDs <==
+    def get_cantidad_operaciones_tds_procesadas(self):
+        count = Venta.objects.filter(apertura_caja_id=self.id, forma_pago='TD',
+                                     estado_venta__venta_estado='PRO').count()
+        return count
+
+    def get_cantidad_operaciones_tds_pendientes(self):
+        count = Venta.objects.filter(apertura_caja_id=self.id, forma_pago='TD',
+                                     estado_venta__venta_estado='PEN').count()
+        return count
+
+    def get_cantidad_operaciones_tds_canceladas(self):
+        count = Venta.objects.filter(apertura_caja_id=self.id, forma_pago='TD',
+                                     estado_venta__venta_estado='CAN').count()
+        return count
+
+    def get_monto_registro_tds(self):
+        total = Venta.objects.filter(apertura_caja_id=self.id, forma_pago='TD',
+                                     estado_venta__venta_estado='PRO').aggregate(total=Sum('total_venta'))['total']
+        return total
+
+# ==> Otros Medios de Pago <==
+    def get_cantidad_operaciones_otros_medios_procesadas(self):
+        count = Venta.objects.filter(apertura_caja_id=self.id, forma_pago='OM',
+                                     estado_venta__venta_estado='PRO').count()
+        return count
+
+    def get_cantidad_operaciones_otros_medios_pendientes(self):
+        count = Venta.objects.filter(apertura_caja_id=self.id, forma_pago='OM',
+                                     estado_venta__venta_estado='PEN').count()
+        return count
+
+    def get_cantidad_operaciones_otros_medios_canceladas(self):
+        count = Venta.objects.filter(apertura_caja_id=self.id, forma_pago='OM',
+                                     estado_venta__venta_estado='CAN').count()
+        return count
+
+    def get_monto_registro_otros_medios(self):
+        total = Venta.objects.filter(apertura_caja_id=self.id, forma_pago='OM',
+                                     estado_venta__venta_estado='PRO').aggregate(total=Sum('total_venta'))['total']
+        return total
+
     def clean(self):
+        super(AperturaCaja, self).clean()
+
+        # import pdb
+        # pdb.set_trace()
+
         # El monto_apertura no puede ser 0.
         if self.monto_apertura == 0:
             raise ValidationError({'monto_apertura': _('El Monto de Apertura no puede ser 0.')})
 
+        if self.pk is None:
+
+            # try:
+            #     field = Venta._meta.get_field('apertura_caja')
+            # except FieldDoesNotExist:
+            #     # field does not exist
+            #     pass
+
+            if hasattr(self, 'cajero'):
+            # if getattr(self, 'apertura_caja'):
+                working_day = InicioJornada(mozo=self.cajero,
+                                            sector=self.sector,
+                                            horario=self.horario,
+                                            fecha_hora_inicio_jornada=timezone.now(),
+                                            duracion_jornada=self.duracion_apertura,
+                                            fecha_hora_fin_jornada=timezone.localtime(timezone.now() + datetime.timedelta(hours=self.duracion_apertura.hour, minutes=self.duracion_apertura.minute)),
+                                            estado_jornada='VIG')
+                working_day.save()
+
+                self.jornada = working_day
+
+
+    # def save(self, force_insert=False, force_update=False, using=None,
+    #          update_fields=None):
+    #
+    #     import pdb
+    #     pdb.set_trace()
+    #
+    #     super(AperturaCaja, self).save(force_insert, force_update, using, update_fields)
+
     def __unicode__(self):
         # return "ID Apert. Caja: %s - Nro. Caja: %s - Cajero: % - Fecha Apert: %s" % (self.id, self.caja, self.cajero, self.fecha_apertura_caja)
-        return "ID Apert. Caja: %s" % self.id
+        # return "ID: %s - Fec/hora Apert: %s" % (self.id, datetime.datetime.strftime(timezone.localtime(self.fecha_hora_apertura_caja), '%d/%m/%Y %H:%M'))
+        return "ID: %s" % self.id
+
+
+# def get_limit_choices_to(request):
+#     usuario = Empleado.objects.get(usuario=request.user)
+#     if usuario.usuario.is_superuser is True:
+#         cierres = CierreCaja.objects.all().values('apertura_caja')
+#         aperturas = AperturaCaja.objects.filter(estado_apertura_caja__in=['VIG', 'EXP']).exclude(id__in=cierres)
+#     else:
+#         cierres = CierreCaja.objects.all().values('apertura_caja')
+#         aperturas = AperturaCaja.objects.filter(cajero=usuario, estado_apertura_caja__in=['VIG', 'EXP']).exclude(id__in=cierres)
+#
+#     return {'id': aperturas['id']}
 
 
 class CierreCaja(models.Model):
@@ -388,14 +728,37 @@ class CierreCaja(models.Model):
     #                                      verbose_name='Monto usado en Apertura',
     #                                      help_text='Ingrese el monto de efectivo utilizado para aperturar la Caja.')
 
-    apertura_caja = models.ForeignKey('AperturaCaja', limit_choices_to={'estado_apertura_caja': "VIG"},
-                                      verbose_name='Cajas Aperturadas',
-                                      help_text='Seleccione la Caja a cerrar.')
+    apertura_caja = models.ForeignKey('AperturaCaja',
+                                      # limit_choices_to=get_limit_choices_to(request=),
+                                      limit_choices_to={'estado_apertura_caja__in': ('VIG', 'EXP')},  # , 'en_proceso_cierre': False
+                                      # limit_choices_to=Q(estado_apertura_caja="VIG") | Q(estado_apertura_caja="EXP"),
+                                      verbose_name='Apertura de Caja',
+                                      help_text='Seleccione la Apertura de Caja para la cual se realizara el cierre.')
     # fecha_cierre_caja = models.DateField()
-    fecha_hora_registro_cierre_caja = models.DateTimeField(auto_now_add=True,
-                                                           verbose_name='Fecha/hora registro')
+    fecha_hora_registro_cierre_caja = models.DateTimeField(auto_now=True,  # default=timezone.now,  # auto_now_add=True,
+                                                           verbose_name='Fecha/hora registro Cierre de Caja')
+
+    cantidad_total_operaciones_pendientes = models.PositiveIntegerField(default=0, verbose_name='Ventas Pendientes')
+    cantidad_total_operaciones_canceladas = models.PositiveIntegerField(default=0, verbose_name='Ventas Canceladas')
+
+    total_efectivo = models.DecimalField(max_digits=18, decimal_places=0, default=0,
+                                         verbose_name='Total Efectivo')
+                                         # help_text='Corresponde a la suma del Monto de Apertura con el Monto '
+                                         #           'Registrado en Efectivo.')
+    total_diferencia = models.DecimalField(max_digits=18, decimal_places=0, default=0,
+                                           verbose_name='Total Diferencia',
+                                           help_text='Si el Total Diferencia es negativo posee un sobrante.')
+    usuario_cierre_caja = models.ForeignKey('personal.Empleado', null=True, blank=True,  # default=17,
+                                            related_name='usuario_cierre_caja',
+                                            # limit_choices_to='',
+                                            #  to_field='usuario',
+                                            verbose_name='Cierre de Caja realizado por?',
+                                            help_text='Usuario que realizo el Cierre de Caja.')
 
 # ==> Efectivo <==
+    cantidad_operaciones_efectivo_procesadas = models.PositiveIntegerField(default=0, verbose_name='Cant. Oper. Efectivo Procesadas')
+    cantidad_operaciones_efectivo_pendientes = models.PositiveIntegerField(default=0, verbose_name='Cant. Oper. Efectivo Pendientes')
+    cantidad_operaciones_efectivo_canceladas = models.PositiveIntegerField(default=0, verbose_name='Cant. Oper. Efectivo Canceladas')
     monto_registro_efectivo = models.DecimalField(max_digits=18, decimal_places=0, default=0,
                                                   verbose_name='Monto Registrado Efectivo',
                                                   help_text='')
@@ -406,6 +769,9 @@ class CierreCaja(models.Model):
                                               verbose_name='Diferencia Registro/Rendicion Efectivo',
                                               help_text='')
 # ==> TCs <==
+    cantidad_operaciones_tcs_procesadas = models.PositiveIntegerField(default=0, verbose_name='Cant. Oper. TCs Procesadas')
+    cantidad_operaciones_tcs_pendientes = models.PositiveIntegerField(default=0, verbose_name='Cant. Oper. TCs Pendientes')
+    cantidad_operaciones_tcs_canceladas = models.PositiveIntegerField(default=0, verbose_name='Cant. Oper. TCs Canceladas')
     monto_registro_tcs = models.DecimalField(max_digits=18, decimal_places=0, default=0,
                                              verbose_name='Monto Registrado TCs',
                                              help_text='')
@@ -416,6 +782,9 @@ class CierreCaja(models.Model):
                                          verbose_name='Diferencia Registro/Rendicion TCs',
                                          help_text='')
 # ==> TDs <==
+    cantidad_operaciones_tds_procesadas = models.PositiveIntegerField(default=0, verbose_name='Cant. Oper. TDs Procesadas')
+    cantidad_operaciones_tds_pendientes = models.PositiveIntegerField(default=0, verbose_name='Cant. Oper. TDs Pendientes')
+    cantidad_operaciones_tds_canceladas = models.PositiveIntegerField(default=0, verbose_name='Cant. Oper. TDs Canceladas')
     monto_registro_tds = models.DecimalField(max_digits=18, decimal_places=0, default=0,
                                              verbose_name='Monto Registrado TDs',
                                              help_text='')
@@ -426,6 +795,9 @@ class CierreCaja(models.Model):
                                          verbose_name='Diferencia Registro/Rendicion TDs',
                                          help_text='')
 # ==> Otros Medios de Pago <==
+    cantidad_operaciones_otros_medios_procesadas = models.PositiveIntegerField(default=0, verbose_name='Cant. Oper. Otros Medios Procesadas')
+    cantidad_operaciones_otros_medios_pendientes = models.PositiveIntegerField(default=0, verbose_name='Cant. Oper. Otros Medios Pendientes')
+    cantidad_operaciones_otros_medios_canceladas = models.PositiveIntegerField(default=0, verbose_name='Cant. Oper. Otros Medios Canceladas')
     monto_registro_otros_medios = models.DecimalField(max_digits=18, decimal_places=0, default=0,
                                                       verbose_name='Monto Registrado Otros Medios',
                                                       help_text='')
@@ -440,8 +812,153 @@ class CierreCaja(models.Model):
         verbose_name = 'Cierre de Caja'
         verbose_name_plural = 'Cajas - Cierres'
 
+    # @property
+    def get_cajero(self):
+        """Retorna el Cajero para la Apertura de Caja correspondiente."""
+        return '%s' % self.apertura_caja.cajero
+    # nombre_completo = property(get_nombre_completo)
+    get_cajero.short_description = 'Cajero'
+
+    # @property
+    def get_numero_caja(self):
+        """Retorna el Numero de Caja para la Apertura de Caja correspondiente."""
+        return '%s' % self.apertura_caja.caja
+    get_numero_caja.short_description = 'Caja'
+
+    def get_sector(self):
+        """Retorna el Sector para la Apertura de Caja correspondiente."""
+        return '%s' % self.apertura_caja.sector
+    get_sector.short_description = 'Sector'
+
+    def get_horario(self):
+        """Retorna el Horario para la Apertura de Caja correspondiente."""
+        return '%s' % self.apertura_caja.horario
+    get_horario.short_description = 'Horario'
+
+    def get_jornada(self):
+        """Retorna la Jornada para la Apertura de Caja correspondiente."""
+        return '%s' % self.apertura_caja.jornada
+    get_jornada.short_description = 'Jornada'
+
+    def get_fecha_hora_apertura_caja(self):
+        """Retorna la Fecha/Hora de Apertura de Caja para la Apertura de Caja correspondiente."""
+        return '%s' % datetime.datetime.strftime(timezone.localtime(self.apertura_caja.fecha_hora_apertura_caja), '%d/%m/%Y %H:%M')
+    # nombre_completo = property(get_nombre_completo)
+    get_fecha_hora_apertura_caja.short_description = 'Fecha/hora Apert. Caja'
+
+    def get_monto_apertura(self):
+        """Retorna el Monto de Apertura para la Apertura de Caja correspondiente."""
+        return '%s' % self.apertura_caja.monto_apertura
+    # nombre_completo = property(get_nombre_completo)
+    get_monto_apertura.short_description = 'Monto Apertura'
+
+    def get_estado_apertura_caja(self):
+        """Retorna el Estdo de la Apertura de Ccaja para la Apertura de Caja correspondiente."""
+        return '%s' % self.apertura_caja.get_estado_apertura_caja_display()
+    # nombre_completo = property(get_nombre_completo)
+    get_estado_apertura_caja.short_description = 'Estado Apert. Caja'
+
+    # def clean(self):
+    #     super(CierreCaja, self).clean()
+    #
+    #     if self.total_diferencia > 20000:
+    #         raise ValidationError({'total_diferencia': 'El Total de la Diferencia no puede ser superior a 20.000 Gs. '
+    #                                                    'Realice los ajustes necesarios en la rendicion para reducir '
+    #                                                    'la diferencia.'})
+
     def __unicode__(self):
-        return "ID Cierre Caja: %s - ID Apert. Caja: %s" % (self.id, self.apertura_caja)
+        # return "ID Cierre Caja: %s - ID Apert. Caja: %s" % (self.id, self.apertura_caja)
+        return "ID Cierre Caja: %s - ID Apert. Caja: %s - Fec/hora Cierre: %s" % (self.id, self.apertura_caja, datetime.datetime.strftime(timezone.localtime(self.fecha_hora_registro_cierre_caja), '%d/%m/%Y %H:%M'))
+
+
+class Jornada(models.Model):
+    """
+    Inicio de Jornada para Mozos
+    """
+    ESTADOS_JORNADA = (
+        ('VIG', 'Vigente'),
+        ('EXP', 'Expirada'),
+        ('CER', 'Cerrada'),
+    )
+    mozo = models.ForeignKey('personal.Empleado',  # default=request.user, # limit_choices_to={'cargo__cargo': "CA"},
+                             related_name='mozo',
+                             verbose_name='Mozo/Barman',
+                             help_text='Se define de acuerdo al usuario logueado al Sistema.')
+    sector = models.ForeignKey('bar.Sector',  # default=2,
+                               help_text='Seleccione el Sector en donde desempenara sus funciones el Empleado.')
+    horario = models.ForeignKey('personal.Horario')  # default=1
+    fecha_hora_inicio_jornada = models.DateTimeField(default=timezone.now,  # auto_now_add=True,  #
+                                                     verbose_name='Fecha/hora Inicio Jornada',
+                                                     help_text='Fecha/hora de Inicio de la Jornada.')
+    duracion_jornada = models.TimeField(default=datetime.time(10, 00, 00), verbose_name='Duracion Jornada')
+    fecha_hora_fin_jornada = models.DateTimeField(default=(timezone.now() + datetime.timedelta(hours=10)),
+                                                  verbose_name='Fecha/hora Fin Jornada',
+                                                  help_text='Fecha/hora de Finalizacion de la Jornada.')
+    estado_jornada = models.CharField(max_length=3, choices=ESTADOS_JORNADA,  # default='VIG',
+                                      blank=True,
+                                      verbose_name='Estado')
+    cantidad_pedidos_procesados = models.PositiveIntegerField(null=True, blank=True,
+                                                              verbose_name='Cant. Pedidos Procesados')
+    cantidad_pedidos_pendientes = models.PositiveIntegerField(null=True, blank=True,
+                                                              verbose_name='Cant. Pedidos Pendientes')
+    cantidad_pedidos_cancelados = models.PositiveIntegerField(null=True, blank=True,
+                                                              verbose_name='Cant. Pedidos Cancelados')
+    fecha_hora_cierre_jornada = models.DateTimeField(null=True, blank=True,  # auto_now_add=True,  # default=timezone.now,
+                                                     verbose_name='Fecha/hora Cierre Jornada',
+                                                     help_text='Fecha/hora de Cierre de la Jornada.')
+    usuario_cierre_jornada = models.ForeignKey('personal.Empleado', null=True, blank=True,  # default=17,
+                                               related_name='usuario_cierre_jornada',
+                                               # limit_choices_to='',
+                                               # to_field='usuario',
+                                               verbose_name='Cerrado por?',
+                                               help_text='Usuario que realizo el Cierre de la Jornada.')
+
+    def get_cantidad_pedidos_procesados(self):
+        count = Pedido.objects.filter(jornada_id=self.id, estado_pedido__pedido_estado='PRO').count()
+        return count
+
+    def get_cantidad_pedidos_pendientes(self):
+        count = Pedido.objects.filter(jornada_id=self.id, estado_pedido__pedido_estado__in=['VIG', 'PEN']).count()
+        return count
+
+    def get_cantidad_pedidos_cancelados(self):
+        count = Pedido.objects.filter(jornada_id=self.id, estado_pedido__pedido_estado='CAN').count()
+        return count
+
+    def get_estado_jornada(self):
+
+        # import pdb
+        # pdb.set_trace()
+
+        now = timezone.localtime(timezone.now())
+        if self.estado_jornada == 'VIG' and timezone.localtime(self.fecha_hora_fin_jornada) < now:
+            estado_jornada = 'EXP'
+        else:
+            estado_jornada = self.estado_jornada
+        return estado_jornada
+
+    def __unicode__(self):
+        return "ID: %s - Inicio: %s" % (self.id, datetime.datetime.strftime(timezone.localtime(self.fecha_hora_inicio_jornada), '%d/%m/%Y %H:%M'))
+
+
+class InicioJornada(Jornada):
+    class Meta:
+        proxy = True
+        verbose_name = 'Mozos/Barmans - Inicio de Jornada'
+        verbose_name_plural = 'Mozos/Barmans - Inicios de Jornadas'
+
+    def __unicode__(self):
+        return "ID: %s - Inicio: %s" % (self.id, datetime.datetime.strftime(timezone.localtime(self.fecha_hora_inicio_jornada), '%d/%m/%Y %H:%M'))
+
+
+class FinJornada(Jornada):
+    class Meta:
+        proxy = True
+        verbose_name = 'Mozos/Barmans - Cierre de Jornada'
+        verbose_name_plural = 'Mozos/Barmans - Cierres de Jornadas'
+
+    def __unicode__(self):
+        return "ID: %s - Inicio: %s - Fin: %s" % (self.id, datetime.datetime.strftime(timezone.localtime(self.fecha_hora_inicio_jornada), '%d/%m/%Y %H:%M'), datetime.datetime.strftime(timezone.localtime(self.fecha_hora_fin_jornada), '%d/%m/%Y %H:%M'))
 
 
 # class MovimientoCaja(models.Model):

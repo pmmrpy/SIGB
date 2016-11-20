@@ -1,0 +1,12 @@
+{% extends "admin/change_form.html" %}
+
+{% block submit_buttons_bottom %}
+        <button type="submit" class="btn btn-high btn-info" {% if not show_save_button %} disabled="disabled" {% endif %} name="_save" >Confirmar Venta</button>
+{#        <button type="submit" class="btn btn-high btn-default" {% if not show_continue_button %} disabled="disabled" {% endif %} name="_continue" >Grabar y continuar editando</button>#}
+        <button type="submit" class="btn btn-high btn-default" {% if not show_addanother_button %} disabled="disabled" {% endif %} name="_addanother" >Grabar y añadir otro</button>
+    <!-- Trigger the modal with a button -->
+{#        <button type="button" class="btn btn-danger btn-lg" {% if not show_cancel_button %} disabled="disabled" {% endif %} name="_cancel" data-toggle="modal" data-target="#myModal">Cancelar Pedido</button>#}
+{#        <button type="submit" class="btn btn-high btn-danger" {% if not show_cancel_button %} disabled="disabled" {% endif %} name="_cancel" >Cancelar Compra</button>#}
+{#        <button type="submit" class="btn btn-high btn-default" {% if not show_button %} disabled="disabled" {% endif %} name="_cargaorden" >Cargar Datos Orden Compra</button>#}
+        <a {% if not show_imprimir_button %} disabled="disabled" href="#" {% else %} href="/ventas/pedido-report/{{ original.pk }}" target="_blank" {% endif %} class="btn btn-high btn-success" style="width: 80%">Imprimir Factura</a>
+{% endblock %}
