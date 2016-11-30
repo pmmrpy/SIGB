@@ -4,7 +4,7 @@ from django.contrib import admin
 # from bar.forms import PaisForm
 from django.utils.html import format_html
 from bar.forms import TimbradoForm
-from bar.models import NumeroFacturaVenta
+from bar.models import NumeroFacturaVenta, AjusteStockEstado
 from .models import ReservaEstado, Mesa, MesaEstado, MesaUbicacion, Caja, Sector, Documento, \
     Persona, FormaPagoCompra, TipoDeposito, Deposito, CategoriaProducto, SubCategoriaProducto, \
     TipoProducto, UnidadMedidaProducto, Moneda, Cotizacion, CodigoPaisTelefono, CodigoOperadoraTelefono, Pais, \
@@ -46,6 +46,18 @@ class MesaAdmin(admin.ModelAdmin):
                                (color, obj.estado.get_mesa_estado_display()))
         return obj.estado.mesa_estado
     colorea_estado_mesa.short_description = 'Estado Mesa'
+
+    def get_readonly_fields(self, request, obj=None):
+        if obj is not None:  # and obj.estado_apertura_caja in ('VIG', 'CER'):
+            return [i.name for i in self.model._meta.fields] + \
+                   [i.name for i in self.model._meta.many_to_many]
+        else:
+            return super(MesaAdmin, self).get_readonly_fields(request, obj)
+
+    def changeform_view(self, request, object_id=None, form_url='', extra_context=None):
+        extra_context = extra_context or {}
+        extra_context['show_button'] = False
+        return super(MesaAdmin, self).changeform_view(request, object_id, form_url, extra_context)
 
 
 class MesaEstadoAdmin(admin.ModelAdmin):
@@ -294,6 +306,12 @@ class TransferenciaStockEstadoAdmin(admin.ModelAdmin):
     list_filter = ['id', 'estado_transferencia_stock', 'descripcion']
     search_fields = ['id', 'estado_transferencia_stock', 'descripcion']
 
+
+class AjusteStockEstadoAdmin(admin.ModelAdmin):
+    list_display = ('id', 'estado_ajuste_stock', 'descripcion')
+    list_filter = ['id', 'estado_ajuste_stock', 'descripcion']
+    search_fields = ['id', 'estado_ajuste_stock', 'descripcion']
+
 # admin_site = MyAdminSite(name='myadmin')
 admin.site.register(ReservaEstado, ReservaEstadoAdmin)
 admin.site.register(Mesa, MesaAdmin)
@@ -328,4 +346,5 @@ admin.site.register(FacturaVenta, FacturaVentaAdmin)
 admin.site.register(NumeroFacturaVenta, NumeroFacturaVentaAdmin)
 admin.site.register(TipoMovimientoStock, TipoMovimientoStockAdmin)
 admin.site.register(TransferenciaStockEstado, TransferenciaStockEstadoAdmin)
+admin.site.register(AjusteStockEstado, AjusteStockEstadoAdmin)
 admin.site.register(TipoFacturaCompra)

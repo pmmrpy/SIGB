@@ -164,8 +164,11 @@ function set_pedido(id_pedido) {
             for (var i=0;i < json.documentos.length;i++){
                 if (json.documentos[i].t_doc == 'RUC') {
                     options += '<option title="'+json.documentos[i].t_doc+'" value="'+json.documentos[i].t_doc+': '+json.documentos[i].num_doc+'-'+json.documentos[i].dv+'">'+json.documentos[i].t_doc+': '+json.documentos[i].num_doc+'-'+json.documentos[i].dv+'</option>';
-                } else {
+                } else if ((json.documentos[i].t_doc != 'RUC') && (json.documentos[i].t_doc != '')){
                     options += '<option title="'+json.documentos[i].t_doc+'" value="'+json.documentos[i].t_doc+': '+json.documentos[i].num_doc+'">'+json.documentos[i].t_doc+': '+json.documentos[i].num_doc+'</option>';
+                } else if (json.documentos[i].t_doc == ''){
+                    //alert('Pedido sin datos del Cliente.');
+                    options += '<option title="Sin datos" value="9999999">9999999: Sin datos</option>';
                 }
             }
             $("#id_cliente_documento_factura").append(options);

@@ -7,6 +7,10 @@ from .import views
 from compras.autocomplete import ProveedorAutocomplete, ProveedorOrdenCompraAutocomplete
 
 urlpatterns = [
+    # # Geraldo reports
+    url(r'ajuste_inventario-report/(?P<pk>\d+)/$', views.ajuste_inventario_report, name='ajuste_inventario_report'),
+
+    # AJAX
     url(r'^get_producto_detalle/$', get_producto_detalle, name='get_producto_detalle'),
     url(r'^get_producto_venta_detalle/$', get_producto_venta_detalle, name='get_producto_venta_detalle'),
     url(r'^get_insumo_producto_compuesto_detalle/$', get_insumo_producto_compuesto_detalle, name='get_insumo_producto_compuesto_detalle'),

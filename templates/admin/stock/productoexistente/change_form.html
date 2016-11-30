@@ -1,0 +1,9 @@
+{% extends "admin/change_form.html" %}
+
+{% block submit_buttons_bottom %}
+        <button type="submit" class="btn btn-high btn-info" {% if not show_button %} disabled="disabled" {% endif %} name="_save" >Grabar</button>
+{#        <button type="submit" class="btn btn-high btn-" {% if not show_button %} disabled="disabled" {% endif %} name="_continue" >Grabar y continuar editando</button>#}
+        <button type="submit" class="btn btn-high btn-default" {% if not show_button %} disabled="disabled" {% endif %} name="_addanother" >Grabar y añadir otro</button>
+{#        <button type="submit" class="btn btn-high btn-success" name="_print" >Imprimir Orden de Compra</button>#}
+{#         <a href="/compras/orden-compra-report/" target="_blank" class="btn btn-high btn-success" style="width: 80%">Imprimir Orden de Compra</a>#}
+{% endblock %}

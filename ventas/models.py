@@ -1,3 +1,6 @@
+# -*- coding: utf-8 -*-
+from decimal import Decimal
+from django.core.validators import MinValueValidator
 from django.db import models
 from django.db.models.aggregates import Sum
 from django.utils import timezone
@@ -135,7 +138,7 @@ class Pedido(models.Model):
         # if self is not None:
         #     return "Nro. Ped: %s - Fec. Ped: %s" % (self.numero_pedido, datetime.datetime.strftime(timezone.localtime(self.fecha_hora_pedido), '%d/%m/%Y %H:%M'))
         # else:
-        return "%s" % self.numero_pedido
+        return u"%s" % self.numero_pedido
 
 
 class PedidoDetalle(models.Model):
@@ -179,6 +182,13 @@ class PedidoDetalle(models.Model):
                                               'correspondiente.')
     cancelado = models.BooleanField(default=False, verbose_name='Cancelar?',
                                     help_text='Seleccione esta casilla si desea cancelar el Producto solicitado.')
+    # id_mov_stock = models.PositiveIntegerField(null=True, blank=True, help_text='Registra el dato del ID '
+    #                                                                             'MovimientoStock para poder recuperar '
+    #                                                                             'los datos necesarios para realizar '
+    #                                                                             'la reversion de los descuentos de '
+    #                                                                             'Stock cuando se cancela un Producto o '
+    #                                                                             'todo el Pedido en la pantalla de '
+    #                                                                             'Pedidos.')
 
     class Meta:
         verbose_name = 'Pedido - Detalle'
@@ -294,8 +304,8 @@ class Venta(models.Model):
     fecha_hora_cancelacion = models.DateTimeField(null=True, blank=True)
 
     class Meta:
-        verbose_name = 'Venta'
-        verbose_name_plural = 'Ventas'
+        verbose_name = 'Venta con Pedido'
+        verbose_name_plural = 'Ventas con Pedido'
 
     # VALIDACIONES/FUNCIONALIDADES
     # ============================
@@ -354,8 +364,12 @@ class Venta(models.Model):
                 # if id_pedido is not None and id_pedido != '':
                 #     pedido = Pedido.objects.get(pk=id_pedido)
                 # if self.venta_ocasional is True or self.venta_ocasional is False and hasattr(self, 'numero_pedido') is False and self.numero_pedido.reserva is None or \
-                if self.venta_ocasional is True or self.venta_ocasional is False and hasattr(self, 'numero_pedido') is False or \
-                                        self.venta_ocasional is False and hasattr(self, 'numero_pedido') is True and self.numero_pedido.reserva is not None and self.numero_pedido.reserva.pago <= self.numero_pedido.total_pedido:
+
+                # 24/11/2016: Situaciones en las que se genera un Numero de Factura para la Venta
+                if self.venta_ocasional is True \
+                        or self.venta_ocasional is False and hasattr(self, 'numero_pedido') is True and self.numero_pedido.reserva is None \
+                        or self.venta_ocasional is False and hasattr(self, 'numero_pedido') is True and self.numero_pedido.reserva is not None \
+                                and self.numero_pedido.reserva.pago <= self.numero_pedido.total_pedido:
 
                     try:
                         factura = FacturaVenta.objects.get(caja=self.apertura_caja.caja, estado='ACT')
@@ -384,7 +398,7 @@ class Venta(models.Model):
                         self.numero_factura_venta = nuevo_nro_factura
 
     def __unicode__(self):
-        return "ID Venta: %s - Fecha Venta: %s" % (self.id, datetime.datetime.strftime(timezone.localtime(self.fecha_hora_venta), '%d/%m/%Y %H:%M'))
+        return u"ID Venta: %s - Fecha Venta: %s" % (self.id, datetime.datetime.strftime(timezone.localtime(self.fecha_hora_venta), '%d/%m/%Y %H:%M'))
 
 
 class VentaDetalle(models.Model):
@@ -406,7 +420,7 @@ class VentaDetalle(models.Model):
                                                 help_text='El Precio de Venta del Producto se define en la pantalla '
                                                           'de Productos.')
 
-    cantidad_producto_venta = models.DecimalField(max_digits=10, decimal_places=3,
+    cantidad_producto_venta = models.DecimalField(max_digits=10, decimal_places=3, validators=[MinValueValidator(Decimal('0.001'))],
                                                   verbose_name='Cantidad del Producto',
                                                   help_text='Ingrese la cantidad del producto solicitada por el '
                                                             'Cliente.')
@@ -454,6 +468,11 @@ class Comanda(models.Model):
         ('PRO', 'Procesada'),
         ('CAN', 'Cancelada'),
     )
+    ESTADO_VERIFICACION_COMANDA = (
+        ('PEN', 'Pendiente'),
+        ('PRO', 'Procesada'),
+        ('CAN', 'Cancelada'),
+    )
     numero_pedido = models.ForeignKey('Pedido', verbose_name='Numero de Pedido')
     id_pedido_detalle = models.ForeignKey('PedidoDetalle')  # default=2
     area_solicitante = models.ForeignKey('bar.Sector',  # default=2,
@@ -468,7 +487,7 @@ class Comanda(models.Model):
                                                       'sea guardado.')
     producto_a_entregar = models.ForeignKey('stock.ProductoVenta',  # default=2,
                                             verbose_name='Producto Solicitado')
-    cantidad_solicitada = models.DecimalField(max_digits=10, decimal_places=3, default=1,
+    cantidad_solicitada = models.DecimalField(max_digits=10, decimal_places=3, default=1, validators=[MinValueValidator(Decimal('0.001'))],
                                               verbose_name='Cantidad Solicitada')
     # area_encargada = models.CharField(max_length=3, choices=AREA, verbose_name='Area Encargada')
     area_encargada = models.ForeignKey('bar.Sector',  # default=2,
@@ -489,12 +508,23 @@ class Comanda(models.Model):
                                         verbose_name='Procesado por?',
                                         help_text='Usuario que proceso la Comanda.')
 
+    # estado_verificacion = models.CharField(max_length=3, choices=ESTADO_VERIFICACION_COMANDA, null=True, blank=True,
+    #                                        verbose_name='Estado Verificacion Comanda')
+    # observacion_verificacion = models.CharField(max_length=200, null=True, blank=True,
+    #                                             verbose_name='Observacion Verificacion')
+    # usuario_verifica = models.ForeignKey('personal.Empleado', null=True, blank=True,
+    #                                      related_name='usuario_verifica_comanda',
+    #                                      # limit_choices_to='',
+    #                                      # to_field='usuario',
+    #                                      verbose_name='Verificado por?',
+    #                                      help_text=u'Usuario que verificó la Comanda.')
+
     class Meta:
         verbose_name = 'Comanda'
         verbose_name_plural = 'Comandas'
 
     def __unicode__(self):
-        return "Com: %s - Ped: %s - Fec/hora Com: %s" % (self.id, self.numero_pedido,
+        return u"Com: %s - Ped: %s - Fec/hora Com: %s" % (self.id, self.numero_pedido,
                                                                          datetime.datetime.strftime(timezone.localtime(self.fecha_hora_pedido_comanda), '%d/%m/%Y %H:%M'))
 
     # VALIDACIONES/FUNCIONALIDADES
@@ -696,7 +726,7 @@ class AperturaCaja(models.Model):
     def __unicode__(self):
         # return "ID Apert. Caja: %s - Nro. Caja: %s - Cajero: % - Fecha Apert: %s" % (self.id, self.caja, self.cajero, self.fecha_apertura_caja)
         # return "ID: %s - Fec/hora Apert: %s" % (self.id, datetime.datetime.strftime(timezone.localtime(self.fecha_hora_apertura_caja), '%d/%m/%Y %H:%M'))
-        return "ID: %s" % self.id
+        return u"ID: %s" % self.id
 
 
 # def get_limit_choices_to(request):
@@ -868,7 +898,7 @@ class CierreCaja(models.Model):
 
     def __unicode__(self):
         # return "ID Cierre Caja: %s - ID Apert. Caja: %s" % (self.id, self.apertura_caja)
-        return "ID Cierre Caja: %s - ID Apert. Caja: %s - Fec/hora Cierre: %s" % (self.id, self.apertura_caja, datetime.datetime.strftime(timezone.localtime(self.fecha_hora_registro_cierre_caja), '%d/%m/%Y %H:%M'))
+        return u"ID Cierre Caja: %s - ID Apert. Caja: %s - Fec/hora Cierre: %s" % (self.id, self.apertura_caja, datetime.datetime.strftime(timezone.localtime(self.fecha_hora_registro_cierre_caja), '%d/%m/%Y %H:%M'))
 
 
 class Jornada(models.Model):
@@ -938,7 +968,7 @@ class Jornada(models.Model):
         return estado_jornada
 
     def __unicode__(self):
-        return "ID: %s - Inicio: %s" % (self.id, datetime.datetime.strftime(timezone.localtime(self.fecha_hora_inicio_jornada), '%d/%m/%Y %H:%M'))
+        return u"ID: %s - Inicio: %s" % (self.id, datetime.datetime.strftime(timezone.localtime(self.fecha_hora_inicio_jornada), '%d/%m/%Y %H:%M'))
 
 
 class InicioJornada(Jornada):
@@ -948,7 +978,7 @@ class InicioJornada(Jornada):
         verbose_name_plural = 'Mozos/Barmans - Inicios de Jornadas'
 
     def __unicode__(self):
-        return "ID: %s - Inicio: %s" % (self.id, datetime.datetime.strftime(timezone.localtime(self.fecha_hora_inicio_jornada), '%d/%m/%Y %H:%M'))
+        return u"ID: %s - Inicio: %s" % (self.id, datetime.datetime.strftime(timezone.localtime(self.fecha_hora_inicio_jornada), '%d/%m/%Y %H:%M'))
 
 
 class FinJornada(Jornada):
@@ -958,7 +988,7 @@ class FinJornada(Jornada):
         verbose_name_plural = 'Mozos/Barmans - Cierres de Jornadas'
 
     def __unicode__(self):
-        return "ID: %s - Inicio: %s - Fin: %s" % (self.id, datetime.datetime.strftime(timezone.localtime(self.fecha_hora_inicio_jornada), '%d/%m/%Y %H:%M'), datetime.datetime.strftime(timezone.localtime(self.fecha_hora_fin_jornada), '%d/%m/%Y %H:%M'))
+        return u"ID: %s - Inicio: %s - Fin: %s" % (self.id, datetime.datetime.strftime(timezone.localtime(self.fecha_hora_inicio_jornada), '%d/%m/%Y %H:%M'), datetime.datetime.strftime(timezone.localtime(self.fecha_hora_fin_jornada), '%d/%m/%Y %H:%M'))
 
 
 # class MovimientoCaja(models.Model):

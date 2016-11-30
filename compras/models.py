@@ -2,7 +2,8 @@ import datetime
 # import uuid
 # import string
 # import random
-from django.core.validators import RegexValidator
+from decimal import Decimal
+from django.core.validators import RegexValidator, MinValueValidator
 from django.db import models
 from django.db.models import Q
 # from polymorphic.models import PolymorphicModel
@@ -262,7 +263,7 @@ class ProveedorTelefono(models.Model):
     Almacena los datos de los numeros telefonicos de los Proveedores.
     """
     # id = models.AutoField(primary_key=True)
-    proveedor = models.ForeignKey('Proveedor')
+    proveedor = models.ForeignKey('Proveedor', related_name='telefonos_proveedor')
     codigo_pais_telefono = models.ForeignKey('bar.CodigoPaisTelefono',  # default=595
                                              verbose_name='Codigo Pais')
     codigo_operadora_telefono = models.ForeignKey('bar.CodigoOperadoraTelefono',  # default=21
@@ -822,7 +823,7 @@ class OrdenCompraDetalle(models.Model):
                                                    help_text='Debe ser la definida en los datos del Producto, no '
                                                              'debe ser seleccionada por el usuario.')
 
-    cantidad_producto_orden_compra = models.DecimalField(max_digits=10, decimal_places=3,
+    cantidad_producto_orden_compra = models.DecimalField(max_digits=10, decimal_places=3, validators=[MinValueValidator(Decimal('0.001'))],
                                                          verbose_name='Cantidad Producto',
                                                          help_text='Ingrese la cantidad a adquirir del producto.')
     # Calcular "cantidad_producto_orden_compra" x "precio_producto_orden_compra"
@@ -1002,7 +1003,7 @@ class CompraDetalle(models.Model):
                                              help_text='Debe ser la definida en los datos del Producto, no debe '
                                                        'ser seleccionada por el usuario.')
 
-    cantidad_producto_compra = models.DecimalField(max_digits=10, decimal_places=3,
+    cantidad_producto_compra = models.DecimalField(max_digits=10, decimal_places=3, validators=[MinValueValidator(Decimal('0.001'))],
                                                    verbose_name='Cantidad Producto',
                                                    help_text='Ingrese la cantidad a adquirir del producto.')
 

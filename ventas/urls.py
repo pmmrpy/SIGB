@@ -8,8 +8,8 @@ from ventas.autocomplete import ClienteDocumentoAutocomplete
 urlpatterns = [
     # # Geraldo reports
     url(r'pedido-report/(?P<pk>\d+)/$', views.pedido_report, name='pedido_report'),
-    url(r'venta_report/(?P<pk>\d+)/$', views.venta_report, name='venta_report'),
-    url(r'cierre_caja_report/(?P<pk>\d+)/$', views.cierre_caja_report, name='cierre_caja_report'),
+    url(r'venta-report/(?P<pk>\d+)/$', views.venta_report, name='venta_report'),
+    url(r'cierre_caja-report/(?P<pk>\d+)/$', views.cierre_caja_report, name='cierre_caja_report'),
 
     # autocompletes
     url(r'^clientedocumento-autocomplete/$', ClienteDocumentoAutocomplete.as_view(),

@@ -1,4 +1,7 @@
+# -*- coding: utf-8 -*-
 import datetime
+from decimal import Decimal
+from django.core.validators import MinValueValidator
 from django.db import models
 from django.utils import timezone
 from django.db.models import Q
@@ -6,11 +9,15 @@ from django.core.exceptions import ValidationError
 from django.utils.translation import ugettext_lazy as _
 from django.utils.safestring import mark_safe
 from django.views.generic.dates import timezone_today
-from bar.models import TipoProducto, UnidadMedidaProducto, TransferenciaStockEstado, CompraEstado
+from bar.models import TipoProducto, UnidadMedidaProducto, TransferenciaStockEstado, CompraEstado, Deposito
 from compras.models import Compra, CompraDetalle
 from personal.models import Empleado
 
 # Create your models here.
+
+
+# class ProductoCompuestoManager(models.Manager):
+#     pass
 
 
 class Producto(models.Model):
@@ -63,11 +70,11 @@ class Producto(models.Model):
     perecedero = models.BooleanField(verbose_name='Es perecedero?', default=False,
                                      help_text='Marque la casilla si el Producto a registrar es Perecedero.')
     unidad_medida_contenido = models.ForeignKey('bar.UnidadMedidaProducto', related_name='un_med_contenido',
-                                                verbose_name='Unidad de Medida Contenido',  # default=1,
+                                                verbose_name='Un. de Med. Cont.',  # default=1,
                                                 help_text='Seleccione la Unidad de Medida del Producto contenido '
                                                           'en su presentacion (envase).')
     contenido = models.DecimalField(max_digits=10, decimal_places=3,  # default=0,
-                                    verbose_name='Cantidad Contenido',
+                                    verbose_name='Cant. Contenido',
                                     help_text='Ingrese la cantidad del Producto contenida en el envase de acuerdo '
                                               'a su Unidad de Medida. Los Productos del tipo Insumo comprados a '
                                               'granel (no envasados) siempre deben ser registrados con contenido igual '
@@ -121,7 +128,7 @@ class Producto(models.Model):
                                             verbose_name='Costo de Elaboracion',
                                             help_text='Suma de los Totales de Costo del detalle del Producto '
                                                       'Compuesto.')
-    tiempo_elaboracion = models.TimeField(verbose_name='Tiempo Elaboracion',  # default=datetime.time(00, 15, 00),
+    tiempo_elaboracion = models.TimeField(verbose_name='Tiempo Elab.',  # default=datetime.time(00, 15, 00),
                                           null=True, blank=True,
                                           help_text='Corresponde al tiempo estimado que tomara elaborar el Producto '
                                                     'Compuesto')
@@ -191,19 +198,142 @@ class Producto(models.Model):
     # precio_venta_sugerido.help_text = 'Precio de Venta sugerido calculado a partir del promedio del Costo de ' \
     #                                   'Compra del producto en el ultimo mes por el Porcentaje de Ganancia'
 
-    @property
-    def cantidad_existente_producto(self):
-        """Retorna la cantidad existente del Producto de la vista InventarioDeposito"""
+    # @property
+    def get_cantidad_existente_producto(self):
+        """
+        Retorna la cantidad existente del Producto de la vista InventarioDeposito para el caso de los Productos que se venden como tal (No Compuestos).
+        Para los ProductosCompuestos calcula la "cantidad posible a elaborar" de acuerdo a la cantidad existente de cada Insumo.
+        """
 
         # import pdb
         # pdb.set_trace()
 
-        try:
-            stock = InventarioDeposito.objects.get(pk=self.id)
-            cantidad = stock.cant_existente
-        except InventarioDeposito.DoesNotExist:
+        if self.compuesto is True:
+            ingredientes = ProductoCompuestoDetalle.objects.filter(producto_compuesto_id=self.pk)
             cantidad = 0
-        return cantidad
+            for ingrediente in ingredientes:
+                if ingrediente.insumo.get_cantidad_existente_insumo() > 0:
+                    cant_posible_elaborar = ingrediente.insumo.get_cantidad_existente_insumo() / (ingrediente.cantidad_insumo if ingrediente.cantidad_insumo else 1)
+
+                    if ingrediente == ingredientes.first():
+                        cantidad = cant_posible_elaborar
+
+                    elif cant_posible_elaborar < cantidad:
+                        cantidad = cant_posible_elaborar
+
+                elif ingrediente.insumo.get_cantidad_existente_insumo() <= 0:
+                    cantidad = 0
+
+            return int(cantidad)
+
+        elif self.compuesto is False:
+            try:
+                stock = InventarioDeposito.objects.get(pk=self.id)
+                cantidad = stock.cant_existente
+            except InventarioDeposito.DoesNotExist:
+                cantidad = 0
+            return cantidad
+
+    get_cantidad_existente_producto.short_description = 'Cant. Existente'
+
+    def get_cantidad_existente_producto_dce(self):
+        deposito = Deposito.objects.get(deposito='DCE')
+        try:
+            producto = StockDepositoAjusteInventario.objects.get(id=self.id, deposito_id=deposito.id)
+            cant_existente = producto.cantidad_existente
+        except StockDepositoAjusteInventario.DoesNotExist:
+            cant_existente = 0
+        return cant_existente
+    get_cantidad_existente_producto_dce.short_description = 'Dep. Central'
+
+    def get_cantidad_existente_producto_dbp(self):
+        deposito = Deposito.objects.get(deposito='DBP')
+        try:
+            producto = StockDepositoAjusteInventario.objects.get(id=self.id, deposito_id=deposito.id)
+            cant_existente = producto.cantidad_existente
+        except StockDepositoAjusteInventario.DoesNotExist:
+            cant_existente = 0
+        return cant_existente
+    get_cantidad_existente_producto_dbp.short_description = 'Dep. B.Princ.'
+
+    def get_cantidad_existente_producto_dba(self):
+        deposito = Deposito.objects.get(deposito='DBA')
+        try:
+            producto = StockDepositoAjusteInventario.objects.get(id=self.id, deposito_id=deposito.id)
+            cant_existente = producto.cantidad_existente
+        except StockDepositoAjusteInventario.DoesNotExist:
+            cant_existente = 0
+        return cant_existente
+    get_cantidad_existente_producto_dba.short_description = 'Dep. B.Arriba'
+
+    def get_cantidad_existente_producto_dbi(self):
+        deposito = Deposito.objects.get(deposito='DBI')
+        try:
+            producto = StockDepositoAjusteInventario.objects.get(id=self.id, deposito_id=deposito.id)
+            cant_existente = producto.cantidad_existente
+        except StockDepositoAjusteInventario.DoesNotExist:
+            cant_existente = 0
+        return cant_existente
+    get_cantidad_existente_producto_dbi.short_description = 'Dep. Barrita'
+
+    def get_unidad_medida_producto_existente(self):
+        """
+        Retorna la Unidad de Medida dependiendo del Tipo de Producto.
+        Los Productos para la Venta se cuentan por su Unidad de Medida de Compra.
+        Los Productos del tipo Insumo se cuentan por su Unidad de Medida del Contenido.
+        """
+
+        # import pdb
+        # pdb.set_trace()
+
+        unidad_medida = UnidadMedidaProducto.objects.get(unidad_medida_producto='UN')
+        if self.tipo_producto == 'VE':
+            unidad_medida = self.unidad_medida_compra.get_unidad_medida_producto_display()
+        elif self.tipo_producto == 'IN':
+            unidad_medida = self.unidad_medida_contenido.get_unidad_medida_producto_display()
+        return unidad_medida
+    get_unidad_medida_producto_existente.short_description = 'Un. de Med. Existencia'
+
+    def get_unidad_medida_id_producto_existente(self):
+        """
+        Retorna el ID de la Unidad de Medida dependiendo del Tipo de Producto.
+        Los Productos para la Venta se cuentan por su Unidad de Medida de Compra.
+        Los Productos del tipo Insumo se cuentan por su Unidad de Medida del Contenido.
+        """
+
+        import pdb
+        pdb.set_trace()
+
+        unidad_medida_id = 0
+        if self.tipo_producto == 'VE':
+            unidad_medida_id = self.unidad_medida_compra.id
+        elif self.tipo_producto == 'IN':
+            unidad_medida_id = self.unidad_medida_contenido.id
+        return unidad_medida_id
+    get_unidad_medida_id_producto_existente.short_description = 'ID Unidad de Medida Existencia'
+
+    def get_insumos_disponibles_producto_compuesto(self):
+        """
+        Valida si los Insumos utilizados en un Producto Compuesto tienen existencia y retorna un valor booleano
+        """
+        # import pdb
+        # pdb.set_trace()
+
+        if self.compuesto is True:
+            ingredientes = ProductoCompuestoDetalle.objects.filter(producto_compuesto_id=self.pk)
+            sin_stock_insumo = 0
+            for ingrediente in ingredientes:
+                if ingrediente.insumo.get_cantidad_existente_insumo() <= 0:
+                    sin_stock_insumo += 1
+            if sin_stock_insumo > 0:
+                return False
+            elif sin_stock_insumo == 0:
+                return True
+
+        elif self.compuesto is False:
+            return 'No es un Producto Compuesto'
+    get_insumos_disponibles_producto_compuesto.short_description = 'Insumos disponibles?'
+    get_insumos_disponibles_producto_compuesto.boolean = True
 
     def __init__(self, *args, **kwargs):
         self._meta.get_field('compuesto').default = False
@@ -235,7 +365,7 @@ class Producto(models.Model):
                                                       'el Precio de Compra Sugerido.')})
 
     def __unicode__(self):
-        return "Prod: %s - Marca: %s" % (self.producto, self.marca)
+        return u"Prod: %s - Marca: %s" % (self.producto, self.marca)
 
 
 class Insumo(models.Model):
@@ -290,8 +420,88 @@ class Insumo(models.Model):
         return costo_promedio_por_unidad if costo_promedio_por_unidad else 0  # total / (cantidad if cantidad else 1)
     get_costo_promedio_por_unidad.short_description = 'Costo Promedio por Unidad'
 
+    def get_cantidad_existente_insumo(self):
+        productos = Producto.objects.filter(insumo=self.id, tipo_producto='IN')
+        cant_existente = 0
+
+        for producto in productos:
+            cant_existente += producto.get_cantidad_existente_producto()
+
+        return cant_existente
+    get_cantidad_existente_insumo.short_description = 'Cantidad Existente Insumo'
+
+    def get_cantidad_existente_insumo_dce(self):
+        productos = Producto.objects.filter(insumo=self.id, tipo_producto='IN')
+        cant_existente = 0
+
+        for producto in productos:
+            deposito = Deposito.objects.get(deposito='DCE')
+            try:
+                insumo = StockDepositoAjusteInventario.objects.get(id=producto.id, deposito_id=deposito.id)
+                cant_existente += insumo.cantidad_existente
+            except StockDepositoAjusteInventario.DoesNotExist:
+                pass
+        return cant_existente
+    get_cantidad_existente_insumo_dce.short_description = 'Cant. Exist. Dep. Central'
+
+    def get_cantidad_existente_insumo_dbp(self):
+        productos = Producto.objects.filter(insumo=self.id, tipo_producto='IN')
+        cant_existente = 0
+
+        for producto in productos:
+            deposito = Deposito.objects.get(deposito='DBP')
+            try:
+                insumo = StockDepositoAjusteInventario.objects.get(id=producto.id, deposito_id=deposito.id)
+                cant_existente += insumo.cantidad_existente
+            except StockDepositoAjusteInventario.DoesNotExist:
+                pass
+        return cant_existente
+    get_cantidad_existente_insumo_dbp.short_description = 'Cant. Exist. Dep. B.Princ.'
+
+    def get_cantidad_existente_insumo_dba(self):
+        productos = Producto.objects.filter(insumo=self.id, tipo_producto='IN')
+        cant_existente = 0
+
+        for producto in productos:
+            deposito = Deposito.objects.get(deposito='DBA')
+            try:
+                insumo = StockDepositoAjusteInventario.objects.get(id=producto.id, deposito_id=deposito.id)
+                cant_existente += insumo.cantidad_existente
+            except StockDepositoAjusteInventario.DoesNotExist:
+                pass
+        return cant_existente
+    get_cantidad_existente_insumo_dba.short_description = 'Cant. Exist. Dep. B.Arriba'
+
+    def get_cantidad_existente_insumo_dco(self):
+        productos = Producto.objects.filter(insumo=self.id, tipo_producto='IN')
+        cant_existente = 0
+
+        for producto in productos:
+            deposito = Deposito.objects.get(deposito='DCO')
+            try:
+                insumo = StockDepositoAjusteInventario.objects.get(id=producto.id, deposito_id=deposito.id)
+                cant_existente += insumo.cantidad_existente
+            except StockDepositoAjusteInventario.DoesNotExist:
+                pass
+        return cant_existente
+    get_cantidad_existente_insumo_dco.short_description = 'Cant. Exist. Dep. Cocina'
+
+    def get_cantidad_existente_insumo_dbi(self):
+        productos = Producto.objects.filter(insumo=self.id, tipo_producto='IN')
+        cant_existente = 0
+
+        for producto in productos:
+            deposito = Deposito.objects.get(deposito='DBI')
+            try:
+                insumo = StockDepositoAjusteInventario.objects.get(id=producto.id, deposito_id=deposito.id)
+                cant_existente += insumo.cantidad_existente
+            except StockDepositoAjusteInventario.DoesNotExist:
+                pass
+        return cant_existente
+    get_cantidad_existente_insumo_dbi.short_description = 'Cant. Exist. Dep. Barrita'
+
     def __unicode__(self):
-        return "%s" % self.insumo
+        return u"%s" % self.insumo
 
 # class PrecioVentaProducto(models.Model):
 #     """
@@ -384,7 +594,7 @@ class ProductoCompuesto(Producto):
                                                      'puede ser 0.')})
 
     def __unicode__(self):
-        return "ID Prod: %s - Prod: %s" % (self.id, self.producto)
+        return u"ID Prod: %s - Prod: %s" % (self.id, self.producto)
 
 
 class ProductoCompuestoDetalle(models.Model):
@@ -420,7 +630,7 @@ class ProductoCompuestoDetalle(models.Model):
                                                 help_text='Corresponde al costo promedio de 1 unidad del Insumo de '
                                                           'acuerdo a su Unidad de Medida.')
 
-    cantidad_insumo = models.DecimalField(max_digits=10, decimal_places=3,  # default=1,
+    cantidad_insumo = models.DecimalField(max_digits=10, decimal_places=3, validators=[MinValueValidator(Decimal('0.001'))],  # default=1,
                                           verbose_name='Cantidad Insumo',
                                           help_text='Ingrese la cantidad del Insumo.')
     total_costo = models.DecimalField(max_digits=18, decimal_places=0,  # default=0,
@@ -435,7 +645,7 @@ class ProductoCompuestoDetalle(models.Model):
     # Validar la unidad de medida del producto
 
     def __unicode__(self):
-        return "Prod. Comp: %s - Ins: %s" % (self.producto_compuesto, self.insumo)
+        return u"Prod. Comp: %s - Ins: %s" % (self.producto_compuesto, self.insumo)
 
 
 class ProductoVenta(Producto):
@@ -452,8 +662,8 @@ class ProductoVenta(Producto):
         verbose_name_plural = 'Productos - Productos para la Venta'
 
     def __unicode__(self):
-        # return "ID Prod: %s - Prod: %s" % (self.id, self.producto)
-        return "%s" % self.producto
+        return u"ID: %s - %s" % (self.id, self.producto)
+        # return u"%s" % self.producto
 
 
 class ProductoExistente(Producto):
@@ -472,7 +682,7 @@ class ProductoExistente(Producto):
 
     def __unicode__(self):
         # return "ID Prod: %s - Prod: %s" % (self.id, self.producto)
-        return "%s" % self.producto
+        return u"ID: %s - %s" % (self.id, self.producto)
 
 
 # ======================================================================================================================
@@ -665,6 +875,7 @@ class MovimientoStock(models.Model):
         # ('ME', 'Mermas'),
         ('TR', 'Transferencias'),
         ('AI', 'Ajustes de Inventario'),
+        ('CP', 'Cancelacion Pedido'),
         # ('DE', 'Devoluciones'),
     )
 
@@ -729,7 +940,8 @@ class MovimientoStock(models.Model):
         """
 
     def __unicode__(self):
-        return "Prod: %s" % self.producto_stock
+        # return u"Prod: %s" % self.producto_stock
+        return u"%s" % self.producto_stock
 
 
 # ======================================================================================================================
@@ -761,15 +973,39 @@ class InventarioProducto(models.Model):
     producto = models.CharField(max_length=100)
     total_compras = models.IntegerField(verbose_name='Total Compras')
     total_ventas = models.IntegerField(verbose_name='Total Ventas')
+
+    # Este campo no presenta informacion correcta sobre la Cantidad Existente del Producto
     cantidad_existente = models.IntegerField(verbose_name='Cantidad Existente')
 
     class Meta:
         # Definir si va ser una tabla proxy o multitable
         # proxy = True
-        verbose_name = 'Inventario por Producto'
-        verbose_name_plural = 'Stock - Inventarios por Productos'
+        verbose_name = 'Total Compra/Venta por Producto'
+        verbose_name_plural = 'Stock - Totales Compras/Ventas por Productos'
         db_table = 'inventario_por_producto'
         managed = False
+
+    def get_unidad_medida_inventario_producto(self):
+        """
+        Retorna la Unidad de Medida dependiendo del Tipo de Producto.
+        Los Productos para la Venta se cuentan por su Unidad de Medida de Compra.
+        Los Productos del tipo Insumo se cuentan por su Unidad de Medida del Contenido.
+        """
+
+        # import pdb
+        # pdb.set_trace()
+
+        producto = Producto.objects.get(pk=self.id)
+        unidad_medida = UnidadMedidaProducto.objects.get(unidad_medida_producto='UN')
+        if producto.tipo_producto == 'VE':
+            unidad_medida = producto.unidad_medida_compra.get_unidad_medida_producto_display()
+        elif producto.tipo_producto == 'IN':
+            unidad_medida = producto.unidad_medida_contenido.get_unidad_medida_producto_display()
+        return unidad_medida
+    get_unidad_medida_inventario_producto.short_description = 'Unidad de Medida'
+
+    def __unicode__(self):
+        return u"ID: %s - %s" % (self.id, self.producto)
 
 
 class InventarioDeposito(models.Model):
@@ -781,7 +1017,7 @@ class InventarioDeposito(models.Model):
     cant_exist_dce = models.IntegerField(verbose_name='Dep. Central')
     cant_exist_dbp = models.IntegerField(verbose_name='Dep. Barra Principal')
     cant_exist_dba = models.IntegerField(verbose_name='Dep. Barra Arriba')
-    cant_exist_dco = models.IntegerField(verbose_name='Dep. Barra Cocina')
+    cant_exist_dco = models.IntegerField(verbose_name='Dep. Cocina')
     cant_exist_dbi = models.IntegerField(verbose_name='Dep. Barrita')
     cant_existente = models.IntegerField(verbose_name='Cantidad Existente')
 
@@ -792,6 +1028,84 @@ class InventarioDeposito(models.Model):
         verbose_name_plural = 'Stock - Inventarios por Depositos'
         db_table = 'inventario_por_deposito'
         managed = False
+
+    def get_unidad_medida_inventario_deposito(self):
+        """
+        Retorna la Unidad de Medida dependiendo del Tipo de Producto.
+        Los Productos para la Venta se cuentan por su Unidad de Medida de Compra.
+        Los Productos del tipo Insumo se cuentan por su Unidad de Medida del Contenido.
+        """
+
+        # import pdb
+        # pdb.set_trace()
+
+        producto = Producto.objects.get(pk=self.id)
+        unidad_medida = UnidadMedidaProducto.objects.get(unidad_medida_producto='UN')
+        if producto.tipo_producto == 'VE':
+            unidad_medida = producto.unidad_medida_compra.get_unidad_medida_producto_display()
+        elif producto.tipo_producto == 'IN':
+            unidad_medida = producto.unidad_medida_contenido.get_unidad_medida_producto_display()
+        return unidad_medida
+    get_unidad_medida_inventario_deposito.short_description = 'Unidad de Medida'
+
+    def get_categoria_inventario_deposito(self):
+        producto = Producto.objects.get(pk=self.id)
+        return producto.categoria.get_categoria_display()
+    get_categoria_inventario_deposito.short_description = 'Categoria'
+
+    def get_subcategoria_inventario_deposito(self):
+        producto = Producto.objects.get(pk=self.id)
+        return producto.subcategoria.descripcion
+    get_subcategoria_inventario_deposito.short_description = 'SubCategoria'
+
+    def get_marca_inventario_deposito(self):
+        producto = Producto.objects.get(pk=self.id)
+        return producto.marca
+    get_marca_inventario_deposito.short_description = 'Marca'
+
+    def __unicode__(self):
+        return u"ID: %s - %s" % (self.id, self.producto)
+
+
+class StockDepositoAjusteInventario(models.Model):
+    """
+    Genera una vista con la agrupacion de los movimientos de Stock por Deposito calculando el campo
+    "cantidad_existente"
+    """
+    producto = models.CharField(max_length=100)
+    deposito_id = models.PositiveIntegerField()
+    # unidad_medida = models.CharField(max_length=50)
+    cantidad_existente = models.IntegerField(verbose_name='Cantidad Existente')
+
+    class Meta:
+        # Definir si va ser una tabla proxy o multitable
+        # proxy = True
+        verbose_name = 'Stock por Deposito para Ajuste de Inventario'
+        verbose_name_plural = 'Stock - Stock por Depositos para Ajustes de Inventario'
+        db_table = 'stock_por_deposito_para_ajuste_inventario'
+        managed = False
+
+    def get_unidad_medida_id_inventario_deposito(self):
+        """
+        Retorna la Unidad de Medida dependiendo del Tipo de Producto.
+        Los Productos para la Venta se cuentan por su Unidad de Medida de Compra.
+        Los Productos del tipo Insumo se cuentan por su Unidad de Medida del Contenido.
+        """
+
+        # import pdb
+        # pdb.set_trace()
+
+        producto = Producto.objects.get(pk=self.id)
+        unidad_medida_id = 0
+        if producto.tipo_producto == 'VE':
+            unidad_medida_id = producto.unidad_medida_compra.id
+        elif producto.tipo_producto == 'IN':
+            unidad_medida_id = producto.unidad_medida_contenido.id
+        return unidad_medida_id
+    get_unidad_medida_id_inventario_deposito.short_description = 'ID Unidad de Medida'
+
+    def __unicode__(self):
+        return u"ID: %s - %s" % (self.id, self.producto)
 
 
 # ======================================================================================================================
@@ -814,11 +1128,13 @@ class TransferenciaStock(models.Model):
     #                                                          'Deposito Proveedor seleccionado.')
 
     deposito_origen_transferencia = models.ForeignKey('bar.Deposito', related_name='deposito_proveedor',
+                                                      limit_choices_to={'tipo_deposito__tipo_deposito__in': ['DC', 'DO']},
                                                       verbose_name='Deposito Proveedor',
                                                       help_text='Seleccione el Deposito que se encargara de '
                                                                 'procesar la Transferencia.')
 
     deposito_destino_transferencia = models.ForeignKey('bar.Deposito', related_name='deposito_solicitante',
+                                                       limit_choices_to={'tipo_deposito__tipo_deposito__in': ['DC', 'DO']},
                                                        verbose_name='Deposito Solicitante',
                                                        help_text='Seleccione el Deposito desde donde se solicita '
                                                                  'la Transferencia.')
@@ -887,7 +1203,7 @@ class TransferenciaStock(models.Model):
     #                                                                     'Producto.')})
 
     def __unicode__(self):
-        return "ID: %s - Dep. Sol.: %s - Dep. Prov.: %s" % (self.id, self.deposito_destino_transferencia, self.deposito_origen_transferencia)
+        return u"ID: %s - Dep. Sol.: %s - Dep. Prov.: %s" % (self.id, self.deposito_destino_transferencia, self.deposito_origen_transferencia)
 
 
 class TransferenciaStockDetalle(models.Model):
@@ -913,7 +1229,7 @@ class TransferenciaStockDetalle(models.Model):
                                                 'la Venta o a la Unidad de Medida del Contenido si el Producto es un '
                                                 'Insumo.')
 
-    cantidad_producto_transferencia = models.DecimalField(max_digits=10, decimal_places=3,
+    cantidad_producto_transferencia = models.DecimalField(max_digits=10, decimal_places=3, validators=[MinValueValidator(Decimal('0.001'))],
                                                           verbose_name='Cantidad a transferir',
                                                           help_text='Ingrese la cantidad a transferir del Producto.')
 
@@ -922,7 +1238,7 @@ class TransferenciaStockDetalle(models.Model):
         verbose_name_plural = 'Detalles de Transferencias de Productos entre Depositos'
 
     def __unicode__(self):
-        return "%s - Prod. Trans: %s" % (self.transferencia, self.producto_transferencia)
+        return u"%s - Prod. Trans: %s" % (self.transferencia, self.producto_transferencia)
 
 
 class SolicitaTransferenciaStock(TransferenciaStock):
@@ -950,7 +1266,7 @@ class SolicitaTransferenciaStock(TransferenciaStock):
     #     # self.usuario_autorizante_transferencia = Empleado.objects.get(usuario__username='admin')
 
     def __unicode__(self):
-        return "ID: %s - Dep. Sol.: %s - Dep. Prov.: %s" % (self.id, self.deposito_destino_transferencia, self.deposito_origen_transferencia)
+        return u"ID: %s - Dep. Sol.: %s - Dep. Prov.: %s" % (self.id, self.deposito_destino_transferencia, self.deposito_origen_transferencia)
 
 
 class ConfirmaTransferenciaStock(TransferenciaStock):
@@ -981,19 +1297,91 @@ class ConfirmaTransferenciaStock(TransferenciaStock):
     #                                                                       'logueado al Sistema.')})
 
     def __unicode__(self):
-        return "ID: %s - Dep. Sol.: %s - Dep. Prov.: %s" % (self.id, self.deposito_destino_transferencia, self.deposito_origen_transferencia)
+        return u"ID: %s - Dep. Sol.: %s - Dep. Prov.: %s" % (self.id, self.deposito_destino_transferencia, self.deposito_origen_transferencia)
 
 
-class StockAjuste(TransferenciaStock):
+class AjusteStock(models.Model):
     """
-    25/09/2016: Registrar Ajustes de Inventario.
+    20/11/2016: Registrar Ajustes de Inventario.
     """
+    deposito = models.ForeignKey('bar.Deposito', limit_choices_to={'tipo_deposito__tipo_deposito__in': ['DC', 'DO']})
+    usuario_registra_ajuste = models.ForeignKey('personal.Empleado', related_name='usuario_registra_ajuste',
+                                                # limit_choices_to='request.user',
+                                                to_field='usuario',
+                                                verbose_name='Usuario Realiza Ajuste',
+                                                help_text='El usuario logueado que realice el Ajuste de Inventario '
+                                                          'sera registrado automaticamente en este campo.')
+    estado_ajuste = models.ForeignKey('bar.AjusteStockEstado',  # default=2,
+                                      verbose_name='Estado Ajuste',
+                                      help_text='El estado del Ajuste de Inventario se asigna de forma automatica.')
+    fecha_hora_registro_ajuste = models.DateTimeField(auto_now=True,
+                                                      verbose_name='Fecha/hora registro Ajuste de Inventario',
+                                                      help_text='La fecha y hora de registro del Ajuste de '
+                                                                'Inventario se asignan al momento de guardar los '
+                                                                'datos de la misma. No se requiere el ingreso de este '
+                                                                'dato.')
+
+    motivo_cancelacion = models.CharField(max_length=200, null=True, blank=True)
+    observaciones_cancelacion = models.CharField(max_length=200, null=True, blank=True)
+    usuario_cancelacion = models.ForeignKey('personal.Empleado', null=True, blank=True,
+                                            related_name='usuario_cancelacion_ajuste',
+                                            # limit_choices_to='',
+                                            #  to_field='usuario',
+                                            verbose_name='Cancelado por?',
+                                            help_text='Usuario que cancelo el Ajuste de Inventario.')
+    fecha_hora_cancelacion = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'Ajuste de Inventario'
+        verbose_name_plural = 'Stock - Ajustes de Inventario'
+
+    def __unicode__(self):
+        return u"ID: %s - Dep: %s" % (self.id, self.deposito)
+
+
+class AjusteStockDetalle(models.Model):
+    """
+    20/11/2016: Registrar detalles de los Ajustes de Inventario.
+    """
+    ajuste_stock = models.ForeignKey('AjusteStock')
+    producto_ajuste = models.ForeignKey('ProductoExistente', related_name='producto_ajuste_stock',
+                                        # limit_choices_to={'cantidad_existente_producto': 0},
+                                        # limit_choices_to={'inventariodeposito__cant_existente__gte': 0},
+                                        # limit_choices_to={'cantidad_existente' > 0},
+                                        # limit_choices_to=Q(cantidad_existente__gt=0),
+                                        verbose_name='Producto a ajustar',
+                                        help_text='Seleccione el Producto para el cual se realizara el Ajuste '
+                                                  'de Inventario.')
+    unidad_medida = models.ForeignKey('bar.UnidadMedidaProducto', related_name='un_med_ajuste_stock',  # default=3,
+                                      verbose_name='Unidad de Medida',
+                                      help_text='Corresponde a la Unidad de Medida de Compra si el Producto es para '
+                                                'la Venta o a la Unidad de Medida del Contenido si el Producto es un '
+                                                'Insumo.')
+    cantidad_existente_producto = models.DecimalField(max_digits=10, decimal_places=3,
+                                                      verbose_name='Cantidad Existente',
+                                                      help_text='Corresponde a la cantidad existente del Producto en '
+                                                                'el Deposito seleccionado.')
+    ajustar = models.BooleanField(default=False, verbose_name='Ajustar?',
+                                  help_text='Marque esta casilla si desea ajustar la cantidad existente del Producto '
+                                            'en el Deposito seleccionado.')
+    cantidad_ajustar_producto = models.DecimalField(max_digits=10, decimal_places=3, validators=[MinValueValidator(Decimal('0.001'))],
+                                                    blank=True, null=True,
+                                                    verbose_name='Cantidad Ajuste',
+                                                    help_text='Ingrese la cantidad a ajustar del Producto. Debe '
+                                                              'ingresar la cantidad del Producto que finalmente '
+                                                              'quedara registrada en el Inventario.')
+    motivo_ajuste = models.CharField(max_length=100, blank=True, null=True,
+                                     verbose_name='Motivo del Ajuste',
+                                     help_text='Ingrese el motivo por el cual se realiza el Ajuste de Inventario '
+                                               'del Producto seleccionado.')
 
     class Meta:
         # Definir si va ser una tabla proxy o multitable
-        proxy = True
-        verbose_name = 'Ajuste de Inventario'
-        verbose_name_plural = 'Stock - Ajustes de Inventario'
+        verbose_name = 'Detalle de Ajuste de Inventario'
+        verbose_name_plural = 'Detalles de Ajustes de Inventario'
+
+    def __unicode__(self):
+        return u"%s - Prod: %s" % (self.ajuste_stock, self.producto_ajuste)
 
 
 # ======================================================================================================================

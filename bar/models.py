@@ -466,27 +466,30 @@ class SubCategoriaProducto(models.Model):
     """
     SubCategoria de Productos en base a las Categorias definidas previamente.
     """
+    # SUBCATEGORIAS = (
+    #     ('GAS', 'Gaseosas'),
+    #     ('CER', 'Cervezas'),
+    #     ('WHI', 'Whiskies'),
+    #     ('LIC', 'Licores'),
+    #     ('TRA', 'Tragos'),
+    #     ('FRI', 'Fritas'),
+    #     ('ALH', 'Al horno'),
+    #     ('VER', 'Verduras'),
+    #     ('FRU', 'Frutas'),
+    #     ('PAN', 'Panificados'),
+    #     ('ENV', 'Envasados'),
+    #     ('CAR', 'Carnicos'),
+    #     ('CRM', 'Caramelos'),
+    #     ('CHI', 'Chicles'),
+    #     ('AHP', 'Articulos de Higiene Personal'),
+    #     ('ACE', 'Aceites'),
+    #     ('JUG', 'Jugos'),
+    # )
+
     categoria = models.ForeignKey('CategoriaProducto')
-    subcategoria = models.CharField(max_length=3, verbose_name='SubCategoria',
+    subcategoria = models.CharField(max_length=3, verbose_name='SubCategoria', unique=True,  # choices=SUBCATEGORIAS,
                                     help_text='Ingrese el identificador de la SubCategoria de los productos. '
                                               '(Hasta 3 caracteres)')
-    #     choices=(
-    #     ('BEB', 'Bebidas'),
-    #       ('GAS', 'Gaseosas')
-    #       ('CER', 'Cervezas')
-    #       ('WHI', 'Whiskies')
-    #       ('LIC', 'Licores')
-    #       ('TRA', 'Tragos')
-    #     ('COM', 'Comidas'),
-    #       ('FRI', 'Fritas')
-    #       ('ALH', 'Al horno')
-    #       ('VER', 'Verduras')
-    #       ('FRU', 'Frutas')
-    #       ('ENV', 'Envasados')
-    #       ('PRE', 'Preelaborados')
-    #       ('CAR', 'Carnicos')
-    #     ('CIG', 'Cigarrillos'),
-    # ),
     descripcion = models.CharField(max_length=200, verbose_name='Descripcion de la SubCategoria',
                                    help_text='Ingrese la descripcion de la SubCategoria de los productos. '
                                              '(Hasta 200 caracteres)')
@@ -497,7 +500,8 @@ class SubCategoriaProducto(models.Model):
         verbose_name_plural = 'Productos - SubCategorias'
 
     def __unicode__(self):
-        return "%s - %s - %s" % (self.categoria, self.subcategoria, self.descripcion)
+        # return "%s - %s - %s" % (self.categoria, self.subcategoria, self.descripcion)
+        return u"%s" % self.descripcion
 
 
 class TipoProducto(models.Model):
@@ -1019,7 +1023,7 @@ class TransferenciaStockEstado(models.Model):
                                                   help_text='Ingrese el identificador del Estado de la Transferencia '
                                                             'de Stock entre depositos. (Hasta 3 caracteres)')
     descripcion = models.CharField(max_length=200, verbose_name='Descripcion del Estado',
-                                   help_text='Ingrese la descripcion del Estado del Pedido. (Hasta 200 caracteres)')
+                                   help_text='Ingrese la descripcion del Estado de la Transferencia entre Depositos. (Hasta 200 caracteres)')
 
     class Meta:
         ordering = ('id',)
@@ -1028,6 +1032,31 @@ class TransferenciaStockEstado(models.Model):
 
     def __unicode__(self):
         return "%s" % (self.get_estado_transferencia_stock_display())
+
+
+class AjusteStockEstado(models.Model):
+    """
+    Diversos ESTADOS que puede tener un Ajuste de Stock.
+    """
+    ESTADOS_AJUSTE = (
+        ('PEN', 'Pendiente'),
+        ('PRO', 'Procesada'),
+        ('CAN', 'Cancelada'),
+    )
+    estado_ajuste_stock = models.CharField(max_length=3, choices=ESTADOS_AJUSTE,
+                                           verbose_name='Estado del Ajuste de Stock',
+                                           help_text='Ingrese el identificador del Estado del Ajuste de Stock. '
+                                                     '(Hasta 3 caracteres)')
+    descripcion = models.CharField(max_length=200, verbose_name='Descripcion del Estado',
+                                   help_text='Ingrese la descripcion del Estado del Ajuste de Stock. (Hasta 200 caracteres)')
+
+    class Meta:
+        ordering = ('id',)
+        verbose_name = 'Stock - Ajuste de Inventario - Estado'
+        verbose_name_plural = 'Stock - Ajustes de Inventario - Estados'
+
+    def __unicode__(self):
+        return "%s" % (self.get_estado_ajuste_stock_display())
 
 
 class TipoFacturaCompra(models.Model):

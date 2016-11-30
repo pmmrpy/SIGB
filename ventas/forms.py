@@ -10,16 +10,18 @@ from django.forms.widgets import DateTimeInput
 from django.utils import timezone
 from django.utils.safestring import mark_safe
 from django.contrib.admin import widgets
-from bar.models import Caja, Mesa, Sector
+from bar.models import Caja, Mesa, Sector, Deposito
 from clientes.models import ClienteDocumento, Reserva, ClienteTelefono
 from compras.models import Empresa
 from personal.models import Empleado
+from stock.models import StockDepositoAjusteInventario, ProductoCompuestoDetalle, Producto
 from ventas.customwidgets import ReadOnlySelect
 
 __author__ = 'pmmr'
 
 from django import forms
-from ventas.models import Pedido, PedidoDetalle, AperturaCaja, Venta, InicioJornada, FinJornada, CierreCaja
+from ventas.models import Pedido, PedidoDetalle, AperturaCaja, Venta, InicioJornada, FinJornada, CierreCaja, \
+    VentaDetalle
 
 numero_factura = RegexValidator(r'^999-999-9999999$', 'Ingrese el Numero de Factura en el formato "999-999-9999999".')
 ATTR_NUMERICO = {'style': 'text-align:right;', 'class': 'auto', 'data-a-sep': '.', 'data-a-dec': ',',
@@ -179,38 +181,249 @@ class PedidoDetalleInlineForm(forms.ModelForm):
         # pdb.set_trace()
 
         detalle_pedido = self.instance
+        jornada = InicioJornada.objects.none
+        if hasattr(detalle_pedido, 'pedido') is False:
+            if self.data.get('jornada') != '':
+                jornada = InicioJornada.objects.get(pk=self.data.get('jornada'))
+            else:
+                # raise ValidationError({'jornada': 'El Mozo/Barman NO posee una Jornada vigente. Realice un Inicio '
+                #                                   'de Jornada para registrar pedidos.'})
+                pass
 
-        if '_cancel' in self.request.POST:
-            # usuario = Empleado.objects.get(usuario=self.request.user)
-            # try:
-            #     jornada = InicioJornada.objects.get(mozo=usuario, estado_jornada__in=['VIG', 'EXP'])
-            #     if jornada.estado_jornada == 'EXP':
-            #         if detalle_pedido.pk:
-            #             raise ValidationError('El Mozo/Barman posee una Jornada expirada. Realice el Cierre de la '
-            #                                   'Jornada expirada e Inicie una nueva Jornada para registrar '
-            #                                   'pedidos.')
-            #         elif not detalle_pedido.pk:
-            #             raise ValidationError({'mozo_pedido': 'El Mozo/Barman posee una Jornada expirada. Realice el '
-            #                                                   'Cierre de la Jornada expirada e Inicie una nueva Jornada '
-            #                                                   'para registrar pedidos.'})
-            # except ObjectDoesNotExist:
-            #     if detalle_pedido.pk:
-            #         raise ValidationError('El Mozo/Barman NO posee una Jornada vigente. Realice un Inicio de Jornada '
-            #                               'para registrar pedidos.')
-            #     elif not detalle_pedido.pk:
-            #         raise ValidationError({'mozo_pedido': 'El Mozo/Barman NO posee una Jornada vigente. Realice un Inicio '
-            #                                               'de Jornada para registrar pedidos.'})
+        elif detalle_pedido.pk or not detalle_pedido.pk and detalle_pedido.pedido.pk:
+            jornada = InicioJornada.objects.get(pk=detalle_pedido.pedido.jornada.id)
+        # elif not detalle_pedido.pk and detalle_pedido.pedido.pk:
+        #     jornada = InicioJornada.objects.get(pk=self.data.get('jornada'))
 
-            if detalle_pedido.pk and detalle_pedido.procesado is True and detalle_pedido.pedido.estado_pedido.pedido_estado == 'VIG' \
-                    and detalle_pedido.pedido.jornada.estado_jornada in ('EXP', 'CER'):
-                raise ValidationError('Este Producto ya fue procesado por lo tanto el Pedido no puede ser Cancelado. '
-                                      'Consulte con su Supervisor para definir el procedimiento a seguir.')
-            elif detalle_pedido.pk and detalle_pedido.procesado is True and detalle_pedido.pedido.estado_pedido.pedido_estado == 'VIG' \
-                    and detalle_pedido.pedido.jornada.estado_jornada in ('VIG'):
-                raise ValidationError({'producto_pedido': 'Este Producto ya fue procesado por lo tanto el Pedido no '
-                                                          'puede ser Cancelado. Consulte con su Supervisor para '
-                                                          'definir el procedimiento a seguir.'})
+        if "_continue" in self.request.POST or "_save" in self.request.POST:
+            # Validar la Cantidad Existente del Producto seleccionado
+            # Si el detalle_pedido aun no fue guardado realiza las siguientes validaciones:
+            if not detalle_pedido.pk:
+                if 'producto_pedido' not in self.cleaned_data:
+                    raise ValidationError({'producto_pedido': 'Debe seleccionar un Producto.'})
 
+                elif self.cleaned_data['cancelado'] is False and detalle_pedido.procesado is False and self.cleaned_data['producto_pedido'].get_cantidad_existente_producto() <= 0:
+                    if self.cleaned_data['producto_pedido'].compuesto is False:
+                        raise ValidationError({'producto_pedido': 'El Producto seleccionado no posee stock disponible. '
+                                                                  'Seleccione otro Producto.'})
+                    elif self.cleaned_data['producto_pedido'].compuesto is True:
+                        raise ValidationError({'producto_pedido': 'El Producto Compuesto seleccionado no posee stock '
+                                                                  'disponible en todos o algunos de sus insumos. '
+                                                                  'Seleccione otro Producto.'})
+
+                # Verificar disponible en Deposito del Sector
+                elif self.cleaned_data['cancelado'] is False and detalle_pedido.procesado is False and self.cleaned_data['producto_pedido'].compuesto is False:
+                    try:
+                        producto_por_deposito = StockDepositoAjusteInventario.objects.get(id=self.cleaned_data['producto_pedido'].id, deposito_id=jornada.sector.deposito.id)
+                        if producto_por_deposito.cantidad_existente <= 0:
+                            raise ValidationError({'producto_pedido': 'El Producto seleccionado no posee stock disponible '
+                                                                     'en el "%s" de su sector "%s". Verifique con el Encargado de '
+                                                                     'Deposito de su sector.' % (jornada.sector.deposito, jornada.sector)})
+                        elif self.cleaned_data['cantidad_producto_pedido'] > producto_por_deposito.cantidad_existente:
+                            # self.fields['cantidad_producto_pedido'].widget.attrs['readonly'] = False  # ==> PROBAR: No debe ser necesario habilitar esta funcionalidad ya que al ser guardado un Pedido ya se descontaran los Productos solicitados sean Compuestos o por Unidad del Stock.
+                            raise ValidationError({'cantidad_producto_pedido': 'La cantidad solicitada del Producto '
+                                                                              'seleccionado supera el stock disponible en el "%s" de su sector "%s". '
+                                                                              'Modifique la cantidad solicitada o cancele '
+                                                                              'el pedido de este Producto.' % (jornada.sector.deposito, jornada.sector)})
+                    except StockDepositoAjusteInventario.DoesNotExist:
+                        raise ValidationError({'producto_pedido': 'El Producto seleccionado no posee stock disponible en '
+                                                                 'el "%s" de su sector "%s". Verifique con el Encargado de Deposito '
+                                                                 'de su sector.' % (jornada.sector.deposito, jornada.sector)})
+
+                elif self.cleaned_data['cancelado'] is False and detalle_pedido.procesado is False and self.cleaned_data['producto_pedido'].compuesto is True:
+                    # Si el ProductoCompuesto es una COMIDA se debe verificar la disponibilidad de los Insumos en el Deposito de la Cocina
+                    if self.cleaned_data['producto_pedido'].categoria.categoria == 'CO':
+                        deposito = Deposito.objects.get(deposito='DCO')
+                        ingredientes = ProductoCompuestoDetalle.objects.filter(producto_compuesto_id=self.cleaned_data['producto_pedido'].pk)
+                        cantidad = 0
+                        for ingrediente in ingredientes:
+                            if ingrediente.insumo.get_cantidad_existente_insumo_dco() > 0:
+                                cant_posible_elaborar = ingrediente.insumo.get_cantidad_existente_insumo_dco() / (ingrediente.cantidad_insumo if ingrediente.cantidad_insumo else 1)
+
+                                if ingrediente == ingredientes.first():
+                                    cantidad = cant_posible_elaborar
+
+                                elif cant_posible_elaborar < cantidad:
+                                    cantidad = cant_posible_elaborar
+
+                            elif ingrediente.insumo.get_cantidad_existente_insumo() <= 0:
+                                cantidad = 0
+
+                        if cantidad <= 0:
+                            raise ValidationError({'producto_pedido': 'El Producto Compuesto (Comida) seleccionado no posee stock '
+                                                                     'disponible en el %s. Verifique con el Encargado de '
+                                                                     'este Deposito.' % deposito})
+                        elif self.cleaned_data['cantidad_producto_pedido'] > cantidad:
+                            # self.fields['cantidad_producto_venta'].widget.attrs['readonly'] = False  # ==> PROBAR: No debe ser necesario habilitar esta funcionalidad ya que al ser guardado un Pedido ya se descontaran los Productos solicitados sean Compuestos o por Unidad del Stock.
+                            raise ValidationError({'cantidad_producto_pedido': 'La cantidad solicitada del Producto Compuesto (Comida)'
+                                                                              'seleccionado supera el stock disponible en el "%s". '
+                                                                              'Modifique la cantidad solicitada o cancele '
+                                                                              'el pedido de este Producto.' % deposito})
+
+                    # Si el ProductoCompuesto es una BEBIDA se debe verificar la disponibilidad de los Insumos en el Deposito del Sector desde donde se realiza el Pedido o VentaOcasional
+                    elif self.cleaned_data['producto_pedido'].categoria.categoria == 'BE':
+                        # deposito = str(detalle_venta.venta.apertura_caja.sector.deposito.deposito)
+                        # deposito = deposito.lower()
+                        deposito = jornada.sector.deposito
+                        det_prod_compuesto = ProductoCompuestoDetalle.objects.filter(producto_compuesto_id=self.cleaned_data['producto_pedido'].pk)
+                        cantidad = 0
+
+                        # Verifica la Cantidad Existente de cada Insumo para el Deposito desde donde se esta registrando el Pedido.
+                        for insumo in det_prod_compuesto:
+                            productos = Producto.objects.filter(insumo_id=insumo.insumo.id, tipo_producto='IN')
+                            cant_existente = 0
+
+                            for producto in productos:
+                                try:
+                                    prod_exist_deposito = StockDepositoAjusteInventario.objects.get(id=producto.id, deposito_id=deposito.id)
+                                    cant_existente += prod_exist_deposito.cantidad_existente
+                                except StockDepositoAjusteInventario.DoesNotExist:
+                                    pass
+
+                            if cant_existente > 0:
+                                cant_posible_elaborar = cant_existente / (insumo.cantidad_insumo if insumo.cantidad_insumo else 1)
+
+                                if insumo == det_prod_compuesto.first():
+                                    cantidad = cant_posible_elaborar
+
+                                elif cant_posible_elaborar < cantidad:
+                                    cantidad = cant_posible_elaborar
+
+                            elif cant_existente <= 0:
+                                cantidad = 0
+
+                        if cantidad <= 0:
+                            raise ValidationError({'producto_pedido': 'El Producto Compuesto (Bebida) seleccionado no posee stock '
+                                                                     'disponible en el "%s". Verifique con el Encargado de '
+                                                                     'este Deposito.' % deposito})
+                        elif self.cleaned_data['cantidad_producto_pedido'] > cantidad:
+                            # self.fields['cantidad_producto_venta'].widget.attrs['readonly'] = False
+                            raise ValidationError({'cantidad_producto_pedido': 'La cantidad solicitada del Producto Compuesto (Bebida) '
+                                                                              'seleccionado supera el stock disponible en el "%s". '
+                                                                              'Modifique la cantidad solicitada o cancele '
+                                                                              'el pedido de este Producto.' % deposito})
+        # # ======================================================================================================================
+        # # 24/11/2016: Como al momento de guardar el PedidoDetalle ya se realizan las validaciones sobre la
+        # # disponibilidad en el Stock no se requieren realizar validaciones sobre el PedidoDetalle ya guardado (con
+        # # detalle_pedido.pk ya asignado) por lo tanto se comenta este bloque de codigo.
+        #     # Si el detalle_pedido YA fue guardado realiza las siguientes validaciones:
+        #     elif detalle_pedido.pk:
+        #         if self.cleaned_data['cancelado'] is False and detalle_pedido.procesado is False and detalle_pedido.producto_pedido.get_cantidad_existente_producto() <= 0:
+        #             if detalle_pedido.producto_pedido.compuesto is False:
+        #                 raise ValidationError('El Producto seleccionado no posee stock disponible. Seleccione otro '
+        #                                       'Producto.')
+        #             elif detalle_pedido.producto_pedido.compuesto is True:
+        #                 raise ValidationError('El Producto Compuesto seleccionado no posee stock disponible en todos o '
+        #                                       'algunos de sus insumos. Seleccione otro Producto.')
+        #
+        #         # Verificar disponible en Deposito del Sector
+        #         elif self.cleaned_data['cancelado'] is False and detalle_pedido.procesado is False and detalle_pedido.producto_pedido.compuesto is False:
+        #             try:
+        #                 producto_por_deposito = StockDepositoAjusteInventario.objects.get(id=detalle_pedido.producto_pedido.id, deposito_id=jornada.sector.deposito.id)
+        #                 if producto_por_deposito.cantidad_existente <= 0:
+        #                     raise ValidationError('El Producto seleccionado no posee stock disponible en el %s de su '
+        #                                           '%s. Verifique con el Encargado de Deposito de su sector.' % (jornada.sector.deposito, jornada.sector))
+        #                 elif detalle_pedido.cantidad_producto_pedido > producto_por_deposito.cantidad_existente:
+        #                     self.fields['cantidad_producto_pedido'].widget.attrs['readonly'] = False
+        #                     raise ValidationError({'cantidad_producto_pedido': 'La cantidad solicitada del Producto '
+        #                                                                       'seleccionado supera el stock disponible. '
+        #                                                                       'Modifique la cantidad solicitada o cancele '
+        #                                                                       'el pedido de este Producto.'})
+        #             except StockDepositoAjusteInventario.DoesNotExist:
+        #                 raise ValidationError('El Producto seleccionado no posee stock disponible en el %s de su %s. '
+        #                                       'Verifique con el Encargado de Deposito de su sector.' % (jornada.sector.deposito, jornada.sector))
+        #
+        #         elif self.cleaned_data['cancelado'] is False and detalle_pedido.procesado is False and detalle_pedido.producto_pedido.compuesto is True:
+        #             # Si el ProductoCompuesto es una COMIDA se debe verificar la disponibilidad de los Insumos en el Deposito de la Cocina
+        #             if detalle_pedido.producto_pedido.categoria.categoria == 'CO':
+        #                 deposito = Deposito.objects.get(deposito='DCO')
+        #                 ingredientes = ProductoCompuestoDetalle.objects.filter(producto_compuesto_id=detalle_pedido.producto_pedido.pk)
+        #                 cantidad = 0
+        #                 for ingrediente in ingredientes:
+        #                     if ingrediente.insumo.get_cantidad_existente_insumo_dco() > 0:
+        #                         cant_posible_elaborar = ingrediente.insumo.get_cantidad_existente_insumo_dco() / (ingrediente.cantidad_insumo if ingrediente.cantidad_insumo else 1)
+        #
+        #                         if ingrediente == ingredientes.first():
+        #                             cantidad = cant_posible_elaborar
+        #
+        #                         elif cant_posible_elaborar < cantidad:
+        #                             cantidad = cant_posible_elaborar
+        #
+        #                     elif ingrediente.insumo.get_cantidad_existente_insumo() <= 0:
+        #                         cantidad = 0
+        #
+        #                 if cantidad <= 0:
+        #                     raise ValidationError('El Producto Compuesto (Comida) seleccionado no posee stock '
+        #                                           'disponible en el %s. Verifique con el Encargado de este Deposito.'
+        #                                           % deposito)
+        #                 elif detalle_pedido.cantidad_producto_pedido > cantidad:
+        #                     self.fields['cantidad_producto_pedido'].widget.attrs['readonly'] = False
+        #                     raise ValidationError({'cantidad_producto_pedido': 'La cantidad solicitada del Producto Compuesto (Comida)'
+        #                                                                       'seleccionado supera el stock disponible en el "%s". '
+        #                                                                       'Modifique la cantidad solicitada o cancele '
+        #                                                                       'el pedido de este Producto.' % deposito})
+        #
+        #             # Si el ProductoCompuesto es una BEBIDA se debe verificar la disponibilidad de los Insumos en el Deposito del Sector desde donde se realiza el Pedido o VentaOcasional
+        #             elif detalle_pedido.producto_pedido.categoria.categoria == 'BE':
+        #                 # deposito = str(detalle_venta.venta.apertura_caja.sector.deposito.deposito)
+        #                 # deposito = deposito.lower()
+        #                 deposito = jornada.sector.deposito
+        #                 det_prod_compuesto = ProductoCompuestoDetalle.objects.filter(producto_compuesto_id=detalle_pedido.producto_pedido.pk)
+        #                 cantidad = 0
+        #
+        #                 # Verifica la Cantidad Existente de cada Insumo para el Deposito desde donde se esta registrando el Pedido.
+        #                 for insumo in det_prod_compuesto:
+        #                     productos = Producto.objects.filter(insumo_id=insumo.insumo.id, tipo_producto='IN')
+        #                     cant_existente = 0
+        #
+        #                     for producto in productos:
+        #                         try:
+        #                             prod_exist_deposito = StockDepositoAjusteInventario.objects.get(id=producto.id, deposito_id=deposito.id)
+        #                             cant_existente += prod_exist_deposito.cantidad_existente
+        #                         except StockDepositoAjusteInventario.DoesNotExist:
+        #                             pass
+        #
+        #                     if cant_existente > 0:
+        #                         cant_posible_elaborar = cant_existente / (insumo.cantidad_insumo if insumo.cantidad_insumo else 1)
+        #
+        #                         if insumo == det_prod_compuesto.first():
+        #                             cantidad = cant_posible_elaborar
+        #
+        #                         elif cant_posible_elaborar < cantidad:
+        #                             cantidad = cant_posible_elaborar
+        #
+        #                     elif cant_existente <= 0:
+        #                         cantidad = 0
+        #
+        #                 if cantidad <= 0:
+        #                     raise ValidationError('El Producto Compuesto (Bebida) seleccionado no posee stock '
+        #                                           'disponible en el %s. Verifique con el Encargado de este Deposito.' % deposito)
+        #                 elif detalle_pedido.cantidad_producto_pedido > cantidad:
+        #                     self.fields['cantidad_producto_pedido'].widget.attrs['readonly'] = False
+        #                     raise ValidationError({'cantidad_producto_pedido': 'La cantidad solicitada del Producto Compuesto (Bebida)'
+        #                                                                       'seleccionado supera el stock disponible en el "%s". '
+        #                                                                       'Modifique la cantidad solicitada o cancele '
+        #                                                                       'el pedido de este Producto.' % deposito})
+        # # ======================================================================================================================
+
+# ======================================================================================================================
+#         elif '_cancel' in self.request.POST:
+#
+#             import pdb
+#             pdb.set_trace()
+#
+#             # Se anula esta validacion ya que los Productos ya son descontados del Stock al momento de guardar el Pedido.
+#
+#             if detalle_pedido.pk and detalle_pedido.procesado is True and detalle_pedido.pedido.estado_pedido.pedido_estado == 'VIG' \
+#                     and detalle_pedido.pedido.jornada.estado_jornada in ('EXP', 'CER'):
+#                 raise ValidationError('Este Producto ya fue procesado por lo tanto el Pedido no puede ser Cancelado. '
+#                                       'Consulte con su Supervisor para definir el procedimiento a seguir.')
+#             elif detalle_pedido.pk and detalle_pedido.procesado is True and detalle_pedido.pedido.estado_pedido.pedido_estado == 'VIG' \
+#                     and detalle_pedido.pedido.jornada.estado_jornada == 'VIG':
+#                 raise ValidationError({'producto_pedido': 'Este Producto ya fue procesado por lo tanto el Pedido no '
+#                                                           'puede ser Cancelado. Consulte con su Supervisor para '
+#                                                           'definir el procedimiento a seguir.'})
+#
         return cleaned_data
 
 
@@ -369,6 +582,10 @@ class PedidoForm(forms.ModelForm):
                     raise ValidationError('La Jornada con la que fue registrada el Pedido se encuentra '
                                           'expirada. Ya no puede realizar modificaciones sobre el '
                                           'Pedido, solo cancelarlo o cambiarlo de Jornada.')
+                elif jornada_elegida.estado_jornada == 'EXP':
+                    raise ValidationError('La Jornada con la que fue registrada el Pedido se encuentra '
+                                          'expirada. Ya no puede realizar modificaciones sobre el '
+                                          'Pedido, solo cancelarlo o cambiarlo de Jornada.')
                 elif pedido_actual.jornada.estado_jornada == 'CER':
                     raise ValidationError('La Jornada con la que fue registrada el Pedido se encuentra '
                                           'cerrada. Ya no puede realizar modificaciones sobre el '
@@ -382,7 +599,10 @@ class PedidoForm(forms.ModelForm):
                     if jornada.estado_jornada == 'VIG' and timezone.localtime(jornada.fecha_hora_fin_jornada) < now:
                         jornada.estado_jornada = 'EXP'
                         jornada.save()
-                    # if jornada.estado_jornada == 'EXP':
+                        raise ValidationError({'mozo_pedido': 'El Mozo/Barman posee una Jornada expirada. Realice el '
+                                                              'Cierre de la Jornada expirada e Inicie una nueva Jornada '
+                                                              'para registrar pedidos.'})
+                    elif jornada.estado_jornada == 'EXP':
                         raise ValidationError({'mozo_pedido': 'El Mozo/Barman posee una Jornada expirada. Realice el '
                                                               'Cierre de la Jornada expirada e Inicie una nueva Jornada '
                                                               'para registrar pedidos.'})
@@ -450,7 +670,8 @@ class PedidoForm(forms.ModelForm):
                 # debe verificar si existe alguna Reserva de Mesas, de lo contrario solo debe realizar la validacion
                 # ya realizada anteriormente.
                 posee_reserva = self.data.get('reserva', None)
-                if posee_reserva is None and hora_fin_reservas >= hora_actual and hora_actual >= hora_inicio_reservas:
+                if posee_reserva is None and hora_fin_reservas >= hora_actual and hora_actual >= hora_inicio_reservas \
+                        or posee_reserva == '' and hora_fin_reservas >= hora_actual and hora_actual >= hora_inicio_reservas:
                         # or pedido_actual.reserva is None and hora_fin_reservas >= hora_actual and hora_actual >= hora_inicio_reservas:
 
                     reservas = Reserva.objects.filter(fecha_hora_reserva__year=now.year,
@@ -485,6 +706,154 @@ class PedidoForm(forms.ModelForm):
 
         return cleaned_data
 
+
+class VentaOcasionalDetalleForm(forms.ModelForm):
+    
+    class Meta:
+        model = VentaDetalle
+        fields = '__all__'
+
+    def clean(self):
+        cleaned_data = super(VentaOcasionalDetalleForm, self).clean()
+
+        import pdb
+        pdb.set_trace()
+
+        detalle_venta = self.instance
+        apertura_caja = AperturaCaja.objects.none
+        if detalle_venta.pk:
+            apertura_caja = AperturaCaja.objects.get(pk=detalle_venta.venta.apertura_caja.id)
+        elif not detalle_venta.pk:
+            if self.data.get('apertura_caja') != '':
+                apertura_caja = AperturaCaja.objects.get(pk=self.data.get('apertura_caja'))
+            else:
+                pass
+
+        # No se requiere verificar si la Venta es Ocasional ya que este form afecta solo a VentaOcasionalDetalleInline
+        # if detalle_venta.venta.venta_ocasional is True:
+
+        # if "_addanother" in self.request.POST or "_save" in self.request.POST:
+            # Validar la Cantidad Existente del Producto seleccionado
+        if not detalle_venta.pk:
+            if 'producto_venta' not in self.cleaned_data:
+                raise ValidationError({'producto_venta': 'Debe seleccionar un Producto para completar la Venta.'})
+            elif self.cleaned_data['producto_venta'].get_cantidad_existente_producto() <= 0:
+                if self.cleaned_data['producto_venta'].compuesto is False:
+                    raise ValidationError({'producto_venta': 'El Producto seleccionado no posee stock disponible. '
+                                                             'Seleccione otro Producto.'})
+                elif self.cleaned_data['producto_venta'].compuesto is True:
+                    raise ValidationError({'producto_venta': 'El Producto Compuesto seleccionado no posee stock '
+                                                             'disponible en todos o algunos de sus insumos. '
+                                                             'Seleccione otro Producto.'})
+            # Verificar disponible en Deposito del Sector
+            elif self.cleaned_data['producto_venta'].compuesto is False:
+                try:
+                    producto_por_deposito = StockDepositoAjusteInventario.objects.get(id=self.cleaned_data['producto_venta'].id, deposito_id=apertura_caja.sector.deposito.id)
+                    if producto_por_deposito.cantidad_existente <= 0:
+                        raise ValidationError({'producto_venta': 'El Producto seleccionado no posee stock disponible '
+                                                                 'en el "%s" de su sector "%s". Verifique con el Encargado de '
+                                                                 'Deposito de su sector.' % (apertura_caja.sector.deposito, apertura_caja.sector)})
+                    elif self.cleaned_data['cantidad_producto_venta'] > producto_por_deposito.cantidad_existente:
+                        # self.fields['cantidad_producto_venta'].widget.attrs['readonly'] = False
+                        raise ValidationError({'cantidad_producto_venta': 'La cantidad solicitada del Producto '
+                                                                          'seleccionado supera el stock disponible en el "%s" de su sector "%s". '
+                                                                          'Modifique la cantidad solicitada o cancele '
+                                                                          'el pedido de este Producto.' % (apertura_caja.sector.deposito, apertura_caja.sector)})
+                except StockDepositoAjusteInventario.DoesNotExist:
+                    raise ValidationError({'producto_venta': 'El Producto seleccionado no posee stock disponible en '
+                                                             'el "%s" de su sector "%s". Verifique con el Encargado de Deposito '
+                                                             'de su sector.' % (apertura_caja.sector.deposito, apertura_caja.sector)})
+
+            elif self.cleaned_data['producto_venta'].compuesto is True:
+                # Si el ProductoCompuesto es una COMIDA se debe verificar la disponibilidad de los Insumos en el Deposito de la Cocina
+                if self.cleaned_data['producto_venta'].categoria.categoria == 'CO':
+                    deposito = Deposito.objects.get(deposito='DCO')
+                    ingredientes = ProductoCompuestoDetalle.objects.filter(producto_compuesto_id=self.cleaned_data['producto_venta'].pk)
+                    cantidad = 0
+                    for ingrediente in ingredientes:
+                        if ingrediente.insumo.get_cantidad_existente_insumo_dco() > 0:
+                            cant_posible_elaborar = ingrediente.insumo.get_cantidad_existente_insumo_dco() / (ingrediente.cantidad_insumo if ingrediente.cantidad_insumo else 1)
+        
+                            if ingrediente == ingredientes.first():
+                                cantidad = cant_posible_elaborar
+        
+                            elif cant_posible_elaborar < cantidad:
+                                cantidad = cant_posible_elaborar
+        
+                        elif ingrediente.insumo.get_cantidad_existente_insumo_dco() <= 0:
+                            cantidad = 0
+                    
+                    if cantidad <= 0:
+                        raise ValidationError({'producto_venta': 'El Producto Compuesto (Comida) seleccionado no posee stock '
+                                                                 'disponible en el "%s". Verifique con el Encargado de '
+                                                                 'este Deposito.' % deposito})
+                    elif self.cleaned_data['cantidad_producto_venta'] > cantidad:
+                        # self.fields['cantidad_producto_venta'].widget.attrs['readonly'] = False
+                        raise ValidationError({'cantidad_producto_venta': 'La cantidad solicitada del Producto Compuesto (Comida)'
+                                                                          'seleccionado supera el stock disponible en el "%s". '
+                                                                          'Modifique la cantidad solicitada o cancele '
+                                                                          'el pedido de este Producto.' % deposito})
+                # Si el ProductoCompuesto es una BEBIDA se debe verificar la disponibilidad de los Insumos en el Deposito del Sector desde donde se realiza el Pedido o VentaOcasional
+                elif self.cleaned_data['producto_venta'].categoria.categoria == 'BE':
+                    # deposito = str(detalle_venta.venta.apertura_caja.sector.deposito.deposito)
+                    # deposito = deposito.lower()
+                    deposito = apertura_caja.sector.deposito
+                    det_prod_compuesto = ProductoCompuestoDetalle.objects.filter(producto_compuesto_id=self.cleaned_data['producto_venta'].pk)
+                    cantidad = 0
+
+                    # Verifica la Cantidad Existente de cada Insumo para el Deposito desde donde se esta registrando el Pedido.
+                    for insumo in det_prod_compuesto:
+                        productos = Producto.objects.filter(insumo_id=insumo.insumo.id, tipo_producto='IN')
+                        cant_existente = 0
+
+                        for producto in productos:
+                            try:
+                                prod_exist_deposito = StockDepositoAjusteInventario.objects.get(id=producto.id, deposito_id=deposito.id)
+                                cant_existente += prod_exist_deposito.cantidad_existente
+                            except StockDepositoAjusteInventario.DoesNotExist:
+                                pass
+                        
+                        if cant_existente > 0:
+                            cant_posible_elaborar = cant_existente / (insumo.cantidad_insumo if insumo.cantidad_insumo else 1)
+
+                            if insumo == det_prod_compuesto.first():
+                                cantidad = cant_posible_elaborar
+
+                            elif cant_posible_elaborar < cantidad:
+                                cantidad = cant_posible_elaborar
+
+                        elif cant_existente <= 0:
+                            cantidad = 0
+                    
+                    if cantidad <= 0:
+                        raise ValidationError({'producto_venta': 'El Producto Compuesto (Bebida) seleccionado no posee stock '
+                                                                 'disponible en el "%s". Verifique con el Encargado de '
+                                                                 'este Deposito.' % deposito})        
+                    elif self.cleaned_data['cantidad_producto_venta'] > cantidad:
+                        # self.fields['cantidad_producto_venta'].widget.attrs['readonly'] = False
+                        raise ValidationError({'cantidad_producto_venta': 'La cantidad solicitada del Producto Compuesto (Bebida) '
+                                                                          'seleccionado supera el stock disponible en el "%s". '
+                                                                          'Modifique la cantidad solicitada o cancele '
+                                                                          'el pedido de este Producto.' % deposito})
+
+            # # No aplica porque en la pantalla de Ventas Ocasionales no se guardan borradores del Pedido de los Productos, directamente se confirma la Venta.
+            # elif detalle_venta.pk:
+            #     if detalle_venta.producto_venta.get_cantidad_existente_producto() <= 0:
+            #         if detalle_venta.producto_venta.compuesto is False:
+            #             raise ValidationError('El Producto seleccionado no posee stock disponible. Seleccione otro '
+            #                                   'Producto.')
+            #         elif detalle_venta.producto_venta.compuesto is True:
+            #             raise ValidationError('El Producto Compuesto seleccionado no posee stock disponible en todos o '
+            #                                   'algunos de sus insumos. Seleccione otro Producto.')
+            #     elif detalle_venta.cantidad_producto_venta > detalle_venta.producto_venta.get_cantidad_existente_producto():
+            #         self.fields['cantidad_producto_venta'].widget.attrs['readonly'] = False
+            #         raise ValidationError({'cantidad_producto_venta': 'La cantidad solicitada del Producto '
+            #                                                           'seleccionado supera el stock disponible. '
+            #                                                           'Modifique la cantidad solicitada o cancele el '
+            #                                                           'pedido de este Producto.'})
+
+        return cleaned_data
+        
 
 class VentaForm(forms.ModelForm):
     # timbrado = forms.CharField(widget=forms.TextInput(attrs={'readonly':'True'}), label='Timbrado', required=False)
@@ -670,6 +1039,8 @@ class VentaForm(forms.ModelForm):
                         documentos.append((('%s: %s-%s' % (o.tipo_documento.documento, o.numero_documento, str(calcular_dv(o.numero_documento, 11)))), ('%s: %s-%s' % (o.tipo_documento.documento, o.numero_documento, str(calcular_dv(o.numero_documento, 11))))),)
                     else:
                         documentos.append((('%s: %s' % (o.tipo_documento.documento, o.numero_documento)), ('%s: %s' % (o.tipo_documento.documento, o.numero_documento))),)
+                # documentos[9999999] = 'Sin datos'
+                documentos.append(('9999999', '9999999: Sin datos'),)
 
                 # import pdb
                 # pdb.set_trace()
@@ -754,6 +1125,10 @@ class VentaForm(forms.ModelForm):
                         pass
 
             # Validaciones sobre la Forma de Pago
+
+            # import pdb
+            # pdb.set_trace()
+
             if self.cleaned_data['forma_pago'] is None and "_continue" not in self.request.POST\
                     or self.cleaned_data['forma_pago'] == '' and "_continue" not in self.request.POST:
             # if venta.venta_ocasional is True and self.cleaned_data['forma_pago'] is None and "_continue" not in self.request.POST\
@@ -762,7 +1137,12 @@ class VentaForm(forms.ModelForm):
 
             elif self.cleaned_data['forma_pago'] in ('EF', 'OM') and self.cleaned_data['efectivo_recibido'] == 0 and "_continue" not in self.request.POST\
                     or self.cleaned_data['forma_pago'] in ('EF', 'OM') and self.cleaned_data['efectivo_recibido'] is None and "_continue" not in self.request.POST:
-                raise ValidationError({'efectivo_recibido': 'Debe ingresar el monto de Efectivo recibido.'})
+                raise ValidationError({'efectivo_recibido': 'Debe ingresar el monto de Efectivo Recibido.'})
+
+            elif self.cleaned_data['forma_pago'] in ('EF', 'OM') and int(self.cleaned_data['total_venta']) > int(self.cleaned_data['efectivo_recibido']) and "_continue" not in self.request.POST\
+                    or self.cleaned_data['forma_pago'] in ('EF', 'OM') and self.cleaned_data['efectivo_recibido'] is not None and int(self.cleaned_data['total_venta']) > int(self.cleaned_data['efectivo_recibido']) and "_continue" not in self.request.POST:
+                raise ValidationError({'efectivo_recibido': 'El monto del pago en Efectivo o en Otros Medios debe ser igual o mayor al monto del Total de la Venta.'})
+
             elif self.cleaned_data['forma_pago'] in ('TC', 'TD') and self.cleaned_data['voucher'] == 0 and "_continue" not in self.request.POST\
                     or self.cleaned_data['forma_pago'] in ('TC', 'TD') and self.cleaned_data['voucher'] is None and "_continue" not in self.request.POST\
                     or self.cleaned_data['forma_pago'] in ('TC', 'TD') and self.cleaned_data['voucher'] == '' and "_continue" not in self.request.POST:
@@ -851,10 +1231,10 @@ class AperturaCajaForm(forms.ModelForm):
                 raise ValidationError({'cajero': 'El Usuario no posee el cargo de Cajero. Modifique el cargo del '
                                                  'Usuario y vuelva a intentarlo.'})
 
-            aperturas = AperturaCaja.objects.filter(cajero=usuario, estado_apertura_caja='VIG')
+            aperturas = AperturaCaja.objects.filter(cajero=usuario, estado_apertura_caja__in=['VIG', 'EXP'])
             if aperturas.exists():
-                raise ValidationError({'cajero': 'El Cajero posee una Apertura de Caja vigente. Solo puede tener una '
-                                                 'Caja abierta.'})
+                raise ValidationError({'cajero': 'El Cajero ya posee una Apertura de Caja vigente/expirada. Solo puede '
+                                                 'tener una Caja abierta.'})
 
             jornadas = InicioJornada.objects.filter(mozo=usuario, estado_jornada__in=['VIG', 'EXP'])
             if jornadas.exists():
@@ -987,51 +1367,52 @@ class CierreCajaForm(forms.ModelForm):
             elif cierre_caja.apertura_caja.estado_apertura_caja == 'EXP':
                 self.fields['estado_apertura_caja'].widget.attrs.update({'style': 'font-size: 15px; height: 30px; font-weight: bold; color: red;'})
 
-            cierre_caja.cantidad_total_operaciones_pendientes = cierre_caja.apertura_caja.get_cantidad_total_operaciones_pendientes()
-            cierre_caja.cantidad_total_operaciones_canceladas = cierre_caja.apertura_caja.get_cantidad_total_operaciones_canceladas()
-            cierre_caja.cantidad_operaciones_efectivo_procesadas = cierre_caja.apertura_caja.get_cantidad_operaciones_efectivo_procesadas()
-            cierre_caja.cantidad_operaciones_efectivo_pendientes = cierre_caja.apertura_caja.get_cantidad_operaciones_efectivo_pendientes()
-            cierre_caja.cantidad_operaciones_efectivo_canceladas = cierre_caja.apertura_caja.get_cantidad_operaciones_efectivo_canceladas()
-            cierre_caja.monto_registro_efectivo = cierre_caja.apertura_caja.get_monto_registro_efectivo()
+            if cierre_caja.apertura_caja.estado_apertura_caja in ('VIG', 'EXP'):
+                cierre_caja.cantidad_total_operaciones_pendientes = cierre_caja.apertura_caja.get_cantidad_total_operaciones_pendientes()
+                cierre_caja.cantidad_total_operaciones_canceladas = cierre_caja.apertura_caja.get_cantidad_total_operaciones_canceladas()
+                cierre_caja.cantidad_operaciones_efectivo_procesadas = cierre_caja.apertura_caja.get_cantidad_operaciones_efectivo_procesadas()
+                cierre_caja.cantidad_operaciones_efectivo_pendientes = cierre_caja.apertura_caja.get_cantidad_operaciones_efectivo_pendientes()
+                cierre_caja.cantidad_operaciones_efectivo_canceladas = cierre_caja.apertura_caja.get_cantidad_operaciones_efectivo_canceladas()
+                cierre_caja.monto_registro_efectivo = cierre_caja.apertura_caja.get_monto_registro_efectivo()
 
-            cierre_caja.cantidad_operaciones_tcs_procesadas = cierre_caja.apertura_caja.get_cantidad_operaciones_tcs_procesadas()
-            cierre_caja.cantidad_operaciones_tcs_pendientes = cierre_caja.apertura_caja.get_cantidad_operaciones_tcs_pendientes()
-            cierre_caja.cantidad_operaciones_tcs_canceladas = cierre_caja.apertura_caja.get_cantidad_operaciones_tcs_canceladas()
-            cierre_caja.monto_registro_tcs = cierre_caja.apertura_caja.get_monto_registro_tcs()
+                cierre_caja.cantidad_operaciones_tcs_procesadas = cierre_caja.apertura_caja.get_cantidad_operaciones_tcs_procesadas()
+                cierre_caja.cantidad_operaciones_tcs_pendientes = cierre_caja.apertura_caja.get_cantidad_operaciones_tcs_pendientes()
+                cierre_caja.cantidad_operaciones_tcs_canceladas = cierre_caja.apertura_caja.get_cantidad_operaciones_tcs_canceladas()
+                cierre_caja.monto_registro_tcs = cierre_caja.apertura_caja.get_monto_registro_tcs()
 
-            cierre_caja.cantidad_operaciones_tds_procesadas = cierre_caja.apertura_caja.get_cantidad_operaciones_tds_procesadas()
-            cierre_caja.cantidad_operaciones_tds_pendientes = cierre_caja.apertura_caja.get_cantidad_operaciones_tds_pendientes()
-            cierre_caja.cantidad_operaciones_tds_canceladas = cierre_caja.apertura_caja.get_cantidad_operaciones_tds_canceladas()
-            cierre_caja.monto_registro_tds = cierre_caja.apertura_caja.get_monto_registro_tds()
+                cierre_caja.cantidad_operaciones_tds_procesadas = cierre_caja.apertura_caja.get_cantidad_operaciones_tds_procesadas()
+                cierre_caja.cantidad_operaciones_tds_pendientes = cierre_caja.apertura_caja.get_cantidad_operaciones_tds_pendientes()
+                cierre_caja.cantidad_operaciones_tds_canceladas = cierre_caja.apertura_caja.get_cantidad_operaciones_tds_canceladas()
+                cierre_caja.monto_registro_tds = cierre_caja.apertura_caja.get_monto_registro_tds()
 
-            cierre_caja.cantidad_operaciones_otros_medios_procesadas = cierre_caja.apertura_caja.get_cantidad_operaciones_otros_medios_procesadas()
-            cierre_caja.cantidad_operaciones_otros_medios_pendientes = cierre_caja.apertura_caja.get_cantidad_operaciones_otros_medios_pendientes()
-            cierre_caja.cantidad_operaciones_otros_medios_canceladas = cierre_caja.apertura_caja.get_cantidad_operaciones_otros_medios_canceladas()
-            cierre_caja.monto_registro_otros_medios = cierre_caja.apertura_caja.get_monto_registro_otros_medios()
+                cierre_caja.cantidad_operaciones_otros_medios_procesadas = cierre_caja.apertura_caja.get_cantidad_operaciones_otros_medios_procesadas()
+                cierre_caja.cantidad_operaciones_otros_medios_pendientes = cierre_caja.apertura_caja.get_cantidad_operaciones_otros_medios_pendientes()
+                cierre_caja.cantidad_operaciones_otros_medios_canceladas = cierre_caja.apertura_caja.get_cantidad_operaciones_otros_medios_canceladas()
+                cierre_caja.monto_registro_otros_medios = cierre_caja.apertura_caja.get_monto_registro_otros_medios()
 
-            cierre_caja.save()
+                cierre_caja.save()
 
-            self.initial['cierre_caja.cantidad_total_operaciones_pendientes'] = cierre_caja.cantidad_total_operaciones_pendientes
-            self.initial['cierre_caja.cantidad_total_operaciones_canceladas'] = cierre_caja.cantidad_total_operaciones_canceladas
-            self.initial['cierre_caja.cantidad_operaciones_efectivo_procesadas'] = cierre_caja.cantidad_operaciones_efectivo_procesadas
-            self.initial['cierre_caja.cantidad_operaciones_efectivo_pendientes'] = cierre_caja.cantidad_operaciones_efectivo_pendientes
-            self.initial['cierre_caja.cantidad_operaciones_efectivo_canceladas'] = cierre_caja.cantidad_operaciones_efectivo_canceladas
-            self.initial['cierre_caja.monto_registro_efectivo'] = cierre_caja.monto_registro_efectivo
+                self.initial['cierre_caja.cantidad_total_operaciones_pendientes'] = cierre_caja.cantidad_total_operaciones_pendientes
+                self.initial['cierre_caja.cantidad_total_operaciones_canceladas'] = cierre_caja.cantidad_total_operaciones_canceladas
+                self.initial['cierre_caja.cantidad_operaciones_efectivo_procesadas'] = cierre_caja.cantidad_operaciones_efectivo_procesadas
+                self.initial['cierre_caja.cantidad_operaciones_efectivo_pendientes'] = cierre_caja.cantidad_operaciones_efectivo_pendientes
+                self.initial['cierre_caja.cantidad_operaciones_efectivo_canceladas'] = cierre_caja.cantidad_operaciones_efectivo_canceladas
+                self.initial['cierre_caja.monto_registro_efectivo'] = cierre_caja.monto_registro_efectivo
 
-            self.initial['cierre_caja.cantidad_operaciones_tcs_procesadas'] = cierre_caja.cantidad_operaciones_tcs_procesadas
-            self.initial['cierre_caja.cantidad_operaciones_tcs_pendientes'] = cierre_caja.cantidad_operaciones_tcs_pendientes
-            self.initial['cierre_caja.cantidad_operaciones_tcs_canceladas'] = cierre_caja.cantidad_operaciones_tcs_canceladas
-            self.initial['cierre_caja.monto_registro_tcs'] = cierre_caja.monto_registro_tcs
+                self.initial['cierre_caja.cantidad_operaciones_tcs_procesadas'] = cierre_caja.cantidad_operaciones_tcs_procesadas
+                self.initial['cierre_caja.cantidad_operaciones_tcs_pendientes'] = cierre_caja.cantidad_operaciones_tcs_pendientes
+                self.initial['cierre_caja.cantidad_operaciones_tcs_canceladas'] = cierre_caja.cantidad_operaciones_tcs_canceladas
+                self.initial['cierre_caja.monto_registro_tcs'] = cierre_caja.monto_registro_tcs
 
-            self.initial['cierre_caja.cantidad_operaciones_tds_procesadas'] = cierre_caja.cantidad_operaciones_tds_procesadas
-            self.initial['cierre_caja.cantidad_operaciones_tds_pendientes'] = cierre_caja.cantidad_operaciones_tds_pendientes
-            self.initial['cierre_caja.cantidad_operaciones_tds_canceladas'] = cierre_caja.cantidad_operaciones_tds_canceladas
-            self.initial['cierre_caja.monto_registro_tds'] = cierre_caja.monto_registro_tds
+                self.initial['cierre_caja.cantidad_operaciones_tds_procesadas'] = cierre_caja.cantidad_operaciones_tds_procesadas
+                self.initial['cierre_caja.cantidad_operaciones_tds_pendientes'] = cierre_caja.cantidad_operaciones_tds_pendientes
+                self.initial['cierre_caja.cantidad_operaciones_tds_canceladas'] = cierre_caja.cantidad_operaciones_tds_canceladas
+                self.initial['cierre_caja.monto_registro_tds'] = cierre_caja.monto_registro_tds
 
-            self.initial['cierre_caja.cantidad_operaciones_otros_medios_procesadas'] = cierre_caja.cantidad_operaciones_otros_medios_procesadas
-            self.initial['cierre_caja.cantidad_operaciones_otros_medios_pendientes'] = cierre_caja.cantidad_operaciones_otros_medios_pendientes
-            self.initial['cierre_caja.cantidad_operaciones_otros_medios_canceladas'] = cierre_caja.cantidad_operaciones_otros_medios_canceladas
-            self.initial['cierre_caja.monto_registro_otros_medios'] = cierre_caja.monto_registro_otros_medios
+                self.initial['cierre_caja.cantidad_operaciones_otros_medios_procesadas'] = cierre_caja.cantidad_operaciones_otros_medios_procesadas
+                self.initial['cierre_caja.cantidad_operaciones_otros_medios_pendientes'] = cierre_caja.cantidad_operaciones_otros_medios_pendientes
+                self.initial['cierre_caja.cantidad_operaciones_otros_medios_canceladas'] = cierre_caja.cantidad_operaciones_otros_medios_canceladas
+                self.initial['cierre_caja.monto_registro_otros_medios'] = cierre_caja.monto_registro_otros_medios
 
     def clean(self):
         cleaned_data = super(CierreCajaForm, self).clean()

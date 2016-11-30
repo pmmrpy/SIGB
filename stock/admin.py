@@ -1,11 +1,14 @@
+# -*- coding: utf-8 -*-
 from django.contrib import admin
 
 # Register your models here.
 from django.forms.models import BaseInlineFormSet
 from django.utils.html import format_html
+from bar.models import AjusteStockEstado, CategoriaProducto, SubCategoriaProducto
 from stock.forms import ProductoForm, ProductoCompuestoForm, ProductoCompuestoDetalleInlineForm, \
     InsumoForm, TransferenciaStockForm, TransferenciaStockDetalleInlineForm, \
-    TransferenciaStockDetalleFormSet  # PrecioVentaProductoForm
+    TransferenciaStockDetalleFormSet, AjusteStockDetalleInlineForm, AjusteStockDetalleFormSet, \
+    AjusteStockForm  # PrecioVentaProductoForm
 
 from .models import *
 from personal.models import Empleado
@@ -49,7 +52,7 @@ class ProductoAdmin(admin.ModelAdmin):
     # list_select_related = True
     list_display = ('id', 'producto', 'marca', 'fecha_alta_producto', 'tipo_producto', 'insumo', 'categoria', 'subcategoria',
                     'perecedero', 'unidad_medida_contenido', 'contenido', 'unidad_medida_compra',
-                    'precio_compra', 'porcentaje_ganancia', 'precio_venta', 'cantidad_existente_producto', 'thumb')  # 'compuesto'
+                    'precio_compra', 'porcentaje_ganancia', 'precio_venta', 'thumb')  # 'compuesto', 'get_cantidad_existente_producto',
     list_display_links = ['producto']
     list_filter = ['id', 'producto', 'marca', 'fecha_alta_producto', 'tipo_producto', 'categoria', 'subcategoria',
                    'perecedero', 'precio_compra', 'porcentaje_ganancia', 'precio_venta']
@@ -80,6 +83,9 @@ class ProductoCompuestoDetalleInline(admin.TabularInline):
     fk_name = 'producto_compuesto'
 
 
+
+
+
 class ProductoCompuestoAdmin(admin.ModelAdmin):
 
     form = ProductoCompuestoForm
@@ -104,7 +110,8 @@ class ProductoCompuestoAdmin(admin.ModelAdmin):
     inlines = [ProductoCompuestoDetalleInline]
 
     list_display = ('id', 'producto', 'compuesto', 'perecedero', 'fecha_alta_producto', 'tipo_producto', 'categoria',
-                    'subcategoria', 'costo_elaboracion', 'porcentaje_ganancia', 'precio_venta', 'thumb')
+                    'subcategoria', 'costo_elaboracion', 'porcentaje_ganancia', 'precio_venta',
+                    'get_insumos_disponibles_producto_compuesto', 'thumb')
     list_display_links = ['producto']
     list_filter = ['id', 'producto', 'fecha_alta_producto', 'categoria', 'subcategoria', 'costo_elaboracion',
                    'porcentaje_ganancia', 'precio_venta']
@@ -174,6 +181,7 @@ class ProductoInsumoInlineAdmin(admin.TabularInline):
     can_delete = False
     fields = ['id', 'producto', 'codigo_barra', 'marca', 'unidad_medida_contenido', 'contenido', 'unidad_medida_compra', 'precio_compra', 'fecha_alta_producto']
     readonly_fields = ['id', 'fecha_alta_producto']
+    ordering = ['producto']
     # form = ProductoCompuestoDetalleInlineForm
     # raw_id_fields = ['producto']
     verbose_name = 'Producto'
@@ -198,9 +206,13 @@ class InsumoAdmin(admin.ModelAdmin):
 
     readonly_fields = ['fecha_alta_insumo', 'fecha_modificacion_insumo']
 
+    ordering = ['insumo']
+
     inlines = [ProductoInsumoInlineAdmin]
 
-    list_display = ['insumo', 'unidad_medida', 'get_costo_promedio_por_unidad']
+    list_display = ['id', 'insumo', 'unidad_medida', 'get_costo_promedio_por_unidad',
+                    'get_cantidad_existente_insumo_dce', 'get_cantidad_existente_insumo_dbp', 'get_cantidad_existente_insumo_dba', 'get_cantidad_existente_insumo_dco', 'get_cantidad_existente_insumo_dbi',
+                    'get_cantidad_existente_insumo']
     list_filter = ['insumo', 'unidad_medida']
     search_fields = ['insumo', 'unidad_medida__descripcion']
 
@@ -239,6 +251,9 @@ class ProductoVentaAdmin(admin.ModelAdmin):
 
     # readonly_fields = ['fecha_alta_producto', 'thumb']
 
+    ordering = ['producto']
+
+
     fieldsets = [
         ('Datos del Producto', {'fields': ['producto', 'codigo_barra', 'marca', 'imagen', 'thumb',
                                            'fecha_alta_producto', 'fecha_modificacion_producto']}),
@@ -253,13 +268,33 @@ class ProductoVentaAdmin(admin.ModelAdmin):
 
     actions = None
     list_display = ('id', 'producto', 'marca', 'categoria', 'subcategoria', 'tiempo_elaboracion',
-                    'unidad_medida_contenido', 'contenido', 'precio_venta', 'cantidad_existente_producto', 'thumb')
+                    'unidad_medida_contenido', 'contenido', 'precio_venta', 'get_unidad_medida_producto_existente',
+                    'get_cantidad_existente_producto_dce', 'get_cantidad_existente_producto_dbp', 'get_cantidad_existente_producto_dba', 'get_cantidad_existente_producto_dbi',
+                    'get_cantidad_existente_producto', 'thumb')
     list_display_links = ['producto']
-    list_filter = ['producto', ('categoria', admin.RelatedOnlyFieldListFilter), ('subcategoria', admin.RelatedOnlyFieldListFilter)]
-    search_fields = ['producto', 'marca', 'categoria__categoria', 'subcategoria__subcategoria']
+    list_filter = ['id', 'producto', 'marca', ('categoria', admin.RelatedOnlyFieldListFilter), ('subcategoria', admin.RelatedOnlyFieldListFilter)]
+    search_fields = ['id', 'producto', 'marca', 'categoria__categoria', 'subcategoria__subcategoria']
+
+    # def get_producto_nombre(self,obj):
+    #     if obj.compuesto:
+    #         link = '/admin/stock/productocompuesto/%s'%obj.pk
+    #     else:
+    #         link = '/admin/stock/producto/%s'%obj.pk
+    #     tag = '<a href="%s">%s</a>'%(link,str(obj))
+    #
+    #     return mark_safe(tag)
 
     def get_queryset(self, request):
-        queryset = Producto.objects.filter(tipo_producto='VE', id__in=InventarioDeposito.objects.filter(cant_existente__gt=0))
+
+        # import pdb
+        # pdb.set_trace()
+
+        # Filtra los Productos para la Venta que poseen disponibilidad en Stock.
+        # queryset = Producto.objects.filter(Q(tipo_producto='VE', id__in=InventarioDeposito.objects.filter(cant_existente__gt=0))
+        #                                    | Q(tipo_producto='VE', compuesto=True))  # , get_insumos_disponibles_producto_compuesto=True
+
+        queryset = Producto.objects.filter(tipo_producto='VE')
+
         return queryset
 
     def get_readonly_fields(self, request, obj=None):
@@ -301,6 +336,8 @@ class ProductoExistenteAdmin(admin.ModelAdmin):
 
     # readonly_fields = ['fecha_alta_producto', 'thumb']
 
+    ordering = ['producto']
+
     fieldsets = [
         ('Datos del Producto', {'fields': ['producto', 'codigo_barra', 'marca', 'imagen', 'thumb',
                                            'fecha_alta_producto', 'fecha_modificacion_producto']}),
@@ -314,11 +351,11 @@ class ProductoExistenteAdmin(admin.ModelAdmin):
     # inlines = [ProductoCompuestoDetalleInline]
 
     actions = None
-    list_display = ('id', 'producto', 'marca', 'categoria', 'subcategoria', 'tiempo_elaboracion',
-                    'unidad_medida_contenido', 'contenido', 'precio_venta', 'cantidad_existente_producto', 'thumb')
+    list_display = ('id', 'producto', 'marca', 'categoria', 'subcategoria', 'get_unidad_medida_producto_existente',
+                    'get_cantidad_existente_producto', 'thumb')
     list_display_links = ['producto']
-    list_filter = ['producto', ('categoria', admin.RelatedOnlyFieldListFilter), ('subcategoria', admin.RelatedOnlyFieldListFilter)]
-    search_fields = ['producto', 'marca', 'categoria__categoria', 'subcategoria__subcategoria']
+    list_filter = ['producto', 'marca', ('categoria', admin.RelatedOnlyFieldListFilter), ('subcategoria', admin.RelatedOnlyFieldListFilter)]
+    search_fields = ['id', 'producto', 'marca', 'categoria__categoria', 'subcategoria__subcategoria']
 
     def get_queryset(self, request):
         queryset = Producto.objects.filter(id__in=InventarioDeposito.objects.filter(cant_existente__gt=0))
@@ -406,11 +443,120 @@ class MovimientoStockAdmin(admin.ModelAdmin):
         return False
 
 
+# ======================================================================================================================
+class CategoriaProductoListFilter(admin.SimpleListFilter):
+
+    """
+    This filter will always return a subset of the instances in a Model, either filtering by the
+    user choice or by a default value.
+    """
+    # Human-readable title which will be displayed in the
+    # right admin sidebar just above the filter options.
+    title = 'categoria'
+
+    # Parameter for the filter that will be used in the URL query.
+    parameter_name = 'categoria'
+
+    default_value = None
+
+    def lookups(self, request, model_admin):
+        """
+        Returns a list of tuples. The first element in each
+        tuple is the coded value for the option that will
+        appear in the URL query. The second element is the
+        human-readable name for the option that will appear
+        in the right sidebar.
+        """
+        list_of_categories = []
+        queryset = CategoriaProducto.objects.all()
+        for categoria in queryset:
+            list_of_categories.append(
+                (str(categoria.id), categoria.get_categoria_display())
+            )
+        return sorted(list_of_categories, key=lambda tp: tp[1])
+
+    def queryset(self, request, queryset):
+        """
+        Returns the filtered queryset based on the value
+        provided in the query string and retrievable via
+        `self.value()`.
+        """
+        # Compare the requested value to decide how to filter the queryset.
+        if self.value():
+            productos_por_categoria = Producto.objects.filter(categoria_id=self.value())
+            return queryset.filter(id__in=productos_por_categoria)
+        return queryset
+
+    # def value(self):
+    #     """
+    #     Overriding this method will allow us to always have a default value.
+    #     """
+    #     value = super(CategoriaProductoListFilter, self).value()
+    #     if value is None:
+    #         if self.default_value is None:
+    #             # If there is at least one Species, return the first by name. Otherwise, None.
+    #             first_categories = CategoriaProducto.objects.order_by('categoria').first()
+    #             value = None if first_categories is None else first_categories.id
+    #             self.default_value = value
+    #         else:
+    #             value = self.default_value
+    #     return str(value)
+
+
+class SubCategoriaProductoListFilter(admin.SimpleListFilter):
+
+    """
+    This filter will always return a subset of the instances in a Model, either filtering by the
+    user choice or by a default value.
+    """
+    # Human-readable title which will be displayed in the
+    # right admin sidebar just above the filter options.
+    title = 'subcategoria'
+
+    # Parameter for the filter that will be used in the URL query.
+    parameter_name = 'subcategoria'
+
+    default_value = None
+
+    # Custom attributes
+    related_filter_parameter = 'subcategoria__categoria__id__exact'
+
+    def lookups(self, request, model_admin):
+        """
+        Returns a list of tuples. The first element in each
+        tuple is the coded value for the option that will
+        appear in the URL query. The second element is the
+        human-readable name for the option that will appear
+        in the right sidebar.
+        """
+        list_of_subcategories = []
+        queryset = SubCategoriaProducto.objects.order_by('categoria_id')
+        if self.related_filter_parameter in request.GET:
+            queryset = queryset.filter(categoria_id=request.GET[self.related_filter_parameter])
+        for subcategoria in queryset:
+            list_of_subcategories.append(
+                (str(subcategoria.id), subcategoria.descripcion)
+            )
+        return sorted(list_of_subcategories, key=lambda tp: tp[1])
+
+    def queryset(self, request, queryset):
+        """
+        Returns the filtered queryset based on the value
+        provided in the query string and retrievable via
+        `self.value()`.
+        """
+        # Compare the requested value to decide how to filter the queryset.
+        if self.value():
+            productos_por_subcategoria = Producto.objects.filter(subcategoria_id=self.value())
+            return queryset.filter(id__in=productos_por_subcategoria)
+        return queryset
+    
+
 @admin.register(InventarioProducto)
 class InventarioProductoAdmin(admin.ModelAdmin):
     actions = None
     ordering = ['producto']
-    list_display = ['id', 'producto', 'total_compras', 'total_ventas', 'cantidad_existente']
+    list_display = ['id', 'producto', 'get_unidad_medida_inventario_producto', 'total_compras', 'total_ventas']  # 'cantidad_existente'
     list_display_links = None
     list_filter = ['id', 'producto']
     search_fields = ['id', 'producto']
@@ -426,10 +572,11 @@ class InventarioProductoAdmin(admin.ModelAdmin):
 class InventarioDepositoAdmin(admin.ModelAdmin):
     actions = None
     ordering = ['producto']
-    list_display = ['id', 'producto', 'cant_exist_dce', 'cant_exist_dbp', 'cant_exist_dba', 'cant_exist_dco',
-                    'cant_exist_dbi', 'cant_existente']
+    list_display = ['id', 'producto', 'get_categoria_inventario_deposito', 'get_subcategoria_inventario_deposito',
+                    'get_marca_inventario_deposito', 'get_unidad_medida_inventario_deposito',
+                    'cant_exist_dce', 'cant_exist_dbp', 'cant_exist_dba', 'cant_exist_dco', 'cant_exist_dbi', 'cant_existente']
     list_display_links = None
-    list_filter = ['id', 'producto']
+    list_filter = ['id', 'producto', CategoriaProductoListFilter, SubCategoriaProductoListFilter]
     search_fields = ['id', 'producto']
 
     def has_add_permission(self, request):
@@ -437,14 +584,6 @@ class InventarioDepositoAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
-
-
-class StockAjusteAdmin(admin.ModelAdmin):
-    # form =
-
-    list_display = []
-    list_filter = []
-    search_fields = []
 
 
 # ======================================================================================================================
@@ -469,6 +608,7 @@ class TransferenciaStockDetalleInline(admin.TabularInline):
     raw_id_fields = ['producto_transferencia']
     verbose_name = 'Detalle de Producto a Transferir'
     verbose_name_plural = 'Detalles de Productos a Transferir'
+
     # fk_name = 'producto_compuesto'
 
     def get_readonly_fields(self, request, obj=None):
@@ -511,7 +651,7 @@ class SolicitaTransferenciaStockAdmin(admin.ModelAdmin):
 
     # class Media:
     #     js = [
-    #         'stock/js/solicita_transferencia_stock.js'
+    #         'stock/js/transferencia_stock.js'
     #     ]
 
     readonly_fields = ['usuario_solicitante_transferencia', 'estado_transferencia', 'fecha_hora_registro_transferencia']  # 'cantidad_existente_stock', 'usuario_autorizante_transferencia', 'fecha_hora_autorizacion_transferencia'
@@ -596,6 +736,7 @@ class SolicitaTransferenciaStockAdmin(admin.ModelAdmin):
         extra_context = extra_context or {}
 
         extra_context['show_button'] = True
+
         if object_id is not None:
             transferencia = TransferenciaStock.objects.get(pk=object_id)
 
@@ -648,7 +789,7 @@ class ConfirmaTransferenciaStockAdmin(admin.ModelAdmin):
 
     # class Media:
     #     js = [
-    #         'stock/js/confirma_transferencia_stock.js'
+    #         'stock/js/transferencia_stock.js'
     #     ]
 
     readonly_fields = ['deposito_origen_transferencia', 'deposito_destino_transferencia',
@@ -719,8 +860,8 @@ class ConfirmaTransferenciaStockAdmin(admin.ModelAdmin):
 
     def save_formset(self, request, form, formset, change):
 
-        import pdb
-        pdb.set_trace()
+        # import pdb
+        # pdb.set_trace()
 
         transferencia = form.instance
 
@@ -812,6 +953,246 @@ class ConfirmaTransferenciaStockAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return False
 
+
+# ======================================================================================================================
+class AjusteStockDetalleInline(admin.TabularInline):
+    model = AjusteStockDetalle
+    extra = 1
+    can_delete = False
+    readonly_fields = ['producto_ajuste', 'unidad_medida', 'cantidad_existente_producto']
+    fields = ['producto_ajuste', 'unidad_medida', 'cantidad_existente_producto', 'ajustar', 'cantidad_ajustar_producto',
+              'motivo_ajuste']
+    form = AjusteStockDetalleInlineForm
+    formset = AjusteStockDetalleFormSet
+    ordering = ['producto_ajuste__producto']
+    # verbose_name = 'Pago a Proveedores'
+    # verbose_name_plural = 'Pagos a Proveedores'
+
+    def get_readonly_fields(self, request, obj=None):
+        if obj is not None and obj.estado_ajuste.estado_ajuste_stock == 'PEN':
+            return self.readonly_fields
+        elif obj is not None and obj.estado_ajuste.estado_ajuste_stock in ('PRO', 'CAN'):
+            return [i.name for i in self.model._meta.fields] + \
+                   [i.name for i in self.model._meta.many_to_many]
+        else:
+            return super(AjusteStockDetalleInline, self).get_readonly_fields(request, obj)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+class AjusteStockAdmin(admin.ModelAdmin):
+    form = AjusteStockForm
+
+    class Media:
+        js = [
+            'stock/js/ajuste_stock.js'
+        ]
+
+    readonly_fields = ['estado_ajuste', 'usuario_registra_ajuste', 'fecha_hora_registro_ajuste']
+
+    # raw_id_fields = ['producto_transferencia']
+
+    fieldsets = [
+        ('Deposito', {'fields': ['deposito']}),
+        ('Otros datos del Ajuste de Inventario', {'fields': ['estado_ajuste', 'usuario_registra_ajuste', 'fecha_hora_registro_ajuste']}),
+    ]
+
+    inlines = [AjusteStockDetalleInline]
+
+    list_display = ['id', 'deposito', 'fecha_hora_registro_ajuste', 'usuario_registra_ajuste', 'colorea_estado_ajuste']
+    list_filter = ['id', 'deposito', 'fecha_hora_registro_ajuste', 'usuario_registra_ajuste', 'estado_ajuste']
+    search_fields = ['id', 'deposito__descripcion', 'fecha_hora_registro_ajuste', 'usuario_registra_ajuste__usuario__username',
+                     'estado_ajuste__estado_ajuste_stock']
+
+    def colorea_estado_ajuste(self, obj):
+        # color = 'black'
+        if obj.estado_ajuste.estado_ajuste_stock == 'PRO':
+            color = 'green'
+            return format_html('<span style="color: %s"><b> %s </b></span>' %
+                               (color, obj.estado_ajuste.get_estado_ajuste_stock_display()))
+        elif obj.estado_ajuste.estado_ajuste_stock == 'CAN':
+            color = 'orange'
+            return format_html('<span style="color: %s"><b> %s </b></span>' %
+                               (color, obj.estado_ajuste.get_estado_ajuste_stock_display()))
+        elif obj.estado_ajuste.estado_ajuste_stock == 'PEN':
+            color = 'red'
+            return format_html('<span style="color: %s"><b> %s </b></span>' %
+                               (color, obj.estado_ajuste.get_estado_ajuste_stock_display()))
+        return obj.estado_ajuste
+    colorea_estado_ajuste.short_description = 'Estado Ajuste de Inventario'
+
+    def save_model(self, request, obj, form, change):
+
+        import pdb
+        pdb.set_trace()
+
+        ajuste_stock_actual = obj
+
+        if "_continue" in request.POST:
+            ajuste_stock_actual.estado_ajuste = AjusteStockEstado.objects.get(estado_ajuste_stock='PEN')
+            ajuste_stock_actual.usuario_registra_ajuste = Empleado.objects.get(usuario_id=request.user)
+            # ajuste_stock_actual.fecha_hora_registro_ajuste = timezone.now()
+
+        elif "_cancel" in request.POST:
+            ajuste_stock_actual.estado_ajuste = AjusteStockEstado.objects.get(estado_ajuste_stock='CAN')
+            ajuste_stock_actual.motivo_cancelacion = request.POST.get('motivo', '')
+            ajuste_stock_actual.observaciones_cancelacion = request.POST.get('observaciones', '')
+            ajuste_stock_actual.usuario_cancelacion = Empleado.objects.get(usuario_id=request.user)
+            ajuste_stock_actual.fecha_hora_cancelacion = timezone.now()
+
+        elif "_save" in request.POST:
+            ajuste_stock_actual.estado_ajuste = AjusteStockEstado.objects.get(estado_ajuste_stock='PRO')
+            ajuste_stock_actual.usuario_registra_ajuste = Empleado.objects.get(usuario_id=request.user)
+
+        super(AjusteStockAdmin, self).save_model(request, obj, form, change)
+
+    def save_formset(self, request, form, formset, change):
+
+        import pdb
+        pdb.set_trace()
+
+        ajuste_stock_actual = form.instance
+
+        if "_continue" in request.POST:
+
+            if not change:
+                AjusteStockDetalle.objects.filter(ajuste_stock_id=ajuste_stock_actual.id).delete()
+                print 'ajuste_stock_detalle_a_eliminar: ', AjusteStockDetalle.objects.filter(ajuste_stock_id=ajuste_stock_actual.id)
+
+                for stock_deposito in StockDepositoAjusteInventario.objects.filter(deposito_id=ajuste_stock_actual.deposito.id):
+                    unidad_medida_producto_id = 0
+                    producto = Producto.objects.get(pk=stock_deposito.id)
+                    if producto.tipo_producto == 'VE':
+                        unidad_medida_producto_id = producto.unidad_medida_compra.id
+                    elif producto.tipo_producto == 'IN':
+                        unidad_medida_producto_id = producto.unidad_medida_contenido.id
+                    ajuste_stock_detalle = AjusteStockDetalle(ajuste_stock_id=ajuste_stock_actual.id,
+                                                              producto_ajuste_id=stock_deposito.id,
+                                                              unidad_medida_id=unidad_medida_producto_id,
+                                                              cantidad_existente_producto=stock_deposito.cantidad_existente,
+                                                              ajustar=False,
+                                                              cantidad_ajustar_producto=None,
+                                                              motivo_ajuste=None)
+                    ajuste_stock_detalle.save()
+            super(AjusteStockAdmin, self).save_formset(request, form, formset, change)
+
+        # Si se CANCELA la Orden de Pago se asigna el estado "CAN" a la Orden de Pago y se marcan como
+        # "procesado = False" a los registros del formset
+        elif "_cancel" in request.POST:
+            # formset.save(commit=False)
+            # for form in formset:
+            #     factura_orden_pago_detalle = form.instance
+            #     if factura_orden_pago_detalle.procesado is not True:
+            #         factura_orden_pago_detalle.delete()
+            #     elif factura_orden_pago_detalle.procesado is True:
+            #         factura_orden_pago_detalle.procesado = False
+            super(AjusteStockAdmin, self).save_formset(request, form, formset, change)
+
+        # Si se confirma la Orden de Pago se asigna el estado "CON" a la Orden de Pago, el estado "PAG" a las
+        # facturas en el formset y se deben generar registros de pagos en PagoProveedor para las facturas afectadas.
+        # Generar tambien el registro correspondiente en la Linea de Credito.
+        # Solo se debe guardar en el detalle de la Orden de Pago la Factura que fue checkeada en la casilla "Procesar"
+        elif "_save" in request.POST:  # and compra_actual.estado_compra.estado_compra == 'CON':
+            formset.save(commit=False)
+            for form in formset:
+                ajuste_stock_actual_detalle = form.instance
+                if ajuste_stock_actual_detalle.ajustar is True:
+                    cant_saliente = 0
+                    cant_entrante = 0
+                    if ajuste_stock_actual_detalle.cantidad_existente_producto > ajuste_stock_actual_detalle.cantidad_ajustar_producto:
+                        cant_saliente = ajuste_stock_actual_detalle.cantidad_existente_producto - ajuste_stock_actual_detalle.cantidad_ajustar_producto
+                    elif ajuste_stock_actual_detalle.cantidad_existente_producto < ajuste_stock_actual_detalle.cantidad_ajustar_producto:
+                        cant_entrante = ajuste_stock_actual_detalle.cantidad_ajustar_producto - ajuste_stock_actual_detalle.cantidad_existente_producto
+                    stock = MovimientoStock(producto_stock_id=ajuste_stock_actual_detalle.producto_ajuste.id,
+                                            tipo_movimiento='AI',
+                                            id_movimiento=ajuste_stock_actual.id,
+                                            ubicacion_origen=ajuste_stock_actual.deposito,
+                                            ubicacion_destino=ajuste_stock_actual.deposito,
+                                            cantidad_entrante=cant_entrante,
+                                            cantidad_saliente=cant_saliente,
+                                            fecha_hora_registro_stock=timezone.now())
+                    stock.save()
+            super(AjusteStockAdmin, self).save_formset(request, form, formset, change)
+
+    def get_readonly_fields(self, request, obj=None):
+
+        # import pdb
+        # pdb.set_trace()
+
+        # if obj is not None and obj.estado_transferencia.estado_transferencia_stock == 'PEN':
+        #     return self.readonly_fields
+        if obj is not None and obj.estado_ajuste.estado_ajuste_stock in ('PRO', 'CAN', 'PEN'):
+            return [i.name for i in self.model._meta.fields] + \
+                   [i.name for i in self.model._meta.many_to_many]
+        else:
+            return super(AjusteStockAdmin, self).get_readonly_fields(request, obj)
+
+    def changeform_view(self, request, object_id=None, form_url='', extra_context=None):
+        extra_context = extra_context or {}
+
+        extra_context['show_button'] = True
+        if object_id is not None:
+            ajuste = AjusteStock.objects.get(pk=object_id)
+
+            if ajuste.estado_ajuste.estado_ajuste_stock == 'PEN':
+                extra_context['show_save_button'] = True
+                extra_context['show_continue_button'] = True
+                # extra_context['show_change_button'] = False
+                extra_context['show_cancel_button'] = True
+                extra_context['show_imprimir_button'] = False
+            elif ajuste.estado_ajuste.estado_ajuste_stock == 'CAN':
+                extra_context['show_save_button'] = False
+                extra_context['show_continue_button'] = False
+                # extra_context['show_change_button'] = False
+                extra_context['show_cancel_button'] = False
+                extra_context['show_imprimir_button'] = False
+            elif ajuste.estado_ajuste.estado_ajuste_stock == 'PRO':
+                extra_context['show_save_button'] = False
+                extra_context['show_continue_button'] = False
+                # extra_context['show_change_button'] = False
+                extra_context['show_cancel_button'] = False
+                extra_context['show_imprimir_button'] = True
+
+        elif object_id is None:
+            extra_context['show_save_button'] = True
+            extra_context['show_continue_button'] = True
+            # extra_context['show_change_button'] = False
+            extra_context['show_cancel_button'] = False
+            extra_context['show_imprimir_button'] = False
+
+        return super(AjusteStockAdmin, self).changeform_view(request, object_id, form_url, extra_context)
+
+    def get_form(self, request, obj=None, **kwargs):
+        form = super(AjusteStockAdmin, self).get_form(request, obj=obj, **kwargs)
+
+        # if obj is None:
+        #     # usuario = Empleado.objects.get(usuario=request.user)
+        #     # form.base_fields['cajero'].initial = usuario
+        #     # form.base_fields['horario'].initial = usuario.horario
+        #     form.base_fields['mozo_pedido'].widget.attrs['readonly'] = True
+        #     form.base_fields['jornada'].widget.attrs['readonly'] = True
+        #     form.base_fields['jornada'].widget.attrs['style'] = 'width: 300px;'
+
+        form.request = request
+        return form
+
+    def _create_formsets(self, request, obj, change):
+        formsets, inline_instances = super(AjusteStockAdmin, self)._create_formsets(request, obj, change)
+        for formset in formsets:
+            formset.request = request
+        return formsets, inline_instances
+
+    # def has_add_permission(self, request):
+    #     return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
 # ======================================================================================================================
 
 admin.site.register(Producto, ProductoAdmin)
@@ -825,5 +1206,5 @@ admin.site.register(MovimientoStock, MovimientoStockAdmin)
 # admin.site.register(StockDeposito)
 admin.site.register(SolicitaTransferenciaStock, SolicitaTransferenciaStockAdmin)
 admin.site.register(ConfirmaTransferenciaStock, ConfirmaTransferenciaStockAdmin)
-admin.site.register(StockAjuste, StockAjusteAdmin)
+admin.site.register(AjusteStock, AjusteStockAdmin)
 # admin.site.register(Devolucion)

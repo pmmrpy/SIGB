@@ -92,7 +92,7 @@ def get_cant_existente_producto_por_deposito(request):
                 stock = None
 
             if producto is not None and stock is not None:
-                response_data.update({'producto': str(producto.producto)})
+                response_data.update({'producto': unicode(producto.producto)})
 
                 unidad_medida = UnidadMedidaProducto.objects.get(unidad_medida_producto='UN')
                 if producto.tipo_producto == 'VE':
@@ -108,7 +108,7 @@ def get_cant_existente_producto_por_deposito(request):
                 response_data.update({'cant_exist_dbi': str(stock.cant_exist_dbi)})
                 response_data.update({'cant_existente': str(stock.cant_existente)})
             elif producto is not None and stock is None:
-                response_data.update({'producto': str(producto.producto)})
+                response_data.update({'producto': unicode(producto.producto)})
                 response_data.update({'unidad_medida_id': ''})
                 response_data.update({'cant_exist_dce': '0'})
                 response_data.update({'cant_exist_dbp': '0'})

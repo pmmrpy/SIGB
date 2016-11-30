@@ -12,18 +12,12 @@ from django.utils import timezone
 from django.utils.html import format_html
 from bar.models import ReservaEstado, Mesa, MesaEstado, FacturaVenta, NumeroFacturaVenta, PedidoEstado, Sector, Deposito, \
     VentaEstado
-
-from .models import Pedido, PedidoDetalle, Venta, VentaDetalle, Comanda, AperturaCaja, CierreCaja
 from personal.models import Empleado, Horario
-
-# class PedidoDetalleAdmin(admin.ModelAdmin):
-#     list_display = ('id', 'pedido', 'producto_pedido', 'cantidad_producto_pedido')
-#     list_filter = ['id', 'pedido', 'producto_pedido', 'cantidad_producto_pedido']
-#     search_fields = ['id', 'pedido', 'producto_pedido', 'cantidad_producto_pedido']
-from stock.models import ProductoCompuesto, ProductoVenta, MovimientoStock, ProductoCompuestoDetalle
+from stock.models import ProductoCompuesto, ProductoVenta, MovimientoStock, ProductoCompuestoDetalle, Producto, \
+    StockDepositoAjusteInventario
 from ventas.forms import AperturaCajaForm, VentaForm, PedidoForm, PedidoDetalleInlineForm, InicioJornadaForm, \
-    FinJornadaForm, CierreCajaForm, PedidoDetalleFormSet, CambiarJornada
-from ventas.models import VentaOcasionalDetalle, VentaOcasional, Jornada, InicioJornada, FinJornada
+    FinJornadaForm, CierreCajaForm, PedidoDetalleFormSet, CambiarJornada, VentaOcasionalDetalleForm
+from ventas.models import Pedido, PedidoDetalle, Venta, VentaDetalle, Comanda, AperturaCaja, CierreCaja, VentaOcasionalDetalle, VentaOcasional, Jornada, InicioJornada, FinJornada
 
 
 class PedidoDetalleInline(admin.TabularInline):
@@ -222,8 +216,8 @@ class PedidoAdmin(admin.ModelAdmin):
         # Solo se puede CANCELAR el Pedido si no existen Productos con estado Procesado en el detalle.
         elif "_cancel" in request.POST:
 
-            import pdb
-            pdb.set_trace()
+            # import pdb
+            # pdb.set_trace()
 
             # Cambiar el estado de la Reserva dependiendo de la fecha/hora
             if pedido_actual.reserva:
@@ -332,21 +326,285 @@ class PedidoAdmin(admin.ModelAdmin):
         # if not change:
         # formset.save(commit=False)
         if "_continue" in request.POST or "_save" in request.POST:
+            for form2 in formset:
+                # import pdb; pdb.set_trace()
+                valido = True
+                try:
+                     form2.clean()
+                except:
+                    valido = False
+
+                if valido:
+                    pedido_detalle = form2.instance
+                    # import pdb; pdb.set_trace()
+
+                    if pedido_detalle.pk:
+                        pedido_detalle_guardado = PedidoDetalle.objects.get(pk=pedido_detalle.id)
+                        # form.cleaned_data['nro_orden_compra']
+
+                    # Si el checkbox "cancelado" esta marcado ya sea con pedido_detalle.pk o sin pedido_detalle.pk debe
+                    # cancelar ese Producto, marcar la Comanda como cancelada y reponer el Stock.
+                    if pedido_detalle.pk and pedido_detalle.procesado is False and pedido_detalle.cancelado is True and pedido_detalle_guardado.cancelado is False \
+                            or not pedido_detalle.pk and pedido_detalle.procesado is False and pedido_detalle.cancelado is True:
+
+                        # Si el detalle no esta guardado no se deben devolver los Productos descontados al Stock.
+                        if pedido_detalle.pk:
+
+                            # Verificar si existe una Comanda y marcarla como cancelado
+                            try:
+                                comanda = Comanda.objects.get(id_pedido_detalle_id=pedido_detalle.id)
+                                comanda.estado_comanda = 'CAN'
+                                comanda.save()
+
+                                # 23/11/2016: Devolver los Productos descontados al Stock
+
+                            except ObjectDoesNotExist:
+                                # Si no existe la Comanda no es necesario crearla
+                                comanda = Comanda(numero_pedido_id=pedido_detalle_guardado.pedido_id,
+                                                  id_pedido_detalle_id=pedido_detalle_guardado.id,
+                                                  area_solicitante=Sector.objects.get(sector=pedido_detalle_guardado.pedido.mozo_pedido.sector.sector),
+                                                  usuario_solicitante=Empleado.objects.get(usuario_id=request.user),
+                                                  producto_a_entregar=ProductoVenta.objects.get(id=pedido_detalle_guardado.producto_pedido.id),
+                                                  cantidad_solicitada=pedido_detalle_guardado.cantidad_producto_pedido,
+                                                  area_encargada=Sector.objects.get(sector=pedido_detalle_guardado.pedido.mozo_pedido.sector.sector),
+                                                  fecha_hora_pedido_comanda=timezone.now(),
+                                                  tiempo_estimado_procesamiento=pedido_detalle_guardado.producto_pedido.tiempo_elaboracion,
+                                                  estado_comanda='CAN')
+                                comanda.save()
+
+                            # # Se asume que las Comandas deben existir indefectiblemente porque tuvieron que ser creadas al
+                            # # momento de guardar el PedidoDetalle.
+                            # comanda = Comanda.objects.get(id_pedido_detalle_id=pedido_detalle.id)
+                            # comanda.estado_comanda = 'CAN'
+                            # comanda.save()
+
+                            # 23/11/2016: Devolver los Productos descontados al Stock
+                            movimientos_stock_por_detalle_pedido = MovimientoStock.objects.filter(id_movimiento=pedido_detalle.id)
+                            for movimiento in movimientos_stock_por_detalle_pedido:
+                                stock = MovimientoStock(producto_stock_id=movimiento.producto_stock.id,
+                                                        tipo_movimiento='CP',
+                                                        id_movimiento=pedido_detalle.id,
+                                                        ubicacion_origen=movimiento.ubicacion_destino,
+                                                        ubicacion_destino=movimiento.ubicacion_origen,
+                                                        cantidad_entrante=movimiento.cantidad_saliente,
+                                                        cantidad_saliente=movimiento.cantidad_entrante,
+                                                        fecha_hora_registro_stock=timezone.now())
+                                stock.save()
+
+                        pedido_detalle.cancelado = True
+
+                        # # Un pedido_detalle que aun no ha sido guardado no debe tener una Comanda asignada ni tuvo que
+                        # # haber descontado los Productos del Stock.
+                        # if not pedido_detalle.pk:
+
+                    # Si el checkbox "cancelado" esta DESmarcado ya sea con pedido_detalle.pk o sin pedido_detalle.pk debe
+                    # cancelar ese Producto y reponer el Stock.
+                    elif not pedido_detalle.pk and pedido_detalle.procesado is False and pedido_detalle.cancelado is False:
+                        # super(PedidoAdmin, self).save_formset(request, form, formset, change)
+                        pedido_detalle.pedido_id = pedido.numero_pedido
+                        # import pdb
+                        # pdb.set_trace()
+                        if pedido_detalle.producto_pedido:
+                           pedido_detalle.save()  # Graba el pedido_detalle para asi poder acceder a los datos del registro actual mediante "pedido_detalle.campo"
+
+                        # De acuerdo a la Categoria del Producto se debe definir el "area_encargada" (Sector) para la Comanda
+                        # Comandas para la COCINA
+                        if pedido_detalle.producto_pedido.compuesto is True \
+                                and pedido_detalle.producto_pedido.categoria.categoria == 'CO':
+                            if pedido.mozo_pedido.usuario.is_superuser is True:
+                                solicitante = Sector.objects.get(sector='BPR')
+                            else:
+                                solicitante = Sector.objects.get(sector=pedido.mozo_pedido.sector.sector)
+                            encargado = Sector.objects.get(sector='COC')
+
+                        # # Los Tragos son procesados por la Barra Principal
+                        # elif venta_detalle.producto_venta.compuesto is True \
+                        #         and venta_detalle.producto_venta.categoria.categoria == 'BE':
+                        #         # and venta_detalle.producto_venta.subcategoria.subcategoria == 'TRA':
+                        #     encargado = Sector.objects.get(sector='BPR')
+
+                        # Finalmente se define que todos los Sectores pueden procesar todos los pedidos sin importar la Categoria
+                        # y SubCategoria del Producto a excepcion de las Comidas por lo tanto la condicion para definir el
+                        # "area_encargada" depende del sector al cual esta asignado el Mozo/Barman.
+                        elif pedido.mozo_pedido.usuario.is_superuser is True:
+                            solicitante = Sector.objects.get(sector='BPR')
+                            encargado = Sector.objects.get(sector='BPR')
+                        else:
+                            solicitante = Sector.objects.get(sector=pedido.mozo_pedido.sector.sector)
+                            encargado = Sector.objects.get(sector=pedido.mozo_pedido.sector.sector)
+
+                        # Genera la Comanda
+                        comanda = Comanda(numero_pedido_id=pedido.numero_pedido,
+                                          id_pedido_detalle_id=pedido_detalle.id,
+                                          area_solicitante=solicitante,
+                                          usuario_solicitante=Empleado.objects.get(usuario_id=request.user),
+                                          # producto_a_entregar=ProductoVenta.objects.get(id=pedido_detalle.producto_pedido.id),
+                                          producto_a_entregar=pedido_detalle.producto_pedido,
+                                          cantidad_solicitada=pedido_detalle.cantidad_producto_pedido,
+                                          area_encargada=encargado,
+                                          fecha_hora_pedido_comanda=timezone.now(),
+                                          tiempo_estimado_procesamiento=pedido_detalle.producto_pedido.tiempo_elaboracion,
+                                          estado_comanda='PEN')
+                        comanda.save()
+
+        # ==================================================================================================================
+        # 23/11/2016: Finalmente decidi confirmar los descuentos del Stock o generacion de Movimientos de Stock al
+        # momento de confirmar las VentasOcasionales o los Pedidos, esto con el fin de evitar un gap de tiempo entre
+        # que se hace un Pedido y se procesa una Comanda lo cual puede reflejar un Stock incorrecto. Se debe garantizar
+        # la disponibilidad de los Productos/Insumos para los Pedidos ya realizados.
+        # Con esto hay que prever que al momento de Cancelar un Pedido se deben volver a sumar los Productos al Stock.
+        # En las VentasOcasionales no sera necesario realizar esta reversion.
+        # ==================================================================================================================
+
+                        # import pdb
+                        # pdb.set_trace()
+
+                        # Descuenta los Productos del Stock. Analiza si el Producto es COMPUESTO y de acuerdo a la
+                        # Categoria genera el Movimiento de Stock
+                        if pedido_detalle.producto_pedido.compuesto is True:
+                            if pedido_detalle.producto_pedido.categoria.categoria == 'CO':
+                                deposito = Deposito.objects.get(deposito='DCO')
+                                prod_comp_detalle = ProductoCompuestoDetalle.objects.filter(producto_compuesto_id=pedido_detalle.producto_pedido.id)
+
+                                for producto_insumo in prod_comp_detalle:
+                                # Recorrer los Insumos para determinar el ProductoInsumo del cual se descontara el Stock.
+                                # =====> Se debe descontar del ProductoInsumo con menor Cantidad Existente. <=====
+                                    producto_menor_cant_existente = StockDepositoAjusteInventario.objects.none
+                                    menor_cant_exist_prod_insumo = 0
+                                    cantidad_descontada = 0
+                                    cantidad_a_descontar = producto_insumo.cantidad_insumo * pedido_detalle.cantidad_producto_pedido
+                                    while cantidad_descontada < cantidad_a_descontar:
+                                        productos = Producto.objects.filter(insumo_id=producto_insumo.insumo.id, tipo_producto='IN')
+                                        for producto in productos:
+                                            try:
+                                                prod_exist_deposito = StockDepositoAjusteInventario.objects.get(id=producto.id, deposito_id=deposito.id)
+                                                if prod_exist_deposito.cantidad_existente > 0:
+                                                    if producto == productos.first():
+                                                        menor_cant_exist_prod_insumo = prod_exist_deposito.cantidad_existente
+                                                        producto_menor_cant_existente = prod_exist_deposito
+                                                    elif menor_cant_exist_prod_insumo < prod_exist_deposito.cantidad_existente:
+                                                        menor_cant_exist_prod_insumo = prod_exist_deposito.cantidad_existente
+                                                        producto_menor_cant_existente = prod_exist_deposito
+
+                                            except StockDepositoAjusteInventario.DoesNotExist:
+                                                pass
+
+                                        if producto_menor_cant_existente.cantidad_existente < (cantidad_a_descontar - cantidad_descontada):
+                                            stock = MovimientoStock(producto_stock_id=producto_menor_cant_existente.id,
+                                                                    tipo_movimiento='VE',
+                                                                    id_movimiento=pedido_detalle.id,
+                                                                    ubicacion_origen=encargado.deposito,
+                                                                    ubicacion_destino=Deposito.objects.get(deposito='CLI'),
+                                                                    cantidad_entrante=0,
+                                                                    cantidad_saliente=producto_menor_cant_existente.cantidad_existente,
+                                                                    fecha_hora_registro_stock=timezone.now())
+                                            stock.save()
+                                            cantidad_descontada += producto_menor_cant_existente.cantidad_existente
+                                            # pedido_detalle.id_mov_stock = stock.id
+                                        elif producto_menor_cant_existente.cantidad_existente >= (cantidad_a_descontar - cantidad_descontada):
+                                            stock = MovimientoStock(producto_stock_id=producto_menor_cant_existente.id,
+                                                                    tipo_movimiento='VE',
+                                                                    id_movimiento=pedido_detalle.id,
+                                                                    ubicacion_origen=encargado.deposito,
+                                                                    ubicacion_destino=Deposito.objects.get(deposito='CLI'),
+                                                                    cantidad_entrante=0,
+                                                                    cantidad_saliente=(cantidad_a_descontar - cantidad_descontada),
+                                                                    fecha_hora_registro_stock=timezone.now())
+                                            stock.save()
+                                            cantidad_descontada += (cantidad_a_descontar - cantidad_descontada)
+                                            # pedido_detalle.id_mov_stock = stock.id
+
+                            elif pedido_detalle.producto_pedido.categoria.categoria == 'BE':
+                                deposito = encargado.deposito
+                                prod_comp_detalle = ProductoCompuestoDetalle.objects.filter(producto_compuesto_id=pedido_detalle.producto_pedido.id)
+
+                                for producto_insumo in prod_comp_detalle:
+                                # Recorrer los Insumos para determinar el ProductoInsumo del cual se descontara el Stock.
+                                # =====> Se debe descontar del ProductoInsumo con menor Cantidad Existente. <=====
+                                    producto_menor_cant_existente = StockDepositoAjusteInventario.objects.none
+                                    menor_cant_exist_prod_insumo = 0
+                                    cantidad_descontada = 0
+                                    cantidad_a_descontar = producto_insumo.cantidad_insumo * pedido_detalle.cantidad_producto_pedido
+                                    while cantidad_descontada < cantidad_a_descontar:
+                                        productos = Producto.objects.filter(insumo_id=producto_insumo.insumo.id, tipo_producto='IN')
+                                        for producto in productos:
+                                            try:
+                                                prod_exist_deposito = StockDepositoAjusteInventario.objects.get(id=producto.id, deposito_id=deposito.id)
+                                                if prod_exist_deposito.cantidad_existente > 0:
+                                                    if producto == productos.first():
+                                                        menor_cant_exist_prod_insumo = prod_exist_deposito.cantidad_existente
+                                                        producto_menor_cant_existente = prod_exist_deposito
+                                                    elif menor_cant_exist_prod_insumo < prod_exist_deposito.cantidad_existente:
+                                                        menor_cant_exist_prod_insumo = prod_exist_deposito.cantidad_existente
+                                                        producto_menor_cant_existente = prod_exist_deposito
+
+                                            except StockDepositoAjusteInventario.DoesNotExist:
+                                                pass
+
+                                        if producto_menor_cant_existente.cantidad_existente < (cantidad_a_descontar - cantidad_descontada):
+                                            stock = MovimientoStock(producto_stock_id=producto_menor_cant_existente.id,
+                                                                    tipo_movimiento='VE',
+                                                                    id_movimiento=pedido_detalle.id,
+                                                                    ubicacion_origen=encargado.deposito,
+                                                                    ubicacion_destino=Deposito.objects.get(deposito='CLI'),
+                                                                    cantidad_entrante=0,
+                                                                    cantidad_saliente=producto_menor_cant_existente.cantidad_existente,
+                                                                    fecha_hora_registro_stock=timezone.now())
+                                            stock.save()
+                                            cantidad_descontada += producto_menor_cant_existente.cantidad_existente
+                                            # pedido_detalle.id_mov_stock = stock.id
+                                        elif producto_menor_cant_existente.cantidad_existente >= (cantidad_a_descontar - cantidad_descontada):
+                                            stock = MovimientoStock(producto_stock_id=producto_menor_cant_existente.id,
+                                                                    tipo_movimiento='VE',
+                                                                    id_movimiento=pedido_detalle.id,
+                                                                    ubicacion_origen=encargado.deposito,
+                                                                    ubicacion_destino=Deposito.objects.get(deposito='CLI'),
+                                                                    cantidad_entrante=0,
+                                                                    cantidad_saliente=(cantidad_a_descontar - cantidad_descontada),
+                                                                    fecha_hora_registro_stock=timezone.now())
+                                            stock.save()
+                                            cantidad_descontada += (cantidad_a_descontar - cantidad_descontada)
+                                            # pedido_detalle.id_mov_stock = stock.id
+
+                        elif pedido_detalle.producto_pedido.compuesto is False:
+                            stock = MovimientoStock(producto_stock_id=pedido_detalle.producto_pedido.id,
+                                                    tipo_movimiento='VE',
+                                                    id_movimiento=pedido_detalle.id,
+                                                    ubicacion_origen=encargado.deposito,
+                                                    ubicacion_destino=Deposito.objects.get(deposito='CLI'),
+                                                    cantidad_entrante=0,
+                                                    cantidad_saliente=pedido_detalle.cantidad_producto_pedido,
+                                                    fecha_hora_registro_stock=timezone.now())
+                            stock.save()
+                            # pedido_detalle.id_mov_stock = stock.id
+
+        elif "_cancel" in request.POST:
+
+            # import pdb
+            # pdb.set_trace()
+
             for form in formset:
                 pedido_detalle = form.instance
+
                 if pedido_detalle.pk:
                     pedido_detalle_guardado = PedidoDetalle.objects.get(pk=pedido_detalle.id)
                     # form.cleaned_data['nro_orden_compra']
 
-                if pedido_detalle.pk and pedido_detalle.procesado is False and pedido_detalle.cancelado is True \
-                        and pedido_detalle_guardado.cancelado is False or not pedido_detalle.pk \
-                        and pedido_detalle.procesado is False and pedido_detalle.cancelado is True:
+                # Si el checkbox "cancelado" esta marcado ya sea con pedido_detalle.pk o sin pedido_detalle.pk debe
+                # cancelar ese Producto, marcar la Comanda como cancelada y reponer el Stock.
+                # if pedido_detalle.pk and pedido_detalle.procesado is False and pedido_detalle.cancelado is False and pedido_detalle_guardado.cancelado is False:
+                if pedido_detalle.pk and pedido_detalle_guardado.cancelado is False:
+
                     # Verificar si existe una Comanda y marcarla como cancelado
                     try:
                         comanda = Comanda.objects.get(id_pedido_detalle_id=pedido_detalle.id)
                         comanda.estado_comanda = 'CAN'
                         comanda.save()
+
+                        # 23/11/2016: Devolver los Productos descontados al Stock
+
                     except ObjectDoesNotExist:
+                        # Si no existe la Comanda no es necesario crearla
                         comanda = Comanda(numero_pedido_id=pedido_detalle_guardado.pedido_id,
                                           id_pedido_detalle_id=pedido_detalle_guardado.id,
                                           area_solicitante=Sector.objects.get(sector=pedido_detalle_guardado.pedido.mozo_pedido.sector.sector),
@@ -359,82 +617,34 @@ class PedidoAdmin(admin.ModelAdmin):
                                           estado_comanda='CAN')
                         comanda.save()
 
+                    # # Se asume que las Comandas deben existir indefectiblemente porque tuvieron que ser creadas al
+                    # # momento de guardar el PedidoDetalle.
+                    # comanda = Comanda.objects.get(id_pedido_detalle_id=pedido_detalle.id)
+                    # comanda.estado_comanda = 'CAN'
+                    # comanda.save()
+
+                    # 23/11/2016: Devolver los Productos descontados al Stock
+                    movimientos_stock_por_detalle_pedido = MovimientoStock.objects.filter(id_movimiento=pedido_detalle.id)
+                    for movimiento in movimientos_stock_por_detalle_pedido:
+                        stock = MovimientoStock(producto_stock_id=movimiento.producto_stock.id,
+                                                tipo_movimiento='CP',
+                                                id_movimiento=pedido_detalle.id,
+                                                ubicacion_origen=movimiento.ubicacion_destino,
+                                                ubicacion_destino=movimiento.ubicacion_origen,
+                                                cantidad_entrante=movimiento.cantidad_saliente,
+                                                cantidad_saliente=movimiento.cantidad_entrante,
+                                                fecha_hora_registro_stock=timezone.now())
+                        stock.save()
+
+                    pedido_detalle.procesado = False
                     pedido_detalle.cancelado = True
 
-                elif not pedido_detalle.pk and pedido_detalle.procesado is False and pedido_detalle.cancelado is False:
-                    # super(PedidoAdmin, self).save_formset(request, form, formset, change)
-                    pedido_detalle.pedido_id = pedido.numero_pedido
-                    pedido_detalle.save()
-                    # De acuerdo a la Categoria del Producto se debe definir el "area_encargada" (Sector) para la Comanda
-                    # Comandas para la COCINA
-                    if pedido_detalle.producto_pedido.compuesto is True \
-                            and pedido_detalle.producto_pedido.categoria.categoria == 'CO':
-                        if pedido.mozo_pedido.usuario.is_superuser is True:
-                            solicitante = Sector.objects.get(sector='BPR')
-                        else:
-                            solicitante = Sector.objects.get(sector=pedido.mozo_pedido.sector.sector)
-                        encargado = Sector.objects.get(sector='COC')
-
-                    # # Los Tragos son procesados por la Barra Principal
-                    # elif venta_detalle.producto_venta.compuesto is True \
-                    #         and venta_detalle.producto_venta.categoria.categoria == 'BE':
-                    #         # and venta_detalle.producto_venta.subcategoria.subcategoria == 'TRA':
-                    #     encargado = Sector.objects.get(sector='BPR')
-
-                    # Finalmente se define que todos los Sectores pueden procesar todos los pedidos sin importar la Categoria
-                    # y SubCategoria del Producto a excepcion de las Comidas por lo tanto la condicion para definir el
-                    # "area_encargada" depende del sector al cual esta asignado el Mozo/Barman.
-                    elif pedido.mozo_pedido.usuario.is_superuser is True:
-                        solicitante = Sector.objects.get(sector='BPR')
-                        encargado = Sector.objects.get(sector='BPR')
-                    else:
-                        solicitante = Sector.objects.get(sector=pedido.mozo_pedido.sector.sector)
-                        encargado = Sector.objects.get(sector=pedido.mozo_pedido.sector.sector)
-
-                    comanda = Comanda(numero_pedido_id=pedido.numero_pedido,
-                                      id_pedido_detalle_id=pedido_detalle.id,
-                                      area_solicitante=solicitante,
-                                      usuario_solicitante=Empleado.objects.get(usuario_id=request.user),
-                                      producto_a_entregar=ProductoVenta.objects.get(id=pedido_detalle.producto_pedido.id),
-                                      cantidad_solicitada=pedido_detalle.cantidad_producto_pedido,
-                                      area_encargada=encargado,
-                                      fecha_hora_pedido_comanda=timezone.now(),
-                                      tiempo_estimado_procesamiento=pedido_detalle.producto_pedido.tiempo_elaboracion,
-                                      estado_comanda='PEN')
-                    comanda.save()
-
-        elif "_cancel" in request.POST:
-
-            # import pdb
-            # pdb.set_trace()
-
-            for form in formset:
-                pedido_detalle = form.instance
-                if pedido_detalle.pk:
-                    pedido_detalle_guardado = PedidoDetalle.objects.get(pk=pedido_detalle.id)
-                    # form.cleaned_data['nro_orden_compra']
-
-                # Verificar si existe una Comanda y marcarla como cancelado
-                try:
-                    comanda = Comanda.objects.get(id_pedido_detalle_id=pedido_detalle.id)
-                    comanda.estado_comanda = 'CAN'
-                    comanda.save()
-                except ObjectDoesNotExist:
-                    # ====> Analizar si pedido_detalle_guardado tendra datos para el caso en que el pedido_detalle aun
-                    # no tenga un ID asignado
-                    comanda = Comanda(numero_pedido_id=pedido_detalle_guardado.pedido_id,
-                                      id_pedido_detalle_id=pedido_detalle_guardado.id,
-                                      area_solicitante=Sector.objects.get(sector=pedido_detalle_guardado.pedido.mozo_pedido.sector.sector),
-                                      usuario_solicitante=Empleado.objects.get(usuario_id=request.user),
-                                      producto_a_entregar=ProductoVenta.objects.get(id=pedido_detalle_guardado.producto_pedido.id),
-                                      cantidad_solicitada=pedido_detalle_guardado.cantidad_producto_pedido,
-                                      area_encargada=Sector.objects.get(sector=pedido_detalle_guardado.pedido.mozo_pedido.sector.sector),
-                                      fecha_hora_pedido_comanda=timezone.now(),
-                                      tiempo_estimado_procesamiento=pedido_detalle_guardado.producto_pedido.tiempo_elaboracion,
-                                      estado_comanda='CAN')
-                    comanda.save()
-
-                pedido_detalle.cancelado = True
+                # Un pedido_detalle que aun no ha sido guardado no debe tener una Comanda asignada ni tuvo que
+                # haber descontado los Productos del Stock. Solo se debe marcar como Cancelado el pedido_detalle.
+                # elif not pedido_detalle.pk and pedido_detalle.procesado is False and pedido_detalle.cancelado is False:
+                elif not pedido_detalle.pk:
+                    pedido_detalle.procesado = False
+                    pedido_detalle.cancelado = True
 
         super(PedidoAdmin, self).save_formset(request, form, formset, change)
 
@@ -674,49 +884,25 @@ class VentaAdmin(admin.ModelAdmin):
             pedido.estado_pedido = PedidoEstado.objects.get(pedido_estado='PRO')
             pedido.save()
 
+    # ==================================================================================================================
+            # 23/11/2016: Se asume que si el Cliente va pagar por la Venta es porque recibio todos los Productos que
+            # solicito por lo tanto se debe marcar como Procesado el detalle del Pedido y marcar las Comandas
+            # pendientes como procesadas. No se requiere restar del Stock porque esto ya fue realizado en el Pedido.
+            #
+            # Este proceso se puede realizar tanto en el metodo "save_model" trayendo los registros del PedidoDetalle
+            # tal como se hace a continuacion como tambien en el "save_formset" recorriendo VentaDetalle.
             detalle_pedido = PedidoDetalle.objects.filter(pedido_id=pedido.numero_pedido, procesado=False, cancelado=False)
             detalle_pedido.update(procesado=True)
 
             comandas = Comanda.objects.filter(numero_pedido_id=pedido.numero_pedido, estado_comanda='PEN')
             # comandas.update(estado_comanda='PRO', fecha_hora_procesamiento_comanda=timezone.now(), usuario_procesa=Empleado.objects.get(usuario_id=request.user))
 
-            # Marca como Procesado el detalle del Pedido y resta (descuenta) los productos del Stock.
             for q in comandas:
-                # Si el Producto es Compuesto se debe recorrer el detalle del ProductoCompuesto para poder descontar las
-                # cantidades de los Productos componentes.
-
-                if q.numero_pedido.mozo_pedido.usuario.is_superuser is True:
-                    origen = Deposito.objects.get(deposito='DBP')
-                else:
-                    origen = Deposito.objects.get(id=q.numero_pedido.mozo_pedido.sector.deposito_id)
-
-                if q.producto_a_entregar.compuesto is True:
-                    prod_comp_detalle = ProductoCompuestoDetalle.objects.filter(producto_compuesto=q.producto_a_entregar.id)
-                    for insumo in prod_comp_detalle:
-                        stock = MovimientoStock(producto_stock_id=insumo.producto_id,
-                                                tipo_movimiento='VE',
-                                                id_movimiento=q.numero_pedido.numero_pedido,
-                                                ubicacion_origen=origen,
-                                                ubicacion_destino=Deposito.objects.get(deposito='CLI'),
-                                                cantidad_entrante=0,
-                                                cantidad_saliente=insumo.cantidad_producto,
-                                                fecha_hora_registro_stock=timezone.now())
-                        stock.save()
-                else:
-                    stock = MovimientoStock(producto_stock_id=q.producto_a_entregar.id,
-                                            tipo_movimiento='VE',
-                                            id_movimiento=q.numero_pedido.numero_pedido,
-                                            ubicacion_origen=origen,
-                                            ubicacion_destino=Deposito.objects.get(deposito='CLI'),
-                                            cantidad_entrante=0,
-                                            cantidad_saliente=q.cantidad_solicitada,
-                                            fecha_hora_registro_stock=timezone.now())
-                    stock.save()
-
                 q.estado_comanda = 'PRO'
                 q.fecha_hora_procesamiento_comanda = timezone.now()
                 q.usuario_procesa = Empleado.objects.get(usuario_id=request.user)
                 q.save()
+    # ==================================================================================================================
 
             # Marcar las Mesas guardadas como DIsponibles.
             mesas_guardadas = pedido.mesa_pedido.all()
@@ -843,7 +1029,7 @@ class VentaOcasionalDetalleInline(admin.TabularInline):
     model = VentaOcasionalDetalle
     extra = 0
     min_num = 1
-    # form =
+    form = VentaOcasionalDetalleForm
     raw_id_fields = ['producto_venta']
     # verbose_name =
     # verbose_name_plural =
@@ -984,6 +1170,15 @@ class VentaOcasionalAdmin(admin.ModelAdmin):
                                            cancelado=False)
             pedido_detalle.save()
 
+    # ==================================================================================================================
+    # 23/11/2016: Finalmente decidi confirmar los descuentos del Stock o generacion de Movimientos de Stock al
+    # momento de confirmar las VentasOcasionales o los Pedidos, esto con el fin de evitar un gap de tiempo entre
+    # que se hace un Pedido y se procesa una Comanda lo cual puede reflejar un Stock incorrecto. Se debe garantizar
+    # la disponibilidad de los Productos/Insumos para los Pedidos ya realizados.
+    # Con esto hay que prever que al momento de Cancelar un Pedido se deben volver a sumar los Productos al Stock.
+    # En las VentasOcasionales no sera necesario realizar esta reversion.
+    # ==================================================================================================================
+
             # De acuerdo a la Categoria del Producto se debe definir el "area_encargada" (Sector) para la Comanda
             # encargado = Sector.objects.get(sector='COC')
             # Comandas para la COCINA
@@ -1015,14 +1210,135 @@ class VentaOcasionalAdmin(admin.ModelAdmin):
                               id_pedido_detalle_id=pedido_detalle.id,
                               area_solicitante=solicitante,
                               usuario_solicitante=Empleado.objects.get(usuario_id=request.user),
-                              producto_a_entregar=ProductoVenta.objects.get(id=venta_detalle.producto_venta.id),
+                              # producto_a_entregar=ProductoVenta.objects.get(id=venta_detalle.producto_venta.id),
+                              producto_a_entregar=venta_detalle.producto_venta,
                               cantidad_solicitada=venta_detalle.cantidad_producto_venta,
                               area_encargada=encargado,
                               fecha_hora_pedido_comanda=timezone.now(),
                               tiempo_estimado_procesamiento=venta_detalle.producto_venta.tiempo_elaboracion,
                               estado_comanda='PEN')
             comanda.save()
-        # elif:
+
+            # import pdb
+            # pdb.set_trace()
+
+            # Descuenta los Productos del Stock. Analiza si el Producto es COMPUESTO y de acuerdo a la
+            # Categoria genera el Movimiento de Stock
+            if pedido_detalle.producto_pedido.compuesto is True:
+                if pedido_detalle.producto_pedido.categoria.categoria == 'CO':
+                    deposito = Deposito.objects.get(deposito='DCO')
+                    prod_comp_detalle = ProductoCompuestoDetalle.objects.filter(producto_compuesto_id=pedido_detalle.producto_pedido.id)
+
+                    for producto_insumo in prod_comp_detalle:
+                    # Recorrer los Insumos para determinar el ProductoInsumo del cual se descontara el Stock.
+                    # =====> Se debe descontar del ProductoInsumo con menor Cantidad Existente. <=====
+                        producto_menor_cant_existente = StockDepositoAjusteInventario.objects.none
+                        menor_cant_exist_prod_insumo = 0
+                        cantidad_descontada = 0
+                        cantidad_a_descontar = producto_insumo.cantidad_insumo * pedido_detalle.cantidad_producto_pedido
+                        while cantidad_descontada < cantidad_a_descontar:
+                            productos = Producto.objects.filter(insumo_id=producto_insumo.insumo.id, tipo_producto='IN')
+                            for producto in productos:
+                                try:
+                                    prod_exist_deposito = StockDepositoAjusteInventario.objects.get(id=producto.id, deposito_id=deposito.id)
+                                    if prod_exist_deposito.cantidad_existente > 0:
+                                        if producto == productos.first():
+                                            menor_cant_exist_prod_insumo = prod_exist_deposito.cantidad_existente
+                                            producto_menor_cant_existente = prod_exist_deposito
+                                        elif menor_cant_exist_prod_insumo < prod_exist_deposito.cantidad_existente:
+                                            menor_cant_exist_prod_insumo = prod_exist_deposito.cantidad_existente
+                                            producto_menor_cant_existente = prod_exist_deposito
+
+                                except StockDepositoAjusteInventario.DoesNotExist:
+                                    pass
+
+                            if producto_menor_cant_existente.cantidad_existente < (cantidad_a_descontar - cantidad_descontada):
+                                stock = MovimientoStock(producto_stock_id=producto_menor_cant_existente.id,
+                                                        tipo_movimiento='VE',
+                                                        id_movimiento=pedido_detalle.id,
+                                                        ubicacion_origen=encargado.deposito,
+                                                        ubicacion_destino=Deposito.objects.get(deposito='CLI'),
+                                                        cantidad_entrante=0,
+                                                        cantidad_saliente=producto_menor_cant_existente.cantidad_existente,
+                                                        fecha_hora_registro_stock=timezone.now())
+                                stock.save()
+                                cantidad_descontada += producto_menor_cant_existente.cantidad_existente
+                                # pedido_detalle.id_mov_stock = stock.id
+                            elif producto_menor_cant_existente.cantidad_existente >= (cantidad_a_descontar - cantidad_descontada):
+                                stock = MovimientoStock(producto_stock_id=producto_menor_cant_existente.id,
+                                                        tipo_movimiento='VE',
+                                                        id_movimiento=pedido_detalle.id,
+                                                        ubicacion_origen=encargado.deposito,
+                                                        ubicacion_destino=Deposito.objects.get(deposito='CLI'),
+                                                        cantidad_entrante=0,
+                                                        cantidad_saliente=(cantidad_a_descontar - cantidad_descontada),
+                                                        fecha_hora_registro_stock=timezone.now())
+                                stock.save()
+                                cantidad_descontada += (cantidad_a_descontar - cantidad_descontada)
+                                # pedido_detalle.id_mov_stock = stock.id
+
+                elif pedido_detalle.producto_pedido.categoria.categoria == 'BE':
+                    deposito = encargado.deposito
+                    prod_comp_detalle = ProductoCompuestoDetalle.objects.filter(producto_compuesto_id=pedido_detalle.producto_pedido.id)
+
+                    for producto_insumo in prod_comp_detalle:
+                    # Recorrer los Insumos para determinar el ProductoInsumo del cual se descontara el Stock.
+                    # =====> Se debe descontar del ProductoInsumo con menor Cantidad Existente. <=====
+                        producto_menor_cant_existente = StockDepositoAjusteInventario.objects.none
+                        menor_cant_exist_prod_insumo = 0
+                        cantidad_descontada = 0
+                        cantidad_a_descontar = producto_insumo.cantidad_insumo * pedido_detalle.cantidad_producto_pedido
+                        while cantidad_descontada < cantidad_a_descontar:
+                            productos = Producto.objects.filter(insumo_id=producto_insumo.insumo.id, tipo_producto='IN')
+                            for producto in productos:
+                                try:
+                                    prod_exist_deposito = StockDepositoAjusteInventario.objects.get(id=producto.id, deposito_id=deposito.id)
+                                    if prod_exist_deposito.cantidad_existente > 0:
+                                        if producto == productos.first():
+                                            menor_cant_exist_prod_insumo = prod_exist_deposito.cantidad_existente
+                                            producto_menor_cant_existente = prod_exist_deposito
+                                        elif menor_cant_exist_prod_insumo < prod_exist_deposito.cantidad_existente:
+                                            menor_cant_exist_prod_insumo = prod_exist_deposito.cantidad_existente
+                                            producto_menor_cant_existente = prod_exist_deposito
+
+                                except StockDepositoAjusteInventario.DoesNotExist:
+                                    pass
+
+                            if producto_menor_cant_existente.cantidad_existente < (cantidad_a_descontar - cantidad_descontada):
+                                stock = MovimientoStock(producto_stock_id=producto_menor_cant_existente.id,
+                                                        tipo_movimiento='VE',
+                                                        id_movimiento=pedido_detalle.id,
+                                                        ubicacion_origen=encargado.deposito,
+                                                        ubicacion_destino=Deposito.objects.get(deposito='CLI'),
+                                                        cantidad_entrante=0,
+                                                        cantidad_saliente=producto_menor_cant_existente.cantidad_existente,
+                                                        fecha_hora_registro_stock=timezone.now())
+                                stock.save()
+                                cantidad_descontada += producto_menor_cant_existente.cantidad_existente
+                                # pedido_detalle.id_mov_stock = stock.id
+                            elif producto_menor_cant_existente.cantidad_existente >= (cantidad_a_descontar - cantidad_descontada):
+                                stock = MovimientoStock(producto_stock_id=producto_menor_cant_existente.id,
+                                                        tipo_movimiento='VE',
+                                                        id_movimiento=pedido_detalle.id,
+                                                        ubicacion_origen=encargado.deposito,
+                                                        ubicacion_destino=Deposito.objects.get(deposito='CLI'),
+                                                        cantidad_entrante=0,
+                                                        cantidad_saliente=(cantidad_a_descontar - cantidad_descontada),
+                                                        fecha_hora_registro_stock=timezone.now())
+                                stock.save()
+                                cantidad_descontada += (cantidad_a_descontar - cantidad_descontada)
+                                # pedido_detalle.id_mov_stock = stock.id
+
+            elif pedido_detalle.producto_pedido.compuesto is False:
+                stock = MovimientoStock(producto_stock_id=pedido_detalle.producto_pedido.id,
+                                        tipo_movimiento='VE',
+                                        id_movimiento=pedido_detalle.id,
+                                        ubicacion_origen=encargado.deposito,
+                                        ubicacion_destino=Deposito.objects.get(deposito='CLI'),
+                                        cantidad_entrante=0,
+                                        cantidad_saliente=pedido_detalle.cantidad_producto_pedido,
+                                        fecha_hora_registro_stock=timezone.now())
+                stock.save()
 
         super(VentaOcasionalAdmin, self).save_formset(request, form, formset, change)
 
@@ -1138,38 +1454,76 @@ class ComandaAdmin(admin.ModelAdmin):
         rows_updated = 0
         queryset = queryset.filter(estado_comanda='PEN')
 
+        # ==============================================================================================================
+        # 23/11/2016: Finalmente decidi confirmar los descuentos del Stock o generacion de Movimientos de Stock al
+        # momento de confirmar las VentasOcasionales o los Pedidos, esto con el fin de evitar un gap de tiempo entre
+        # que se hace un Pedido y se procesa una Comanda lo cual puede reflejar un Stock incorrecto. Se debe garantizar
+        # la disponibilidad de los Productos/Insumos para los Pedidos ya realizados.
+        # Con esto hay que prever que al momento de Cancelar un Pedido se deben volver a sumar los Productos al Stock.
+        # En las VentasOcasionales no sera necesario realizar esta reversion.
+        # ==============================================================================================================
+
         # Marca como Procesado el detalle del Pedido y resta (descuenta) los productos del Stock.
         for q in queryset:
-            # Si el Producto es Compuesto se debe recorrer el detalle del ProductoCompuesto para poder descontar las
-            # cantidades de los Productos componentes.
-
-            if q.numero_pedido.mozo_pedido.usuario.is_superuser is True:
-                origen = Deposito.objects.get(deposito='DBP')
-            else:
-                origen = Deposito.objects.get(id=q.numero_pedido.mozo_pedido.sector.deposito_id)
-
-            if q.producto_a_entregar.compuesto is True:
-                prod_comp_detalle = ProductoCompuestoDetalle.objects.filter(producto_compuesto=q.producto_a_entregar.id)
-                for insumo in prod_comp_detalle:
-                    stock = MovimientoStock(producto_stock_id=insumo.producto_id,
-                                            tipo_movimiento='VE',
-                                            id_movimiento=q.numero_pedido.numero_pedido,
-                                            ubicacion_origen=origen,
-                                            ubicacion_destino=Deposito.objects.get(deposito='CLI'),
-                                            cantidad_entrante=0,
-                                            cantidad_saliente=insumo.cantidad_producto,
-                                            fecha_hora_registro_stock=timezone.now())
-                    stock.save()
-            else:
-                stock = MovimientoStock(producto_stock_id=q.producto_a_entregar.id,
-                                        tipo_movimiento='VE',
-                                        id_movimiento=q.numero_pedido.numero_pedido,
-                                        ubicacion_origen=origen,
-                                        ubicacion_destino=Deposito.objects.get(deposito='CLI'),
-                                        cantidad_entrante=0,
-                                        cantidad_saliente=q.cantidad_solicitada,
-                                        fecha_hora_registro_stock=timezone.now())
-                stock.save()
+            # # Si el Producto es Compuesto se debe recorrer el detalle del ProductoCompuesto para poder descontar las
+            # # cantidades de los Productos componentes.
+            #
+            # # # El "area_encargada" ya se analiza y define al momento de generar la Comanda ya sea en Pedido o VentaOcasional
+            # # # No corresponde volver a hacer este analsis y definicion de "ubicacion_origen"
+            # # if q.numero_pedido.mozo_pedido.usuario.is_superuser is True:
+            # #     origen = Deposito.objects.get(deposito='DBP')
+            # # else:
+            # #     origen = Deposito.objects.get(id=q.numero_pedido.mozo_pedido.sector.deposito_id)
+            #
+            # if q.producto_a_entregar.compuesto is True:
+            #     if q.producto_a_entregar.categoria.categoria == 'CO':
+            #         deposito = Deposito.objects.get(deposito='DCO')
+            #         prod_comp_detalle = ProductoCompuestoDetalle.objects.filter(producto_compuesto_id=q.producto_a_entregar.id)
+            #         cantidad = 0
+            #         for producto_insumo in prod_comp_detalle:
+            #             # Recorrer los Insumos para determinar el ProductoInsumo del cual se descontara el Stock
+            #             if producto_insumo.insumo.get_cantidad_existente_insumo_dco() > 0:
+            #                 cant_posible_elaborar = producto_insumo.insumo.get_cantidad_existente_insumo_dco() / (producto_insumo.cantidad_insumo if producto_insumo.cantidad_insumo else 1)
+            #
+            #                 if producto_insumo == prod_comp_detalle.first():
+            #                     cantidad = cant_posible_elaborar
+            #
+            #                 elif cant_posible_elaborar < cantidad:
+            #                     cantidad = cant_posible_elaborar
+            #
+            #             elif producto_insumo.insumo.get_cantidad_existente_insumo() <= 0:
+            #                 cantidad = 0
+            #
+            #         if cantidad <= 0:
+            #             raise ValidationError({'producto_pedido': 'El Producto Compuesto (Comida) seleccionado no posee stock '
+            #                                                      'disponible en el %s. Verifique con el Encargado de '
+            #                                                      'este Deposito.' % deposito})
+            #         elif self.cleaned_data['cantidad_producto_pedido'] > cantidad:
+            #             self.fields['cantidad_producto_venta'].widget.attrs['readonly'] = False  # ==> PROBAR
+            #             raise ValidationError({'cantidad_producto_pedido': 'La cantidad solicitada del Producto Compuesto (Comida)'
+            #                                                               'seleccionado supera el stock disponible en el "%s". '
+            #                                                               'Modifique la cantidad solicitada o cancele '
+            #                                                               'el pedido de este Producto.' % deposito})
+            #
+            #         stock = MovimientoStock(producto_stock_id=insumo.producto_id,
+            #                                 tipo_movimiento='VE',
+            #                                 id_movimiento=q.numero_pedido.numero_pedido,
+            #                                 ubicacion_origen=q.area_encargada,
+            #                                 ubicacion_destino=Deposito.objects.get(deposito='CLI'),
+            #                                 cantidad_entrante=0,
+            #                                 cantidad_saliente=insumo.cantidad_producto * q.cantidad_solicitada,
+            #                                 fecha_hora_registro_stock=timezone.now())
+            #         stock.save()
+            # else:
+            #     stock = MovimientoStock(producto_stock_id=q.producto_a_entregar.id,
+            #                             tipo_movimiento='VE',
+            #                             id_movimiento=q.numero_pedido.numero_pedido,
+            #                             ubicacion_origen=q.area_encargada,
+            #                             ubicacion_destino=Deposito.objects.get(deposito='CLI'),
+            #                             cantidad_entrante=0,
+            #                             cantidad_saliente=q.cantidad_solicitada,
+            #                             fecha_hora_registro_stock=timezone.now())
+            #     stock.save()
 
             pedido_detalle = PedidoDetalle.objects.get(id=q.id_pedido_detalle_id)
             pedido_detalle.procesado = True
@@ -1195,44 +1549,53 @@ class ComandaAdmin(admin.ModelAdmin):
 
         comanda = obj
 
-        # Marca como Procesado el detalle del Pedido y resta (descuenta) los productos del Stock.
-
-        # Si el Producto es Compuesto se debe recorrer el detalle del ProductoCompuesto para poder descontar las
-        # cantidades de los Productos componentes.
-
-        # ==============================================================================================================
-        # ---> Prever la situacion de que el Producto tenga como origen la Cocina <---
-        # ==============================================================================================================
-        # # Comandas para la COCINA
-        # if comanda.producto_a_entregar.compuesto is True and comanda.producto_a_entregar.categoria.categoria == 'CO':
-        #     origen = Deposito.objects.get(deposito='DCO')
-        # elif comanda.numero_pedido.mozo_pedido.usuario.is_superuser is True:
-        #     origen = Deposito.objects.get(deposito='DBP')
-        # else:
-        #     origen = Deposito.objects.get(id=comanda.numero_pedido.mozo_pedido.sector.deposito_id)
-
-        if comanda.producto_a_entregar.compuesto is True:
-            prod_comp_detalle = ProductoCompuestoDetalle.objects.filter(producto_compuesto=comanda.producto_a_entregar.id)
-            for insumo in prod_comp_detalle:
-                stock = MovimientoStock(producto_stock_id=insumo.producto_id,
-                                        tipo_movimiento='VE',
-                                        id_movimiento=comanda.numero_pedido.numero_pedido,
-                                        ubicacion_origen=comanda.area_encargada.deposito,
-                                        ubicacion_destino=Deposito.objects.get(deposito='CLI'),
-                                        cantidad_entrante=0,
-                                        cantidad_saliente=insumo.cantidad_producto,
-                                        fecha_hora_registro_stock=timezone.now())
-                stock.save()
-        else:
-            stock = MovimientoStock(producto_stock_id=comanda.producto_a_entregar.id,
-                                    tipo_movimiento='VE',
-                                    id_movimiento=comanda.numero_pedido.numero_pedido,
-                                    ubicacion_origen=comanda.area_encargada.deposito,
-                                    ubicacion_destino=Deposito.objects.get(deposito='CLI'),
-                                    cantidad_entrante=0,
-                                    cantidad_saliente=comanda.cantidad_solicitada,
-                                    fecha_hora_registro_stock=timezone.now())
-            stock.save()
+    # # ==================================================================================================================
+    # # 23/11/2016: Finalmente decido confirmar los descuentos del Stock o generacion de Movimientos de Stock al
+    # # momento de confirmar las VentasOcasionales o los Pedidos, esto con el fin de evitar un gap de tiempo entre
+    # # que se hace un Pedido y se procesa una Comanda lo cual puede reflejar un Stock incorrecto. Se debe garantizar
+    # # la disponibilidad de los Productos/Insumos para los Pedidos ya realizados.
+    # # Con esto hay que prever que al momento de Cancelar un Pedido se deben volver a sumar los Productos al Stock.
+    # # En las VentasOcasionales no sera necesario realizar esta reversion.
+    # # ==================================================================================================================
+    #
+    #     # Marca como Procesado el detalle del Pedido y resta (descuenta) los productos del Stock.
+    #
+    #     # Si el Producto es Compuesto se debe recorrer el detalle del ProductoCompuesto para poder descontar las
+    #     # cantidades de los Productos componentes.
+    #
+    #     # ==============================================================================================================
+    #     # ---> Prever la situacion de que el Producto tenga como origen la Cocina <---
+    #     # ==============================================================================================================
+    #     # # Comandas para la COCINA
+    #     # if comanda.producto_a_entregar.compuesto is True and comanda.producto_a_entregar.categoria.categoria == 'CO':
+    #     #     origen = Deposito.objects.get(deposito='DCO')
+    #     # elif comanda.numero_pedido.mozo_pedido.usuario.is_superuser is True:
+    #     #     origen = Deposito.objects.get(deposito='DBP')
+    #     # else:
+    #     #     origen = Deposito.objects.get(id=comanda.numero_pedido.mozo_pedido.sector.deposito_id)
+    #
+    #     if comanda.producto_a_entregar.compuesto is True:
+    #         prod_comp_detalle = ProductoCompuestoDetalle.objects.filter(producto_compuesto=comanda.producto_a_entregar.id)
+    #         for insumo in prod_comp_detalle:
+    #             stock = MovimientoStock(producto_stock_id=insumo.producto_id,
+    #                                     tipo_movimiento='VE',
+    #                                     id_movimiento=comanda.numero_pedido.numero_pedido,
+    #                                     ubicacion_origen=comanda.area_encargada.deposito,
+    #                                     ubicacion_destino=Deposito.objects.get(deposito='CLI'),
+    #                                     cantidad_entrante=0,
+    #                                     cantidad_saliente=insumo.cantidad_producto,
+    #                                     fecha_hora_registro_stock=timezone.now())
+    #             stock.save()
+    #     else:
+    #         stock = MovimientoStock(producto_stock_id=comanda.producto_a_entregar.id,
+    #                                 tipo_movimiento='VE',
+    #                                 id_movimiento=comanda.numero_pedido.numero_pedido,
+    #                                 ubicacion_origen=comanda.area_encargada.deposito,
+    #                                 ubicacion_destino=Deposito.objects.get(deposito='CLI'),
+    #                                 cantidad_entrante=0,
+    #                                 cantidad_saliente=comanda.cantidad_solicitada,
+    #                                 fecha_hora_registro_stock=timezone.now())
+    #         stock.save()
 
         pedido_detalle = PedidoDetalle.objects.get(id=comanda.id_pedido_detalle_id)
         pedido_detalle.procesado = True

@@ -7,8 +7,7 @@ from django.utils.safestring import mark_safe
 from bar.models import UnidadMedidaProducto, Deposito
 from .models import Producto, ProductoCompuesto, MovimientoStock  # PrecioVentaProducto
 from dal import autocomplete
-from stock.models import SolicitaTransferenciaStock, ProductoCompuestoDetalle, Insumo, InventarioDeposito, \
-    TransferenciaStock, TransferenciaStockDetalle
+from stock.models import *
 
 numero_factura = RegexValidator(r'^999-999-9999999$', 'Ingrese el Numero de Factura en el formato "999-999-9999999".')
 ATTR_NUMERICO = {'style': 'text-align:right;', 'class': 'auto', 'data-a-sep': '.', 'data-a-dec': ',',
@@ -17,9 +16,9 @@ ATTR_NUMERICO_RO = {'style': 'text-align:right;', 'class': 'auto', 'data-a-sep':
                     'type': 'number', 'readonly': 'readonly'}
 ATTR_NUMERICO_RO_RESALTADO_monto = ATTR_NUMERICO_RO.copy()
 ATTR_NUMERICO_RO_RESALTADO_monto['style'] += 'width: 150px;'
-ATTR_NUMERICO_RO_RESALTADO_cantidad_prod = ATTR_NUMERICO.copy()
-ATTR_NUMERICO_RO_RESALTADO_cantidad_prod['style'] += 'width: 100px;'
-ATTR_NUMERICO_RO_RESALTADO_cantidad_prod['step'] = '0.001'
+ATTR_NUMERICO_cantidad_prod = ATTR_NUMERICO.copy()
+ATTR_NUMERICO_cantidad_prod['style'] += 'width: 100px;'
+ATTR_NUMERICO_cantidad_prod['step'] = '0.001'
 ATTR_NUMERICO_RO_RESALTADO_cantidad = ATTR_NUMERICO_RO.copy()
 ATTR_NUMERICO_RO_RESALTADO_cantidad['style'] += 'width: 100px;'
 ATTR_NUMERICO_RO_RESALTADO = ATTR_NUMERICO_RO.copy()
@@ -126,6 +125,7 @@ class ProductoCompuestoForm(forms.ModelForm):
     precio_venta_sugerido = forms.CharField(widget=forms.TextInput(attrs=ATTR_NUMERICO_RO_RESALTADO_2), label='Precio Venta Sugerido', required=False,
                                             help_text='Precio de Venta sugerido calculado a partir del Costo de '
                                                       'Elaboracion por el Porcentaje de Ganancia.')
+    # insumos_disponibles = forms.BooleanField(label='Insumos disponibles?', required=False)
 
     class Meta:
         model = ProductoCompuesto
@@ -148,12 +148,17 @@ class ProductoCompuestoForm(forms.ModelForm):
 
         if producto_compuesto.pk:  # and self.instance.pk:
             self.initial['precio_venta_sugerido'] = producto_compuesto.get_precio_venta_sugerido_producto_compuesto()
-        
+            # self.initial['insumos_disponibles'] = producto_compuesto.get_insumos_disponibles_producto_compuesto()
+
 
 class InsumoForm(forms.ModelForm):
     costo_promedio = forms.CharField(widget=forms.TextInput(attrs=ATTR_NUMERICO_RO), required=False, initial=0,
                                      label='Costo Promedio por Unidad',
                                      help_text='Promedio de los Precios de Compra de los Productos integrantes.')
+    cantidad_existente = forms.CharField(widget=forms.TextInput(attrs=ATTR_NUMERICO_RO), required=False, initial=0,
+                                         label='Cantidad Existente',
+                                         help_text='Cantidad existente del Insumo calculado a partir de las cantidades '
+                                                   'existentes de los Productos integrantes.')
     
     class Meta:
         model = Insumo
@@ -167,6 +172,7 @@ class InsumoForm(forms.ModelForm):
         if insumo.pk:
             self.fields['costo_promedio'].initial = insumo.get_costo_promedio_por_unidad()
             # self.fields['costo_promedio'].widget.attrs['readonly'] = True
+            self.fields['cantidad_existente'].initial = insumo.get_cantidad_existente_insumo()
 
 
 class TransferenciaStockForm(forms.ModelForm):
@@ -214,7 +220,8 @@ class TransferenciaStockForm(forms.ModelForm):
 
         if '_save' in self.request.POST:
             if not transferencia.pk:
-                if self.cleaned_data['deposito_destino_transferencia'] == self.cleaned_data['deposito_origen_transferencia']:
+                if hasattr(self.cleaned_data, 'deposito_destino_transferencia') is True and hasattr(self.cleaned_data, 'deposito_origen_transferencia') is True \
+                        and self.cleaned_data['deposito_destino_transferencia'] == self.cleaned_data['deposito_origen_transferencia']:
                     raise ValidationError({'deposito_destino_transferencia': 'El Deposito Destino no puede ser el mismo '
                                                                              'que el Deposito Origen. Seleccione otro '
                                                                              'Deposito Destino.'})
@@ -252,7 +259,7 @@ class TransferenciaStockDetalleInlineForm(forms.ModelForm):
         fields = '__all__'
         widgets = {
             'unidad_medida': forms.Select(attrs={'style': 'width: 120px;'}),
-            'cantidad_producto_transferencia': forms.TextInput(attrs=ATTR_NUMERICO_RO_RESALTADO_cantidad_prod),
+            'cantidad_producto_transferencia': forms.TextInput(attrs=ATTR_NUMERICO_cantidad_prod),
         }
 
     def __init__(self, *args, **kwargs):
@@ -324,4 +331,134 @@ class TransferenciaStockDetalleInlineForm(forms.ModelForm):
                                                                               'puede ser mayor que la cantidad disponible '
                                                                               'en el Deposito Proveedor.'})
 
+        return cleaned_data
+
+
+class AjusteStockForm(forms.ModelForm):
+
+    class Meta:
+        model = AjusteStock
+        fields = '__all__'
+
+    def clean(self):
+        cleaned_data = super(AjusteStockForm, self).clean()
+
+        # import pdb
+        # pdb.set_trace()
+
+        ajuste = self.instance
+
+        if '_continue' in self.request.POST or '_save' in self.request.POST:
+            if not ajuste.pk:
+                if hasattr(self.cleaned_data, 'deposito') is True and self.cleaned_data['deposito'] is not None and self.cleaned_data['deposito'] != '' \
+                        and AjusteStock.objects.filter(deposito=self.cleaned_data['deposito'], estado_ajuste__estado_ajuste_stock='PEN').exists():
+                    raise ValidationError({'deposito': ('Ya existe un Ajuste de Inventario pendiente para el Deposito "%s". Seleccione otro Deposito.' % self.cleaned_data['deposito'])})
+
+        return cleaned_data
+
+
+class AjusteStockDetalleFormSet(BaseInlineFormSet):
+
+    @property
+    def request(self):
+        return self._request
+
+    @request.setter
+    def request(self, request):
+        self._request = request
+        for form in self.forms:
+            form.request = request
+
+
+class AjusteStockDetalleInlineForm(forms.ModelForm):
+
+    class Meta:
+        model = AjusteStockDetalle
+        fields = '__all__'
+        # widgets = {
+        #     # 'unidad_medida': forms.Select(attrs={'style': 'width: 120px;'}),
+        #     # 'cantidad_existente_producto': forms.TextInput(attrs=ATTR_NUMERICO_RO_cant_exist),
+        #     # 'cantidad_ajustar_producto': forms.TextInput(attrs=ATTR_NUMERICO_cantidad_prod),
+        #     # 'motivo_ajuste': forms.TextInput(attrs={'style': 'width: 200px;'}),
+        # }
+
+    def __init__(self, *args, **kwargs):
+        super(AjusteStockDetalleInlineForm, self).__init__(*args, **kwargs)
+
+        # import pdb
+        # pdb.set_trace()
+
+        ajuste_stock = self.instance
+
+        if ajuste_stock.pk and ajuste_stock.ajuste_stock.estado_ajuste.estado_ajuste_stock == 'PEN':
+
+            try:
+                producto_stock_deposito = StockDepositoAjusteInventario.objects.get(id=ajuste_stock.producto_ajuste.id, deposito_id=ajuste_stock.ajuste_stock.deposito.id)
+            except StockDepositoAjusteInventario.DoesNotExist:
+                producto_stock_deposito = None
+
+            if producto_stock_deposito is not None:
+                ajuste_stock.id = ajuste_stock.id
+                ajuste_stock.producto_ajuste_id = producto_stock_deposito.id
+                ajuste_stock.unidad_medida_id = producto_stock_deposito.get_unidad_medida_id_inventario_deposito()
+                ajuste_stock.cantidad_existente_producto = producto_stock_deposito.cantidad_existente
+                ajuste_stock.save()
+                self.initial['unidad_medida'] = ajuste_stock.unidad_medida
+                self.initial['cantidad_existente_producto'] = ajuste_stock.cantidad_existente_producto
+
+            elif producto_stock_deposito is None:
+                ajuste_stock.delete()
+
+            if ajuste_stock.ajustar is False:
+                self.initial['cantidad_ajustar_producto'] = ''
+                # self.fields['cantidad_ajustar_producto'].widget.attrs = ATTR_NUMERICO_cantidad_prod
+                self.fields['cantidad_ajustar_producto'].widget.attrs['readonly'] = True
+                self.initial['motivo_ajuste'] = ''
+                self.fields['motivo_ajuste'].widget.attrs['style'] = 'width: 200px;'
+                self.fields['motivo_ajuste'].widget.attrs['readonly'] = True
+            elif ajuste_stock.ajustar is True:
+                # self.fields['cantidad_ajustar_producto'].widget.attrs = ATTR_NUMERICO_cantidad_prod
+                self.fields['cantidad_ajustar_producto'].widget.attrs['readonly'] = False
+                self.fields['motivo_ajuste'].widget.attrs['style'] = 'width: 200px;'
+                self.fields['motivo_ajuste'].widget.attrs['readonly'] = False
+
+    def clean(self):
+        cleaned_data = super(AjusteStockDetalleInlineForm, self).clean()
+
+        # import pdb
+        # pdb.set_trace()
+
+        ajuste_stock = self.instance
+
+        if ajuste_stock.pk:
+            try:
+                producto_stock_deposito = StockDepositoAjusteInventario.objects.get(id=ajuste_stock.producto_ajuste.id, deposito_id=ajuste_stock.ajuste_stock.deposito.id)
+            except StockDepositoAjusteInventario.DoesNotExist:
+                producto_stock_deposito = None
+
+            if '_save' in self.request.POST or '_continue' in self.request.POST:
+                if self.cleaned_data['ajustar'] is True:
+                    # if hasattr(self.cleaned_data, 'cantidad_ajustar_producto') is False or hasattr(self.cleaned_data, 'cantidad_ajustar_producto') is True \
+                    #         and self.cleaned_data['cantidad_ajustar_producto'] is None or hasattr(self.cleaned_data, 'cantidad_ajustar_producto') is True \
+                    #         and self.cleaned_data['cantidad_ajustar_producto'] == '':
+                    if self.cleaned_data['cantidad_ajustar_producto'] is None or self.cleaned_data['cantidad_ajustar_producto'] == '':
+                        raise ValidationError({'cantidad_ajustar_producto': 'Debe ingresar un valor para la Cantidad a '
+                                                                            'Ajustar del Producto.'})
+
+                    # elif hasattr(self.cleaned_data, 'motivo_ajuste') is False or hasattr(self.cleaned_data, 'motivo_ajuste') is True \
+                    #         and self.cleaned_data['motivo_ajuste'] is None or hasattr(self.cleaned_data, 'motivo_ajuste') is True \
+                    #         and self.cleaned_data['motivo_ajuste'] == '':
+                    if self.cleaned_data['motivo_ajuste'] is None or self.cleaned_data['motivo_ajuste'] == '':
+                        raise ValidationError({'motivo_ajuste': 'Debe ingresar un valor para el Motivo de Ajuste.'})
+
+                    if ajuste_stock.cantidad_existente_producto != producto_stock_deposito.cantidad_existente:
+                        raise ValidationError({'cantidad_ajustar_producto': 'La cantidad existente del Producto a ajustar '
+                                                                            'tuvo una variacion, corrobore los datos del '
+                                                                            'Ajuste de Inventario antes de Confirmarlo.'})
+
+                    elif ajuste_stock.cantidad_existente_producto == self.cleaned_data['cantidad_ajustar_producto']:
+                        raise ValidationError({'cantidad_ajustar_producto': 'La cantidad a ajustar del Producto no puede '
+                                                                            'ser la misma que la cantidad existente. '
+                                                                            'Modifique la cantidad a ajustar y vuelva a '
+                                                                            'confirmar el Ajuste de Invetario.'})
         return cleaned_data

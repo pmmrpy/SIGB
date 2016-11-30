@@ -40,7 +40,7 @@
         <button type="button" class="btn btn-high btn-danger" {% if not show_cancel_button %} disabled="disabled" {% endif %} name="_cancel" data-toggle="modal" data-target="#myModal">Cancelar Venta</button>
 {#        <button type="submit" class="btn btn-high btn-danger" {% if not show_cancel_button %} disabled="disabled" {% endif %} name="_cancel" >Cancelar Compra</button>#}
 {#        <button type="submit" class="btn btn-high btn-default" {% if not show_button %} disabled="disabled" {% endif %} name="_cargaorden" >Cargar Datos Orden Compra</button>#}
-        <a {% if not show_imprimir_button %} disabled="disabled" href="#" {% else %} href="/ventas/pedido-report/{{ original.pk }}" target="_blank" {% endif %} class="btn btn-high btn-success" style="width: 80%">Imprimir Factura</a>
+        <a {% if not show_imprimir_button %} disabled="disabled" href="#" {% else %} href="/ventas/venta-report/{{ original.pk }}" target="_blank" {% endif %} class="btn btn-high btn-success" style="width: 80%">Imprimir Factura</a>
 
     <!-- Modal -->
     <div id="myModal" class="modal fade" role="dialog">
